@@ -1,0 +1,80 @@
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: bankinsight-postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: bankinsight
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d bankinsight"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  api:
+    build:
+      context: .
+      dockerfile: BankInsight.API/Dockerfile
+    container_name: bankinsight-api
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_URLS: http://+:8080
+      DB_CONNECTION_STRING: Host=postgres;Database=bankinsight;Username=postgres;Password=postgres
+      JWT_SECRET: bankinsight_dev_secret_must_be_at_least_32_characters_long_in_production_use_env_var
+      Security__IpWhitelist__Enabled: "false"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "5176:8080"
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        VITE_API_URL: /api
+    container_name: bankinsight-frontend
+    depends_on:
+      - api
+    ports:
+      - "3000:80"
+    restart: unless-stopped
+
+  migration:
+    build:
+      context: .
+      dockerfile: migration/Dockerfile
+    container_name: bankinsight-migration
+    depends_on:
+      - api
+    ports:
+      - "3002:80"
+    restart: unless-stopped
+
+  pgadmin:
+    image: dpage/pgadmin4:8.14
+    container_name: bankinsight-pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@bankinsight.app
+      PGADMIN_DEFAULT_PASSWORD: admin1234
+      PGADMIN_CONFIG_ENHANCED_COOKIE_PROTECTION: "False"
+      PGADMIN_CONFIG_LOGIN_BANNER: "'BankInsight database administration'"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "5050:80"
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+
+

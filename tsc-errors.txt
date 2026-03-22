@@ -1,0 +1,140 @@
+﻿App.tsx(212,12): error TS2741: Property 'onOAuthLogin' is missing in type '{ onLogin: (email: string, password: string) => Promise<void>; error: string; }' but required in type 'LoginScreenProps'.
+App.tsx(460,77): error TS2322: Type '(accountId: string, type: "DEPOSIT" | "WITHDRAWAL" | "TRANSFER" | "LOAN_REPAYMENT", amount: number, narration: string, tellerId: string) => Promise<{ success: boolean; id: any; message: string; status: "POSTED"; }>' is not assignable to type '(accountId: string, type: "DEPOSIT" | "WITHDRAWAL", amount: number, narration: string, tellerId: string) => { success: boolean; id: string; message: string; status: "POSTED" | "PENDING_APPROVAL"; }'.
+  Type 'Promise<{ success: boolean; id: any; message: string; status: "POSTED"; }>' is missing the following properties from type '{ success: boolean; id: string; message: string; status: "POSTED" | "PENDING_APPROVAL"; }': success, id, message, status
+App.tsx(513,22): error TS2322: Type '(id: string, workflowStep: number) => Promise<void>' is not assignable to type '(id: string, approverName: string) => void'.
+  Types of parameters 'workflowStep' and 'approverName' are incompatible.
+    Type 'string' is not assignable to type 'number'.
+components/ApiDocs.tsx(3,10): error TS2305: Module '"../types"' has no exported member 'ApiEndpoint'.
+components/BranchHierarchyTree.tsx(2,78): error TS2307: Cannot find module 'https://esm.sh/lucide-react@0.263.1' or its corresponding type declarations.
+components/ClientManager.tsx(61,7): error TS2353: Object literal may only specify known properties, and 'type' does not exist in type 'Partial<Customer> | (() => Partial<Customer>)'.
+components/ClientManager.tsx(95,13): error TS2353: Object literal may only specify known properties, and 'employer' does not exist in type 'SetStateAction<Partial<Customer>>'.
+components/ClientManager.tsx(95,38): error TS2339: Property 'employer' does not exist on type 'Customer'.
+components/ClientManager.tsx(96,43): error TS2339: Property 'maritalStatus' does not exist on type 'Customer'.
+components/ClientManager.tsx(97,40): error TS2339: Property 'spouseName' does not exist on type 'Customer'.
+components/ClientManager.tsx(133,21): error TS2339: Property 'type' does not exist on type 'Partial<Customer>'.
+components/ClientManager.tsx(137,21): error TS2339: Property 'type' does not exist on type 'Partial<Customer>'.
+components/ClientManager.tsx(137,57): error TS2339: Property 'businessRegistrationNo' does not exist on type 'Partial<Customer>'.
+components/ClientManager.tsx(137,94): error TS2339: Property 'tin' does not exist on type 'Partial<Customer>'.
+components/ClientManager.tsx(145,24): error TS2353: Object literal may only specify known properties, and 'type' does not exist in type 'SetStateAction<Partial<Customer>>'.
+components/ClientManager.tsx(542,147): error TS2339: Property 'type' does not exist on type 'Customer'.
+components/ClientManager.tsx(543,61): error TS2339: Property 'type' does not exist on type 'Customer'.
+components/ClientManager.tsx(548,101): error TS2339: Property 'type' does not exist on type 'Customer'.
+components/ClientManager.tsx(597,101): error TS2339: Property 'type' does not exist on type 'Partial<Customer>'.
+components/ClientManager.tsx(598,80): error TS2353: Object literal may only specify known properties, and 'type' does not exist in type 'SetStateAction<Partial<Customer>>'.
+components/ClientManager.tsx(603,101): error TS2339: Property 'type' does not exist on type 'Partial<Customer>'.
+components/ClientManager.tsx(604,80): error TS2353: Object literal may only specify known properties, and 'type' does not exist in type 'SetStateAction<Partial<Customer>>'.
+components/ClientManager.tsx(612,110): error TS2339: Property 'type' does not exist on type 'Partial<Customer>'.
+components/ClientManager.tsx(617,44): error TS2339: Property 'type' does not exist on type 'Partial<Customer>'.
+components/ClientManager.tsx(628,66): error TS2339: Property 'dateOfBirth' does not exist on type 'Partial<Customer>'.
+components/ClientManager.tsx(628,122): error TS2353: Object literal may only specify known properties, and 'dateOfBirth' does not exist in type 'SetStateAction<Partial<Customer>>'.
+components/ClientManager.tsx(633,66): error TS2339: Property 'gender' does not exist on type 'Partial<Customer>'.
+components/ClientManager.tsx(633,117): error TS2353: Object literal may only specify known properties, and 'gender' does not exist in type 'SetStateAction<Partial<Customer>>'.
+components/ClientManager.tsx(641,66): error TS2339: Property 'maritalStatus' does not exist on type 'Partial<Customer>'.
+components/ClientManager.tsx(641,124): error TS2353: Object literal may only specify known properties, and 'maritalStatus' does not exist in type 'SetStateAction<Partial<Customer>>'.
+components/ClientManager.tsx(651,66): error TS2339: Property 'spouseName' does not exist on type 'Partial<Customer>'.
+components/ClientManager.tsx(651,121): error TS2353: Object literal may only specify known properties, and 'spouseName' does not exist in type 'SetStateAction<Partial<Customer>>'.
+components/ClientManager.tsx(656,66): error TS2339: Property 'ssnitNo' does not exist on type 'Partial<Customer>'.
+components/ClientManager.tsx(656,118): error TS2353: Object literal may only specify known properties, and 'ssnitNo' does not exist in type 'SetStateAction<Partial<Customer>>'.
+components/ClientManager.tsx(661,66): error TS2339: Property 'nationality' does not exist on type 'Partial<Customer>'.
+components/ClientManager.tsx(661,122): error TS2353: Object literal may only specify known properties, and 'nationality' does not exist in type 'SetStateAction<Partial<Customer>>'.
+components/ClientManager.tsx(666,44): error TS2339: Property 'type' does not exist on type 'Partial<Customer>'.
+components/ClientManager.tsx(671,66): error TS2339: Property 'businessRegistrationNo' does not exist on type 'Partial<Customer>'.
+components/ClientManager.tsx(671,133): error TS2353: Object literal may only specify known properties, and 'businessRegistrationNo' does not exist in type 'SetStateAction<Partial<Customer>>'.
+components/ClientManager.tsx(676,66): error TS2339: Property 'tin' does not exist on type 'Partial<Customer>'.
+components/ClientManager.tsx(676,114): error TS2353: Object literal may only specify known properties, and 'tin' does not exist in type 'SetStateAction<Partial<Customer>>'.
+components/ClientManager.tsx(681,66): error TS2339: Property 'sector' does not exist on type 'Partial<Customer>'.
+components/ClientManager.tsx(681,117): error TS2353: Object literal may only specify known properties, and 'sector' does not exist in type 'SetStateAction<Partial<Customer>>'.
+components/ClientManager.tsx(739,151): error TS2339: Property 'type' does not exist on type 'Customer'.
+components/ClientManager.tsx(740,49): error TS2339: Property 'type' does not exist on type 'Customer'.
+components/ClientManager.tsx(744,100): error TS2339: Property 'type' does not exist on type 'Customer'.
+components/ClientManager.tsx(813,57): error TS2339: Property 'type' does not exist on type 'Customer'.
+components/ClientManager.tsx(824,121): error TS2339: Property 'dateOfBirth' does not exist on type 'Customer'.
+components/ClientManager.tsx(830,117): error TS2339: Property 'maritalStatus' does not exist on type 'Customer'.
+components/ClientManager.tsx(836,118): error TS2339: Property 'nationality' does not exist on type 'Customer'.
+components/ClientManager.tsx(845,119): error TS2339: Property 'businessRegistrationNo' does not exist on type 'Customer'.
+components/ClientManager.tsx(851,121): error TS2339: Property 'tin' does not exist on type 'Customer'.
+components/FxTradingDesk.tsx(182,36): error TS2322: Type 'string' is not assignable to type 'number'.
+components/FxTradingDesk.tsx(189,36): error TS2322: Type 'string' is not assignable to type 'number'.
+components/InterBranchTransfers.tsx(2,72): error TS2307: Cannot find module 'https://esm.sh/lucide-react@0.263.1' or its corresponding type declarations.
+components/MenuEditor.tsx(23,9): error TS2353: Object literal may only specify known properties, and 'type' does not exist in type 'MenuItem | (() => MenuItem)'.
+components/MenuEditor.tsx(38,13): error TS2353: Object literal may only specify known properties, and 'type' does not exist in type 'SetStateAction<MenuItem>'.
+components/MenuEditor.tsx(46,42): error TS2339: Property 'targetId' does not exist on type 'MenuItem'.
+components/MenuEditor.tsx(52,42): error TS2339: Property 'requiredRoleIds' does not exist on type 'MenuItem'.
+components/MenuEditor.tsx(55,36): error TS2353: Object literal may only specify known properties, and 'requiredRoleIds' does not exist in type 'SetStateAction<MenuItem>'.
+components/MenuEditor.tsx(79,43): error TS2339: Property 'type' does not exist on type 'MenuItem'.
+components/MenuEditor.tsx(83,96): error TS2339: Property 'type' does not exist on type 'MenuItem'.
+components/MenuEditor.tsx(135,82): error TS2353: Object literal may only specify known properties, and 'type' does not exist in type 'SetStateAction<MenuItem>'.
+components/MenuEditor.tsx(136,141): error TS2339: Property 'type' does not exist on type 'MenuItem'.
+components/MenuEditor.tsx(141,82): error TS2353: Object literal may only specify known properties, and 'type' does not exist in type 'SetStateAction<MenuItem>'.
+components/MenuEditor.tsx(142,141): error TS2339: Property 'type' does not exist on type 'MenuItem'.
+components/MenuEditor.tsx(153,53): error TS2339: Property 'targetId' does not exist on type 'MenuItem'.
+components/MenuEditor.tsx(154,78): error TS2353: Object literal may only specify known properties, and 'targetId' does not exist in type 'SetStateAction<MenuItem>'.
+components/MenuEditor.tsx(157,47): error TS2339: Property 'type' does not exist on type 'MenuItem'.
+components/MenuEditor.tsx(160,47): error TS2339: Property 'type' does not exist on type 'MenuItem'.
+components/MenuEditor.tsx(173,126): error TS2339: Property 'requiredRoleIds' does not exist on type 'MenuItem'.
+components/MenuEditor.tsx(175,129): error TS2339: Property 'requiredRoleIds' does not exist on type 'MenuItem'.
+components/MenuEditor.tsx(176,59): error TS2339: Property 'requiredRoleIds' does not exist on type 'MenuItem'.
+components/NoCodeDesigner.tsx(3,20): error TS2305: Module '"../types"' has no exported member 'UIComponentConfig'.
+components/NoCodeDesigner.tsx(3,39): error TS2305: Module '"../types"' has no exported member 'UIComponentType'.
+components/NoCodeDesigner.tsx(29,9): error TS2353: Object literal may only specify known properties, and 'description' does not exist in type 'UILayout | (() => UILayout)'.
+components/NoCodeDesigner.tsx(46,60): error TS2339: Property 'components' does not exist on type 'UILayout'.
+components/NoCodeDesigner.tsx(53,30): error TS2339: Property 'components' does not exist on type 'UILayout'.
+components/NoCodeDesigner.tsx(60,30): error TS2339: Property 'components' does not exist on type 'UILayout'.
+components/NoCodeDesigner.tsx(65,38): error TS2339: Property 'components' does not exist on type 'UILayout'.
+components/NoCodeDesigner.tsx(76,37): error TS2353: Object literal may only specify known properties, and 'published' does not exist in type 'UILayout'.
+components/NoCodeDesigner.tsx(194,33): error TS2339: Property 'components' does not exist on type 'UILayout'.
+components/NoCodeDesigner.tsx(202,37): error TS2339: Property 'components' does not exist on type 'UILayout'.
+components/NoCodeDesigner.tsx(312,51): error TS2339: Property 'linkedTable' does not exist on type 'UILayout'.
+components/NoCodeDesigner.tsx(313,75): error TS2353: Object literal may only specify known properties, and 'linkedTable' does not exist in type 'SetStateAction<UILayout>'.
+components/NoCodeDesigner.tsx(327,51): error TS2339: Property 'linkedWorkflow' does not exist on type 'UILayout'.
+components/NoCodeDesigner.tsx(328,75): error TS2353: Object literal may only specify known properties, and 'linkedWorkflow' does not exist in type 'SetStateAction<UILayout>'.
+components/NoCodeDesigner.tsx(343,55): error TS2339: Property 'menuLabel' does not exist on type 'UILayout'.
+components/NoCodeDesigner.tsx(344,79): error TS2353: Object literal may only specify known properties, and 'menuLabel' does not exist in type 'SetStateAction<UILayout>'.
+components/NoCodeDesigner.tsx(353,55): error TS2339: Property 'menuIcon' does not exist on type 'UILayout'.
+components/NoCodeDesigner.tsx(354,79): error TS2353: Object literal may only specify known properties, and 'menuIcon' does not exist in type 'SetStateAction<UILayout>'.
+components/SessionMonitor.tsx(2,60): error TS2307: Cannot find module 'https://esm.sh/lucide-react@0.263.1' or its corresponding type declarations.
+components/Settings.tsx(98,34): error TS2339: Property 'auth' does not exist on type 'SystemConfig'.
+components/Settings.tsx(251,29): error TS2339: Property 'auth' does not exist on type 'SystemConfig'.
+components/Settings.tsx(488,60): error TS2339: Property 'dbProvider' does not exist on type 'SystemConfig'.
+components/Settings.tsx(489,89): error TS2353: Object literal may only specify known properties, and 'dbProvider' does not exist in type 'SetStateAction<SystemConfig>'.
+components/Settings.tsx(504,60): error TS2339: Property 'auth' does not exist on type 'SystemConfig'.
+components/Settings.tsx(513,46): error TS2339: Property 'auth' does not exist on type 'SystemConfig'.
+components/Settings.tsx(520,150): error TS2339: Property 'auth' does not exist on type 'SystemConfig'.
+components/Settings.tsx(524,150): error TS2339: Property 'auth' does not exist on type 'SystemConfig'.
+components/Settings.tsx(529,46): error TS2339: Property 'auth' does not exist on type 'SystemConfig'.
+components/Settings.tsx(536,166): error TS2339: Property 'auth' does not exist on type 'SystemConfig'.
+components/Settings.tsx(549,62): error TS2339: Property 'auth' does not exist on type 'SystemConfig'.
+components/SQLEditor.tsx(4,10): error TS2305: Module '"../services/geminiService"' has no exported member 'runSQLCode'.
+components/SQLEditor.tsx(4,22): error TS2305: Module '"../services/geminiService"' has no exported member 'generateSQLCode'.
+components/UserActivityLog.tsx(2,55): error TS2307: Cannot find module 'https://esm.sh/lucide-react@0.263.1' or its corresponding type declarations.
+components/VaultManagement.tsx(2,79): error TS2307: Cannot find module 'https://esm.sh/lucide-react@0.263.1' or its corresponding type declarations.
+hooks/useBankingSystem.ts(202,19): error TS2339: Property 'customer_id' does not exist on type 'Account'.
+lib/validation.ts(6,19): error TS2307: Cannot find module 'zod' or its corresponding type declarations.
+services/creditScoringEngine.ts(2,10): error TS2305: Module '"../types"' has no exported member 'CreditScore'.
+services/creditScoringEngine.ts(2,23): error TS2305: Module '"../types"' has no exported member 'Financials'.
+services/databaseService.ts(2,10): error TS2305: Module '"../types"' has no exported member 'DBProviderType'.
+src/__tests__/settings-tabs.test.tsx(46,1): error TS2593: Cannot find name 'describe'. Do you need to install type definitions for a test runner? Try `npm i --save-dev @types/jest` or `npm i --save-dev @types/mocha` and then add 'jest' or 'mocha' to the types field in your tsconfig.
+src/__tests__/settings-tabs.test.tsx(47,3): error TS2593: Cannot find name 'it'. Do you need to install type definitions for a test runner? Try `npm i --save-dev @types/jest` or `npm i --save-dev @types/mocha` and then add 'jest' or 'mocha' to the types field in your tsconfig.
+src/__tests__/settings-tabs.test.tsx(49,8): error TS2741: Property 'branches' is missing in type '{ users: StaffUser[]; roles: Role[]; systemConfig: SystemConfig; onCreateRole: () => any; onUpdateUserRole: () => any; onCreateStaff: () => any; onResetPassword: () => any; onUpdateConfig: () => any; }' but required in type 'SettingsProps'.
+src/__tests__/settings-tabs.test.tsx(61,5): error TS2304: Cannot find name 'expect'.
+src/__tests__/settings-tabs.test.tsx(62,5): error TS2304: Cannot find name 'expect'.
+src/__tests__/settings-tabs.test.tsx(65,3): error TS2593: Cannot find name 'it'. Do you need to install type definitions for a test runner? Try `npm i --save-dev @types/jest` or `npm i --save-dev @types/mocha` and then add 'jest' or 'mocha' to the types field in your tsconfig.
+src/__tests__/settings-tabs.test.tsx(69,8): error TS2741: Property 'branches' is missing in type '{ users: StaffUser[]; roles: Role[]; systemConfig: SystemConfig; onCreateRole: () => any; onUpdateUserRole: () => any; onCreateStaff: () => any; onResetPassword: () => any; onUpdateConfig: () => any; }' but required in type 'SettingsProps'.
+src/__tests__/settings-tabs.test.tsx(83,5): error TS2304: Cannot find name 'expect'.
+src/__tests__/settings-tabs.test.tsx(86,3): error TS2593: Cannot find name 'it'. Do you need to install type definitions for a test runner? Try `npm i --save-dev @types/jest` or `npm i --save-dev @types/mocha` and then add 'jest' or 'mocha' to the types field in your tsconfig.
+src/__tests__/settings-tabs.test.tsx(90,8): error TS2741: Property 'branches' is missing in type '{ users: StaffUser[]; roles: Role[]; systemConfig: SystemConfig; onCreateRole: () => any; onUpdateUserRole: () => any; onCreateStaff: () => any; onResetPassword: () => any; onUpdateConfig: () => any; }' but required in type 'SettingsProps'.
+src/__tests__/settings-tabs.test.tsx(104,5): error TS2304: Cannot find name 'expect'.
+src/__tests__/settings-tabs.test.tsx(105,5): error TS2304: Cannot find name 'expect'.
+src/__tests__/settings-tabs.test.tsx(108,3): error TS2593: Cannot find name 'it'. Do you need to install type definitions for a test runner? Try `npm i --save-dev @types/jest` or `npm i --save-dev @types/mocha` and then add 'jest' or 'mocha' to the types field in your tsconfig.
+src/__tests__/settings-tabs.test.tsx(112,8): error TS2741: Property 'branches' is missing in type '{ users: StaffUser[]; roles: Role[]; systemConfig: SystemConfig; onCreateRole: () => any; onUpdateUserRole: () => any; onCreateStaff: () => any; onResetPassword: () => any; onUpdateConfig: () => any; workflows: undefined[]; onCreateWorkflow: () => any; onUpdateWorkflow: () => any; }' but required in type 'SettingsProps'.
+src/__tests__/settings-tabs.test.tsx(129,5): error TS2304: Cannot find name 'expect'.
+src/__tests__/settings-tabs.test.tsx(132,3): error TS2593: Cannot find name 'it'. Do you need to install type definitions for a test runner? Try `npm i --save-dev @types/jest` or `npm i --save-dev @types/mocha` and then add 'jest' or 'mocha' to the types field in your tsconfig.
+src/__tests__/settings-tabs.test.tsx(136,8): error TS2741: Property 'branches' is missing in type '{ users: StaffUser[]; roles: Role[]; systemConfig: SystemConfig; onCreateRole: () => any; onUpdateUserRole: () => any; onCreateStaff: () => any; onResetPassword: () => any; onUpdateConfig: () => any; onSaveMenu: () => any; onDeleteMenu: () => any; menuItems: undefined[]; }' but required in type 'SettingsProps'.
+src/__tests__/settings-tabs.test.tsx(153,5): error TS2304: Cannot find name 'expect'.
+src/__tests__/settings-tabs.test.tsx(156,3): error TS2593: Cannot find name 'it'. Do you need to install type definitions for a test runner? Try `npm i --save-dev @types/jest` or `npm i --save-dev @types/mocha` and then add 'jest' or 'mocha' to the types field in your tsconfig.
+src/__tests__/settings-tabs.test.tsx(160,8): error TS2741: Property 'branches' is missing in type '{ users: StaffUser[]; roles: Role[]; systemConfig: SystemConfig; onCreateRole: () => any; onUpdateUserRole: () => any; onCreateStaff: () => any; onResetPassword: () => any; onUpdateConfig: () => any; }' but required in type 'SettingsProps'.
+src/__tests__/settings-tabs.test.tsx(174,5): error TS2304: Cannot find name 'expect'.
+src/__tests__/settings-tabs.test.tsx(175,5): error TS2304: Cannot find name 'expect'.
+src/components/ReportingHub.tsx(23,29): error TS2339: Property 'error' does not exist on type '{ catalogLoading: boolean; catalogError: string; getReportCatalog: () => Promise<ReportCatalogItem[]>; getCustomerSegmentation: (asOfDate: string) => Promise<CustomerSegmentationDTO>; getProductAnalytics: (asOfDate: string) => Promise<...>; getBalanceSheet: (asOfDate: string) => Promise<...>; getIncomeStatement: (pe...'.
+src/components/ReportingHub.tsx(37,30): error TS2339: Property 'reportItems' does not exist on type 'ReportCatalogItem[]'.
+src/components/ReportingHub.tsx(39,49): error TS2339: Property 'reportItems' does not exist on type 'ReportCatalogItem[]'.

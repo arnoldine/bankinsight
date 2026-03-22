@@ -1,0 +1,197 @@
+{
+  "productName": "BankingOS",
+  "version": 1,
+  "lifecycleEnvelope": [
+    "Draft",
+    "Submitted",
+    "Validation Pending",
+    "Under Review",
+    "Approved",
+    "Rejected",
+    "Returned for Correction",
+    "Ready for Execution",
+    "Executed",
+    "Posted",
+    "Completed",
+    "Exception",
+    "Reversed",
+    "Archived"
+  ],
+  "processes": [
+    {
+      "code": "CUSTOMER_ONBOARDING",
+      "name": "Customer Onboarding",
+      "module": "Core Banking",
+      "entityType": "Customer",
+      "triggerType": "Manual",
+      "stages": [
+        {
+          "stageCode": "lead_capture",
+          "displayName": "Lead Capture",
+          "actorRole": "RelationshipOfficer",
+          "formCode": "customer-onboarding-form",
+          "actions": ["save_draft", "submit_for_review"],
+          "screen": {
+            "title": "Lead Capture Workbench",
+            "description": "Capture the initial customer onboarding profile and confirm the submission pack is complete.",
+            "bannerTone": "info",
+            "bannerMessage": "Validate customer identity inputs carefully before forwarding to KYC review.",
+            "sections": [
+              { "id": "task-summary", "title": "Task Summary", "kind": "summary", "fieldIds": [] },
+              { "id": "lead-capture-form", "title": "Customer Intake Form", "kind": "form", "fieldIds": ["full_name", "customer_type", "ghana_card_number", "mobile_number", "risk_notes"] },
+              { "id": "stage-guidance", "title": "Stage Guidance", "kind": "guidance", "fieldIds": [] }
+            ]
+          }
+        },
+        {
+          "stageCode": "screening_validation",
+          "displayName": "Screening and Validation",
+          "actorRole": "KycOfficer",
+          "formCode": "kyc-review-form",
+          "actions": ["validate_identity", "request_more_information"]
+        },
+        {
+          "stageCode": "approval",
+          "displayName": "Approval",
+          "actorRole": "Supervisor",
+          "formCode": "kyc-review-form",
+          "actions": ["approve_onboarding", "reject_onboarding"]
+        },
+        {
+          "stageCode": "customer_activation",
+          "displayName": "Customer Activation",
+          "actorRole": "OperationsOfficer",
+          "actions": ["activate_customer"]
+        }
+      ]
+    },
+    {
+      "code": "ACCOUNT_OPENING",
+      "name": "Account Opening",
+      "module": "Core Banking",
+      "entityType": "Account",
+      "triggerType": "Manual",
+      "stages": [
+        {
+          "stageCode": "product_selection",
+          "displayName": "Product Selection",
+          "actorRole": "CustomerServiceOfficer",
+          "formCode": "account-opening-form",
+          "actions": ["validate_product_eligibility", "collect_mandates"],
+          "screen": {
+            "title": "Account Opening Setup",
+            "description": "Select the product, confirm account setup details, and prepare the application for approval.",
+            "bannerTone": "info",
+            "bannerMessage": "Use the configured product checklist to confirm all opening conditions are captured before submission.",
+            "sections": [
+              { "id": "task-summary", "title": "Application Summary", "kind": "summary", "fieldIds": [] },
+              { "id": "account-opening-form", "title": "Account Opening Form", "kind": "form", "fieldIds": ["customer_id", "product_code", "opening_balance", "mandate_type"] },
+              { "id": "stage-guidance", "title": "Approval Preparation", "kind": "guidance", "fieldIds": [] }
+            ]
+          }
+        },
+        {
+          "stageCode": "approval",
+          "displayName": "Approval",
+          "actorRole": "Supervisor",
+          "actions": ["approve_opening", "reject_opening"]
+        },
+        {
+          "stageCode": "account_activation",
+          "displayName": "Account Activation",
+          "actorRole": "OperationsOfficer",
+          "actions": ["assign_account_number", "activate_account"]
+        }
+      ]
+    },
+    {
+      "code": "SAVINGS_CASH_DEPOSIT",
+      "name": "Savings Cash Deposit",
+      "module": "Teller Operations",
+      "entityType": "Transaction",
+      "triggerType": "Manual",
+      "stages": [
+        {
+          "stageCode": "cash_count",
+          "displayName": "Cash Count",
+          "actorRole": "Teller",
+          "formCode": "cash-deposit-form",
+          "actions": ["validate_denominations", "apply_charges"]
+        },
+        {
+          "stageCode": "limit_check",
+          "displayName": "Limit Check",
+          "actorRole": "Supervisor",
+          "actions": ["request_approval", "clear_limit_check"]
+        },
+        {
+          "stageCode": "transaction_posted",
+          "displayName": "Transaction Posted",
+          "actorRole": "System",
+          "actions": ["post_deposit", "generate_receipt"]
+        }
+      ]
+    },
+    {
+      "code": "LOAN_ORIGINATION",
+      "name": "Loan Origination",
+      "module": "Lending",
+      "entityType": "Loan",
+      "triggerType": "Manual",
+      "stages": [
+        {
+          "stageCode": "application_draft",
+          "displayName": "Application Draft",
+          "actorRole": "LoanOfficer",
+          "formCode": "loan-application-form",
+          "actions": ["save_draft", "submit_application"]
+        },
+        {
+          "stageCode": "credit_analysis",
+          "displayName": "Credit Analysis",
+          "actorRole": "CreditAnalyst",
+          "actions": ["run_affordability_checks", "compute_repayment_plan"]
+        },
+        {
+          "stageCode": "committee_review",
+          "displayName": "Committee Review",
+          "actorRole": "CommitteeApprover",
+          "actions": ["record_committee_decision"]
+        },
+        {
+          "stageCode": "offer_generation",
+          "displayName": "Offer Generation",
+          "actorRole": "LoanOfficer",
+          "actions": ["generate_offer", "record_offer_acceptance"]
+        }
+      ]
+    },
+    {
+      "code": "END_OF_DAY_OPERATIONS",
+      "name": "End-of-Day Operations",
+      "module": "Operations Control",
+      "entityType": "BusinessDate",
+      "triggerType": "Manual",
+      "stages": [
+        {
+          "stageCode": "pre_eod_validation",
+          "displayName": "Pre-EOD Validation",
+          "actorRole": "OperationsOfficer",
+          "actions": ["verify_open_items"]
+        },
+        {
+          "stageCode": "batch_processing",
+          "displayName": "Batch Processing",
+          "actorRole": "System",
+          "actions": ["run_batch_jobs", "finalize_postings"]
+        },
+        {
+          "stageCode": "reports_and_audit_pack",
+          "displayName": "Reports and Audit Pack",
+          "actorRole": "FinanceOfficer",
+          "actions": ["produce_reports", "lock_business_date"]
+        }
+      ]
+    }
+  ]
+}

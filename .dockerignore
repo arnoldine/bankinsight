@@ -1,0 +1,8 @@
+node_modules
+dist
+.git
+.vscode
+coverage
+BankInsight.API/bin
+BankInsight.API/obj
+**/*.log

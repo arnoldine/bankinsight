@@ -1,0 +1,8 @@
+﻿components/Can.tsx(24,36): error TS2345: Argument of type 'StaffUser' is not assignable to parameter of type 'AuthUser'.
+  Property 'scopeType' is optional in type 'StaffUser' but required in type 'AuthUser'.
+components/Can.tsx(28,70): error TS2345: Argument of type 'StaffUser' is not assignable to parameter of type 'AuthUser'.
+  Property 'scopeType' is optional in type 'StaffUser' but required in type 'AuthUser'.
+components/Can.tsx(32,73): error TS2345: Argument of type 'StaffUser' is not assignable to parameter of type 'AuthUser'.
+  Property 'scopeType' is optional in type 'StaffUser' but required in type 'AuthUser'.
+src/components/EnhancedDashboardLayout.tsx(353,122): error TS2339: Property 'Create' does not exist on type '{ readonly View: "accounts.view"; readonly Open: "accounts.open"; readonly Edit: "accounts.edit"; readonly Close: "accounts.close"; readonly Freeze: "accounts.freeze"; readonly Reactivate: "accounts.reactivate"; }'.
+src/components/EnhancedDashboardLayout.tsx(363,122): error TS2339: Property 'Create' does not exist on type '{ readonly View: "accounts.view"; readonly Open: "accounts.open"; readonly Edit: "accounts.edit"; readonly Close: "accounts.close"; readonly Freeze: "accounts.freeze"; readonly Reactivate: "accounts.reactivate"; }'.

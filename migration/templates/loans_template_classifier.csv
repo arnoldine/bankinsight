@@ -1,0 +1,25 @@
+field_name,data_type,required,allowed_values_or_rules,format,example,notes
+id,string,YES,Unique loan ID,Alphanumeric up to 50 chars,LN0001,Primary key in loans table
+customer_id,string,YES,Must exist in customers.id,Foreign key to customers,CUST0001,Load customers first
+group_id,string,NO,Existing group ID where group lending applies,Foreign key to groups,GRP001,Optional
+product_code,string,NO,Existing product code for loan product,Foreign key to products.id,PRD-LON-001,Recommended
+loan_product_id,string,NO,Existing loan product ID where configured,Foreign key to loan products,LP001,Optional
+principal,decimal,YES,> 0,Decimal number,15000,Required numeric field
+rate,decimal,YES,>= 0,Decimal number,28,Interest rate as numeric value
+term_months,integer,YES,> 0,Integer,12,Loan tenor in months
+interest_method,enum,NO,Flat|Reducing|Simple|Compound,Title case,Flat,Defaults to Flat
+repayment_frequency,enum,NO,Daily|Weekly|Biweekly|Monthly|Quarterly,Title case,Monthly,Defaults to Monthly
+schedule_type,enum,NO,Daily|Weekly|Monthly|Custom,Title case,Monthly,Defaults to Monthly
+disbursement_date,date,NO,Valid calendar date,YYYY-MM-DD,2026-02-20,Optional
+status,enum,NO,PENDING|APPROVED|DISBURSED|CURRENT|REPAID|WRITTEN_OFF,Uppercase text,DISBURSED,Defaults to PENDING
+application_date,datetime,NO,Valid application timestamp,ISO-8601 (UTC),2026-02-10T10:00:00Z,Defaults to current UTC if empty
+approved_at,datetime,NO,Valid approval timestamp,ISO-8601 (UTC),2026-02-12T14:20:00Z,Optional
+approved_by,string,NO,Existing staff/user reference,String up to 50 chars,STF0002,Optional
+maker_id,string,NO,Existing staff/user reference,String up to 50 chars,STF0001,Optional
+checker_id,string,NO,Existing staff/user reference,String up to 50 chars,STF0002,Optional
+disbursed_at,datetime,NO,Valid disbursement timestamp,ISO-8601 (UTC),2026-02-20T09:00:00Z,Optional
+outstanding_balance,decimal,NO,>= 0,Decimal number,14120.50,Optional
+collateral_type,string,NO,Collateral class used in source system,Text up to 50 chars,Vehicle,Optional
+collateral_value,decimal,NO,>= 0,Decimal number,22000,Optional
+par_bucket,enum,NO,0|1-30|31-60|61-90|91-180|180+,String value,0,Defaults to 0
+branch_id,string,NO,Existing branch code,Alphanumeric up to 50 chars,BR001,Defaults to BR001 if empty

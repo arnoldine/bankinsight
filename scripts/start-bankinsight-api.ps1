@@ -1,0 +1,6 @@
+$ErrorActionPreference = 'Stop'
+Set-Location 'C:\Backup old\dev\bankinsight\BankInsight.API'
+$env:DOTNET_CLI_HOME = 'C:\Backup old\dev\bankinsight\.dotnet'
+$env:ASPNETCORE_ENVIRONMENT = 'Development'
+$env:ASPNETCORE_URLS = 'http://localhost:5176'
+dotnet 'C:\Backup old\dev\bankinsight\BankInsight.API\bin\codex-verify\BankInsight.API.dll'

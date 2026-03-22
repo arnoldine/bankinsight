@@ -1,0 +1,53 @@
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: bankinsight-postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  api:
+    image: ghcr.io/${GHCR_OWNER}/bankinsight-api:${IMAGE_TAG}
+    container_name: bankinsight-api
+    environment:
+      ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT}
+      ASPNETCORE_URLS: http://+:8080
+      DB_CONNECTION_STRING: Host=postgres;Database=${POSTGRES_DB};Username=${POSTGRES_USER};Password=${POSTGRES_PASSWORD}
+      JWT_SECRET: ${JWT_SECRET}
+      Security__IpWhitelist__Enabled: ${Security__IpWhitelist__Enabled}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "5176:8080"
+    restart: unless-stopped
+
+  frontend:
+    image: ghcr.io/${GHCR_OWNER}/bankinsight-frontend:${IMAGE_TAG}
+    container_name: bankinsight-frontend
+    depends_on:
+      - api
+    ports:
+      - "3000:80"
+    restart: unless-stopped
+
+  migration:
+    image: ghcr.io/${GHCR_OWNER}/bankinsight-migration:${IMAGE_TAG}
+    container_name: bankinsight-migration
+    depends_on:
+      - api
+    ports:
+      - "3002:80"
+    restart: unless-stopped
+
+volumes:
+  postgres_data:

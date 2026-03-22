@@ -1,0 +1,11 @@
+﻿  Determining projects to restore...
+  All projects are up-to-date for restore.
+C:\Backup old\dev\bankinsight\BankInsight.API\Controllers\LoanController.cs(173,74): error CS0117: 'AppPermissions.GeneralLedger' does not contain a definition for 'Manage' [C:\Backup old\dev\bankinsight\BankInsight.API\BankInsight.API.csproj]
+
+Build FAILED.
+
+C:\Backup old\dev\bankinsight\BankInsight.API\Controllers\LoanController.cs(173,74): error CS0117: 'AppPermissions.GeneralLedger' does not contain a definition for 'Manage' [C:\Backup old\dev\bankinsight\BankInsight.API\BankInsight.API.csproj]
+    0 Warning(s)
+    1 Error(s)
+
+Time Elapsed 00:00:02.55

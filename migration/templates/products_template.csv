@@ -1,0 +1,3 @@
+id,name,type,currency,status,interest_rate,interest_method,min_amount,max_amount,min_term,max_term,default_term,description,created_note
+PRD-SAV-001,Standard Savings,DEPOSIT,GHS,ACTIVE,3.5,SIMPLE,10,1000000,,,,Standard retail savings account,Seed product for migrated savings accounts
+PRD-LON-001,Micro Loan,LOAN,GHS,ACTIVE,28,FLAT,100,50000,1,24,12,Micro credit loan product,Seed product for migrated loan book

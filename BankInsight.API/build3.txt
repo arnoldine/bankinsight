@@ -1,0 +1,9 @@
+﻿C:\Backup old\dev\bankinsight\BankInsight.API\Services\ProductService.cs(42,13): error CS0117: 'Product' does not contain a definition for 'CreatedAt' [C:\Backup old\dev\bankinsight\BankInsight.API\BankInsight.API.csproj]
+C:\Backup old\dev\bankinsight\BankInsight.API\Services\UserService.cs(45,13): error CS0117: 'Staff' does not contain a definition for 'CreatedAt' [C:\Backup old\dev\bankinsight\BankInsight.API\BankInsight.API.csproj]
+C:\Backup old\dev\bankinsight\BankInsight.API\Services\WorkflowService.cs(55,18): error CS1061: 'Workflow' does not contain a definition for 'UpdatedAt' and no accessible extension method 'UpdatedAt' accepting a first argument of type 'Workflow' could be found (are you missing a using directive or an assembly reference?) [C:\Backup old\dev\bankinsight\BankInsight.API\BankInsight.API.csproj]
+
+Build FAILED.
+    1 Warning(s)
+    3 Error(s)
+
+Time Elapsed 00:00:02.49

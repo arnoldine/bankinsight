@@ -1,0 +1,51 @@
+{
+  "code": "account-opening-form",
+  "name": "Account Opening Form",
+  "module": "Core Banking",
+  "version": 1,
+  "status": "Published",
+  "layout": {
+    "type": "review-workbench",
+    "regions": [
+      "form",
+      "summary",
+      "actions"
+    ]
+  },
+  "fields": [
+    {
+      "id": "customer_id",
+      "label": "Customer",
+      "type": "lookup/reference",
+      "required": true
+    },
+    {
+      "id": "product_code",
+      "label": "Product",
+      "type": "select",
+      "required": true,
+      "options": [
+        "SAV_STD",
+        "CURR_STD",
+        "FIXED_90D"
+      ]
+    },
+    {
+      "id": "opening_balance",
+      "label": "Opening Balance",
+      "type": "currency",
+      "required": true
+    },
+    {
+      "id": "mandate_type",
+      "label": "Mandate Type",
+      "type": "select",
+      "required": true,
+      "options": [
+        "Single",
+        "Joint",
+        "Corporate"
+      ]
+    }
+  ]
+}

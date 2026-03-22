@@ -1,0 +1,49 @@
+{
+  "code": "customer-onboarding-form",
+  "name": "Customer Onboarding Form",
+  "module": "Core Banking",
+  "version": 1,
+  "status": "Draft",
+  "layout": {
+    "type": "stepper",
+    "steps": [
+      "basic-details",
+      "identity",
+      "contacts",
+      "kyc-documents"
+    ]
+  },
+  "fields": [
+    {
+      "id": "full_name",
+      "label": "Full Name",
+      "type": "text",
+      "required": true
+    },
+    {
+      "id": "customer_type",
+      "label": "Customer Type",
+      "type": "select",
+      "required": true,
+      "options": ["Individual", "Business"]
+    },
+    {
+      "id": "ghana_card_number",
+      "label": "Ghana Card Number",
+      "type": "text",
+      "required": true
+    },
+    {
+      "id": "mobile_number",
+      "label": "Mobile Number",
+      "type": "phone",
+      "required": true
+    },
+    {
+      "id": "risk_notes",
+      "label": "Risk Notes",
+      "type": "textarea",
+      "required": false
+    }
+  ]
+}

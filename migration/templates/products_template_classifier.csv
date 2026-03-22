@@ -1,0 +1,15 @@
+field_name,data_type,required,allowed_values_or_rules,format,example,notes
+id,string,YES,Unique product ID,Alphanumeric up to 50 chars,PRD-SAV-001,Primary key in products table
+name,string,YES,Non-empty product name,Text up to 100 chars,Standard Savings,Display name
+type,enum,YES,DEPOSIT|LOAN|INVESTMENT|CURRENT|SAVINGS,Uppercase text,DEPOSIT,Mapped directly to Product.Type
+currency,enum,NO,Valid ISO currency code,3-letter uppercase,GHS,Defaults to GHS
+status,enum,NO,ACTIVE|INACTIVE|SUSPENDED|CLOSED,Uppercase text,ACTIVE,Defaults to ACTIVE
+interest_rate,decimal,NO,Non-negative rate value,Decimal number,3.5,Percent stored as numeric value
+interest_method,enum,NO,SIMPLE|FLAT|REDUCING|COMPOUND,Uppercase text,SIMPLE,Optional rule metadata
+min_amount,decimal,NO,>= 0,Decimal number,10,Optional threshold
+max_amount,decimal,NO,>= min_amount,Decimal number,1000000,Optional threshold
+min_term,integer,NO,>= 0,Integer,1,Term in months where applicable
+max_term,integer,NO,>= min_term,Integer,24,Term in months where applicable
+default_term,integer,NO,Between min_term and max_term,Integer,12,Default term in months
+description,string,NO,Free text description,Text,Standard retail savings account,Optional
+created_note,string,NO,Migration note only,Text,Seed product for migrated savings accounts,Classifier/documentation field only

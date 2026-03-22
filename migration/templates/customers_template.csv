@@ -1,0 +1,3 @@
+id,type,name,email,phone,secondary_phone,digital_address,postal_address,kyc_level,risk_rating,gender,date_of_birth,ghana_card,nationality,marital_status,spouse_name,employer,job_title,ssnit_no,business_reg_no,registration_date,tin,sector,legal_form,branch_id,created_at
+CUST0001,INDIVIDUAL,Akosua Mensah,akosua.mensah@example.com,+233240000001,,GA-123-4567,P.O. Box CT123 Accra,Tier 2,Low,FEMALE,1990-05-10,GHA-123456789-0,GHANAIAN,Single,,Acme Trading,Operations Officer,SSNIT-0001,,,,,,BR001,2026-03-01T08:30:00Z
+CUST0002,CORPORATE,Adom Ventures Ltd,finance@adomventures.com,+233240000002,,AK-222-3311,PMB 210 Kumasi,Tier 3,Medium,,,,,,,,,BR-REG-7781,2020-08-14,TIN-889911,Trading,Limited Liability,BR002,2026-03-01T09:00:00Z

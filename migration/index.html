@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>BankInsight Migration App</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="layout">
+      <header class="header">
+        <h1>BankInsight Data Migration</h1>
+        <p>Import CSV data into the BankInsight PostgreSQL database using standardized templates.</p>
+      </header>
+
+      <section class="panel">
+        <h2>Migration Process Flow</h2>
+        <ol>
+          <li>Download and populate the CSV templates.</li>
+          <li>Import data in order: customers, products, accounts, loans, then GL accounts.</li>
+          <li>Review import summary and resolve row-level errors if present.</li>
+        </ol>
+      </section>
+
+      <section class="panel">
+        <h2>Configuration</h2>
+        <label>
+          API Base URL
+          <input id="apiBase" type="text" value="http://localhost:5176/api" />
+        </label>
+      </section>
+
+      <section class="panel">
+        <h2>CSV Templates</h2>
+        <ul class="template-list">
+          <li><a href="./templates/customers_template.csv" download>customers_template.csv</a></li>
+          <li><a href="./templates/products_template.csv" download>products_template.csv</a></li>
+          <li><a href="./templates/accounts_template.csv" download>accounts_template.csv</a></li>
+          <li><a href="./templates/loans_template.csv" download>loans_template.csv</a></li>
+          <li><a href="./templates/gl_accounts_template.csv" download>gl_accounts_template.csv</a></li>
+        </ul>
+      </section>
+
+      <section class="panel">
+        <h2>Template Classifiers</h2>
+        <p>Each classifier defines expected values, formats, and allowed enums for the corresponding template.</p>
+        <ul class="template-list">
+          <li><a href="./templates/customers_template_classifier.csv" download>customers_template_classifier.csv</a></li>
+          <li><a href="./templates/products_template_classifier.csv" download>products_template_classifier.csv</a></li>
+          <li><a href="./templates/accounts_template_classifier.csv" download>accounts_template_classifier.csv</a></li>
+          <li><a href="./templates/loans_template_classifier.csv" download>loans_template_classifier.csv</a></li>
+          <li><a href="./templates/gl_accounts_template_classifier.csv" download>gl_accounts_template_classifier.csv</a></li>
+        </ul>
+      </section>
+
+      <section class="panel">
+        <h2>Import Dataset</h2>
+        <form id="migrationForm">
+          <label>
+            Dataset
+            <select id="dataset" required>
+              <option value="customers">Customers</option>
+              <option value="products">Products</option>
+              <option value="accounts">Accounts</option>
+              <option value="loans">Loans</option>
+              <option value="gl-accounts">GL Accounts</option>
+            </select>
+          </label>
+
+          <label>
+            CSV File
+            <input id="csvFile" type="file" accept=".csv" required />
+          </label>
+
+          <button type="submit">Run Import</button>
+        </form>
+      </section>
+
+      <section class="panel">
+        <h2>Expected Values (Selected Dataset)</h2>
+        <p id="classifierSummary">Select a dataset to view field-level classifier rules.</p>
+        <div class="table-wrap">
+          <table id="classifierTable" class="classifier-table">
+            <thead>
+              <tr>
+                <th>Field</th>
+                <th>Type</th>
+                <th>Required</th>
+                <th>Allowed Values / Rules</th>
+                <th>Format</th>
+                <th>Example</th>
+              </tr>
+            </thead>
+            <tbody id="classifierBody"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="panel" id="precheckPanel" hidden>
+        <h2>CSV Precheck</h2>
+        <p id="precheckSummary"></p>
+        <ul id="precheckIssues" class="issue-list"></ul>
+      </section>
+
+      <section class="panel" id="resultPanel" hidden>
+        <h2>Import Result</h2>
+        <pre id="resultText"></pre>
+      </section>
+    </main>
+
+    <script src="./app.js"></script>
+  </body>
+</html>

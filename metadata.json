@@ -1,0 +1,5 @@
+{
+  "name": "BankInsight",
+  "description": "A Bank of Ghana compliant Core Banking System simulation using React frontend and PostgreSQL PL/pgSQL backend logic.",
+  "requestFramePermissions": []
+}

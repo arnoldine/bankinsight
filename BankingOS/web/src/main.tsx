@@ -1,0 +1,15 @@
+import React from 'react';
+import ReactDOM from 'react-dom/client';
+import BankingOSApp from './BankingOSApp';
+import '@shared/styles/globals.css';
+
+const rootElement = document.getElementById('root');
+if (!rootElement) {
+  throw new Error('Could not find BankingOS root element.');
+}
+
+ReactDOM.createRoot(rootElement).render(
+  <React.StrictMode>
+    <BankingOSApp />
+  </React.StrictMode>
+);

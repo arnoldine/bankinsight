@@ -1,0 +1,16 @@
+$c = Get-Content 'src\components\EnhancedDashboardLayout.tsx'
+$c = $c -replace "import \{ hasPermission \} from '\.\.\/\.\.\/lib\/jwtUtils';", "import { useBankingSystem } from '../../hooks/useBankingSystem';`nimport { Permissions } from '../../lib/Permissions';"
+$c = $c -replace "const token = authService\.getToken\(\).*;", "const { hasPermission } = useBankingSystem();"
+$c = $c -replace "'ACCOUNT_READ'", "Permissions.Accounts.View"
+$c = $c -replace "'LOAN_READ'", "Permissions.Loans.View"
+$c = $c -replace "'GL_READ'", "Permissions.GeneralLedger.View"
+$c = $c -replace "'GL_POST'", "Permissions.GeneralLedger.Post"
+$c = $c -replace "'VIEW_PRODUCTS'", "Permissions.Roles.View"
+$c = $c -replace "'LOAN_APPROVE'", "Permissions.Loans.Approve"
+$c = $c -replace "'CREATE_ACCOUNTS'", "Permissions.Accounts.Create"
+$c = $c -replace "'TELLER_POST'", "Permissions.Transactions.Post"
+$c = $c -replace "'REPORT_VIEW'", "Permissions.Reports.View"
+$c = $c -replace "'SYSTEM_CONFIG'", "Permissions.Roles.View"
+$c = $c -replace "\[token\]", "[]"
+$c = $c -replace "hasPermission\(token, ", "hasPermission("
+$c | Set-Content 'src\components\EnhancedDashboardLayout.tsx'

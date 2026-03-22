@@ -1,0 +1,12 @@
+field_name,data_type,required,allowed_values_or_rules,format,example,notes
+id,string,YES,Unique account ID,Alphanumeric up to 50 chars,ACC0001,Primary key in accounts table
+customer_id,string,YES,Must exist in customers.id,Foreign key to customers,CUST0001,Load customers first
+branch_id,string,NO,Should reference an existing branch,Alphanumeric up to 50 chars,BR001,Optional but recommended
+product_code,string,NO,Should reference an existing product,Foreign key to products.id,PRD-SAV-001,Optional but recommended
+type,enum,YES,SAVINGS|CURRENT|FIXED|LOAN|WALLET,Uppercase text,SAVINGS,Mapped to Account.Type
+currency,enum,NO,Valid ISO currency code,3-letter uppercase,GHS,Defaults to GHS
+balance,decimal,NO,Any numeric opening balance,Decimal number,15250.35,Defaults to 0
+lien_amount,decimal,NO,>= 0 and <= balance where policy requires,Decimal number,5000,Defaults to 0
+status,enum,NO,ACTIVE|DORMANT|FROZEN|CLOSED,Uppercase text,ACTIVE,Defaults to ACTIVE
+last_trans_date,datetime,NO,Valid transaction timestamp,ISO-8601 (UTC),2026-03-10T13:22:00Z,Optional
+created_at,datetime,NO,Valid account creation timestamp,ISO-8601 (UTC),2026-03-01T09:10:00Z,Defaults to current UTC if empty

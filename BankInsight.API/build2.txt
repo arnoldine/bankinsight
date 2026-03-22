@@ -1,0 +1,25 @@
+﻿C:\Backup old\dev\bankinsight\BankInsight.API\Program.cs(76,15): error CS1002: ; expected [C:\Backup old\dev\bankinsight\BankInsight.API\BankInsight.API.csproj]
+C:\Backup old\dev\bankinsight\BankInsight.API\Program.cs(76,15): error CS1513: } expected [C:\Backup old\dev\bankinsight\BankInsight.API\BankInsight.API.csproj]
+C:\Backup old\dev\bankinsight\BankInsight.API\Program.cs(76,26): error CS1002: ; expected [C:\Backup old\dev\bankinsight\BankInsight.API\BankInsight.API.csproj]
+C:\Backup old\dev\bankinsight\BankInsight.API\Program.cs(76,26): error CS1513: } expected [C:\Backup old\dev\bankinsight\BankInsight.API\BankInsight.API.csproj]
+C:\Backup old\dev\bankinsight\BankInsight.API\Program.cs(76,36): error CS1002: ; expected [C:\Backup old\dev\bankinsight\BankInsight.API\BankInsight.API.csproj]
+C:\Backup old\dev\bankinsight\BankInsight.API\Program.cs(76,36): error CS1513: } expected [C:\Backup old\dev\bankinsight\BankInsight.API\BankInsight.API.csproj]
+C:\Backup old\dev\bankinsight\BankInsight.API\Program.cs(76,44): error CS1002: ; expected [C:\Backup old\dev\bankinsight\BankInsight.API\BankInsight.API.csproj]
+C:\Backup old\dev\bankinsight\BankInsight.API\Program.cs(76,44): error CS1513: } expected [C:\Backup old\dev\bankinsight\BankInsight.API\BankInsight.API.csproj]
+C:\Backup old\dev\bankinsight\BankInsight.API\Program.cs(76,52): error CS1002: ; expected [C:\Backup old\dev\bankinsight\BankInsight.API\BankInsight.API.csproj]
+C:\Backup old\dev\bankinsight\BankInsight.API\Program.cs(76,52): error CS1513: } expected [C:\Backup old\dev\bankinsight\BankInsight.API\BankInsight.API.csproj]
+C:\Backup old\dev\bankinsight\BankInsight.API\Program.cs(76,60): error CS1002: ; expected [C:\Backup old\dev\bankinsight\BankInsight.API\BankInsight.API.csproj]
+C:\Backup old\dev\bankinsight\BankInsight.API\Program.cs(76,60): error CS1513: } expected [C:\Backup old\dev\bankinsight\BankInsight.API\BankInsight.API.csproj]
+C:\Backup old\dev\bankinsight\BankInsight.API\Program.cs(76,69): error CS1002: ; expected [C:\Backup old\dev\bankinsight\BankInsight.API\BankInsight.API.csproj]
+C:\Backup old\dev\bankinsight\BankInsight.API\Program.cs(76,69): error CS1513: } expected [C:\Backup old\dev\bankinsight\BankInsight.API\BankInsight.API.csproj]
+C:\Backup old\dev\bankinsight\BankInsight.API\Program.cs(76,76): error CS1002: ; expected [C:\Backup old\dev\bankinsight\BankInsight.API\BankInsight.API.csproj]
+C:\Backup old\dev\bankinsight\BankInsight.API\Program.cs(76,76): error CS1513: } expected [C:\Backup old\dev\bankinsight\BankInsight.API\BankInsight.API.csproj]
+C:\Backup old\dev\bankinsight\BankInsight.API\Program.cs(76,90): error CS1002: ; expected [C:\Backup old\dev\bankinsight\BankInsight.API\BankInsight.API.csproj]
+C:\Backup old\dev\bankinsight\BankInsight.API\Program.cs(76,90): error CS1513: } expected [C:\Backup old\dev\bankinsight\BankInsight.API\BankInsight.API.csproj]
+C:\Backup old\dev\bankinsight\BankInsight.API\Program.cs(76,103): error CS1002: ; expected [C:\Backup old\dev\bankinsight\BankInsight.API\BankInsight.API.csproj]
+
+Build FAILED.
+    0 Warning(s)
+    19 Error(s)
+
+Time Elapsed 00:00:02.64

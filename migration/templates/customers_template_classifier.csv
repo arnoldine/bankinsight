@@ -1,0 +1,27 @@
+field_name,data_type,required,allowed_values_or_rules,format,example,notes
+id,string,YES,Unique customer ID,Alphanumeric up to 50 chars,CUST0001,Primary key in customers table
+type,enum,YES,INDIVIDUAL|CORPORATE,Uppercase text,INDIVIDUAL,Use CORPORATE for business customers
+name,string,YES,Any non-empty legal/customer name,Text up to 255 chars,Akosua Mensah,Stored as display name
+email,string,NO,Valid email when provided,local@domain.tld,akosua.mensah@example.com,Optional but recommended for contactability
+phone,string,NO,E.164 or local dial format,String up to 20 chars,+233240000001,Primary contact number
+secondary_phone,string,NO,Same rules as phone,String up to 20 chars,+233240000099,Alternate contact
+digital_address,string,NO,GhanaPostGPS or internal digital code,String up to 100 chars,GA-123-4567,Optional
+postal_address,string,NO,Free-form address,Text,P.O. Box CT123 Accra,Optional
+kyc_level,enum,NO,Tier 1|Tier 2|Tier 3,Title case,Tier 2,Defaults to Tier 1 if empty
+risk_rating,enum,NO,Low|Medium|High,Title case,Low,Defaults to Low if empty
+gender,enum,NO,MALE|FEMALE|OTHER|UNKNOWN,Uppercase text,FEMALE,Optional
+date_of_birth,date,NO,Valid calendar date,YYYY-MM-DD,1990-05-10,Optional
+ghana_card,string,NO,National ID format from source system,String up to 50 chars,GHA-123456789-0,Optional
+nationality,string,NO,ISO country name or internal standard,String up to 50 chars,GHANAIAN,Optional
+marital_status,enum,NO,Single|Married|Divorced|Widowed,Title case,Single,Optional
+spouse_name,string,NO,Free text,Text up to 100 chars,,Usually empty for Single
+employer,string,NO,Free text,Text up to 100 chars,Acme Trading,Optional
+job_title,string,NO,Free text,Text up to 100 chars,Operations Officer,Optional
+ssnit_no,string,NO,Source pension identifier,String up to 50 chars,SSNIT-0001,Optional
+business_reg_no,string,NO,Corporate registration ID,String up to 50 chars,BR-REG-7781,Used mainly for corporate profiles
+registration_date,date,NO,Valid calendar date,YYYY-MM-DD,2020-08-14,Used mainly for corporate profiles
+tin,string,NO,Tax identification number,String up to 50 chars,TIN-889911,Optional
+sector,string,NO,Industry or sector classification,String up to 50 chars,Trading,Optional
+legal_form,string,NO,Legal entity form,String up to 50 chars,Limited Liability,Optional
+branch_id,string,NO,Existing branch code in BankInsight,Alphanumeric up to 50 chars,BR001,Defaults to BR001 if empty
+created_at,datetime,NO,Valid UTC timestamp,ISO-8601 (UTC),2026-03-01T08:30:00Z,Defaults to current UTC if empty

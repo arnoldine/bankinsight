@@ -1,0 +1,64 @@
+{
+  "themes": [
+    {
+      "code": "modern-blue-finance",
+      "name": "Modern Blue Finance",
+      "tokens": {
+        "color.primary": "#0F4C81",
+        "color.secondary": "#4FA3D9",
+        "color.surface": "#F7FAFC",
+        "font.heading": "Manrope",
+        "font.body": "Inter",
+        "radius.card": "20px"
+      }
+    },
+    {
+      "code": "emerald-microfinance",
+      "name": "Emerald Microfinance",
+      "tokens": {
+        "color.primary": "#0F766E",
+        "color.secondary": "#34D399",
+        "color.surface": "#F0FDFA",
+        "font.heading": "Sora",
+        "font.body": "Inter",
+        "radius.card": "18px"
+      }
+    },
+    {
+      "code": "gold-corporate-bank",
+      "name": "Gold Corporate Bank",
+      "tokens": {
+        "color.primary": "#8B6F1E",
+        "color.secondary": "#D4AF37",
+        "color.surface": "#FFFBEB",
+        "font.heading": "DM Serif Display",
+        "font.body": "Source Sans 3",
+        "radius.card": "14px"
+      }
+    },
+    {
+      "code": "minimal-neutral",
+      "name": "Minimal Neutral",
+      "tokens": {
+        "color.primary": "#334155",
+        "color.secondary": "#94A3B8",
+        "color.surface": "#F8FAFC",
+        "font.heading": "Plus Jakarta Sans",
+        "font.body": "Inter",
+        "radius.card": "16px"
+      }
+    },
+    {
+      "code": "dark-executive",
+      "name": "Dark Executive",
+      "tokens": {
+        "color.primary": "#E2E8F0",
+        "color.secondary": "#38BDF8",
+        "color.surface": "#0F172A",
+        "font.heading": "Space Grotesk",
+        "font.body": "Inter",
+        "radius.card": "18px"
+      }
+    }
+  ]
+}

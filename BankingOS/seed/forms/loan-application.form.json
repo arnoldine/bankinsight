@@ -1,0 +1,51 @@
+{
+  "code": "loan-application-form",
+  "name": "Loan Application Form",
+  "module": "Lending",
+  "version": 1,
+  "status": "Draft",
+  "layout": {
+    "type": "stepper",
+    "steps": [
+      "applicant",
+      "facility",
+      "repayment",
+      "collateral",
+      "review"
+    ]
+  },
+  "fields": [
+    {
+      "id": "customer_id",
+      "label": "Customer",
+      "type": "lookup/reference",
+      "required": true
+    },
+    {
+      "id": "product_code",
+      "label": "Loan Product",
+      "type": "select",
+      "required": true,
+      "options": ["GROUP_LOAN", "SME_TERM", "PERSONAL_LOAN"]
+    },
+    {
+      "id": "requested_amount",
+      "label": "Requested Amount",
+      "type": "currency",
+      "required": true
+    },
+    {
+      "id": "requested_tenor_months",
+      "label": "Requested Tenor (Months)",
+      "type": "number",
+      "required": true
+    },
+    {
+      "id": "repayment_frequency",
+      "label": "Repayment Frequency",
+      "type": "select",
+      "required": true,
+      "options": ["Weekly", "Biweekly", "Monthly"]
+    }
+  ]
+}

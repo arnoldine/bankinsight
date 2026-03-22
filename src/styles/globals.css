@@ -1,0 +1,130 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-slate-100 text-slate-900 font-sans antialiased;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-sans tracking-normal text-slate-900;
+  }
+
+  input,
+  select,
+  textarea {
+    @apply rounded-md border border-slate-300 bg-white text-slate-900 shadow-none;
+  }
+
+  input:focus,
+  select:focus,
+  textarea:focus {
+    @apply border-brand-500 ring-2 ring-brand-100 outline-none;
+  }
+
+  button {
+    @apply shadow-none;
+  }
+}
+
+@layer components {
+  .glass-card,
+  .dashboard-sheen,
+  .card-hover {
+    @apply rounded-lg border border-slate-200 bg-white shadow-sm;
+    background-image: none;
+    transform: none;
+    backdrop-filter: none;
+  }
+
+  .card-hover:hover {
+    @apply border-slate-300 shadow-sm;
+    transform: none;
+  }
+
+  .status-orb {
+    @apply rounded-md bg-brand-600 shadow-none;
+  }
+
+  .simple-screen {
+    @apply text-slate-900;
+  }
+
+  .simple-screen .screen-panel {
+    @apply rounded-lg border border-slate-200 bg-white shadow-sm;
+  }
+
+  .simple-screen .screen-hero {
+    @apply rounded-lg border border-slate-200 bg-white text-slate-900 shadow-sm;
+    background-image: none;
+  }
+
+  .simple-screen .screen-stat {
+    @apply rounded-md border border-slate-200 bg-slate-50 text-slate-900 shadow-none;
+  }
+
+  .simple-screen .screen-badge {
+    @apply rounded-md border border-slate-200 bg-slate-100 px-2 py-1 text-xs font-medium text-slate-600;
+  }
+
+  .simple-screen .screen-tab {
+    @apply rounded-md border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700;
+  }
+
+  .simple-screen .screen-tab-active {
+    @apply border-brand-600 bg-brand-600 text-white;
+  }
+
+  .simple-screen .screen-button-primary {
+    @apply rounded-md bg-brand-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-brand-700;
+  }
+
+  .simple-screen .screen-button-secondary {
+    @apply rounded-md border border-slate-300 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50;
+  }
+
+  .simple-screen .screen-input {
+    @apply w-full rounded-md border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900;
+  }
+
+  .simple-screen [class*='tracking-[0.22em]'],
+  .simple-screen [class*='tracking-[0.18em]'],
+  .simple-screen [class*='tracking-[0.14em]'],
+  .simple-screen [class*='tracking-[0.24em]'],
+  .simple-screen [class*='tracking-[0.30em]'] {
+    letter-spacing: 0.02em;
+  }
+
+  .simple-screen [class*='rounded-[30px]'],
+  .simple-screen [class*='rounded-[32px]'],
+  .simple-screen [class*='rounded-[28px]'],
+  .simple-screen [class*='rounded-[26px]'],
+  .simple-screen [class*='rounded-[24px]'],
+  .simple-screen [class*='rounded-[22px]'] {
+    border-radius: 0.5rem;
+  }
+
+  .simple-screen [class*='shadow-soft'],
+  .simple-screen [class*='shadow-medium'],
+  .simple-screen [class*='shadow-[0_'] {
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
+  }
+
+  .simple-screen [class*='bg-[linear-gradient'],
+  .simple-screen [class*='bg-[radial-gradient'] {
+    background-image: none;
+  }
+
+  .simple-screen [class*='bg-white/'] {
+    background-color: #ffffff !important;
+  }
+
+  .simple-screen [class*='border-white/'] {
+    border-color: rgb(226 232 240) !important;
+  }
+
+  .simple-screen [class*='backdrop-blur'] {
+    backdrop-filter: none;
+  }
+}

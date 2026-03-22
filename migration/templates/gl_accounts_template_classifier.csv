@@ -1,0 +1,7 @@
+field_name,data_type,required,allowed_values_or_rules,format,example,notes
+code,string,YES,Unique GL account code,Alphanumeric up to 20 chars,1000,Primary key in gl_accounts table
+name,string,YES,Non-empty GL account name,Text up to 100 chars,Cash and Cash Equivalents,Display name
+category,enum,YES,ASSET|LIABILITY|EQUITY|INCOME|EXPENSE,Uppercase text,ASSET,Mapped to GlAccount.Category
+currency,enum,NO,Valid ISO currency code,3-letter uppercase,GHS,Defaults to GHS
+balance,decimal,NO,Opening balance numeric value,Decimal number,5000000,Defaults to 0
+is_header,boolean,NO,true|false|1|0,Boolean,true,Defaults to false

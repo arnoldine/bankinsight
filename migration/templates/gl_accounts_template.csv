@@ -1,0 +1,5 @@
+code,name,category,currency,balance,is_header
+1000,Cash and Cash Equivalents,ASSET,GHS,5000000,true
+1010,Vault Cash - Head Office,ASSET,GHS,1250000,false
+2000,Customer Deposits,LIABILITY,GHS,4200000,true
+4000,Interest Income,INCOME,GHS,0,false

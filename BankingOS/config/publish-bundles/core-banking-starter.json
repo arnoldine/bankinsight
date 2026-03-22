@@ -1,0 +1,25 @@
+{
+  "code": "core-banking-starter",
+  "name": "Core Banking Starter",
+  "status": "Published",
+  "releaseChannel": "production-ready-seed",
+  "requiresApproval": true,
+  "processes": [
+    "CUSTOMER_ONBOARDING",
+    "ACCOUNT_OPENING",
+    "SAVINGS_CASH_DEPOSIT",
+    "LOAN_ORIGINATION",
+    "END_OF_DAY_OPERATIONS"
+  ],
+  "forms": [
+    "customer-onboarding-form",
+    "account-opening-form",
+    "loan-application-form"
+  ],
+  "themes": [
+    "modern-blue-finance",
+    "emerald-microfinance",
+    "gold-corporate-bank"
+  ],
+  "notes": "Starter BankingOS release bundle for onboarding, account opening, lending intake, and first-wave theming."
+}

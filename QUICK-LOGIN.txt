@@ -1,0 +1,73 @@
+# 🔐 QUICK LOGIN REFERENCE CARD
+
+## RIGHT NOW - TRY THIS
+
+```
+Email:    admin@bankinsight.local
+Password: password123
+URL:      http://localhost:3000
+```
+
+✅ **Verified working as of March 4, 2026**
+
+---
+
+## If It Still Doesn't Work
+
+**Step 1**: Clear browser storage
+- Press F12 → Application → localStorage → Delete everything
+- Close browser tab completely
+
+**Step 2**: Try API directly (skip browser)
+```powershell
+$body = @{ email = 'admin@bankinsight.local'; password = 'password123' } | ConvertTo-Json
+$r = Invoke-WebRequest -Uri 'http://localhost:5176/api/auth/login' -Method Post `
+  -ContentType 'application/json' -Body $body -UseBasicParsing
+if ($r.StatusCode -eq 200) { Write-Host "✓ API Works" } 
+else { Write-Host "✗ API Issue" }
+```
+
+**Step 3**: Check servers running
+- Backend: `Get-NetTCPConnection -LocalPort 5176 -State Listen` → should show result
+- Frontend: `Get-NetTCPConnection -LocalPort 3000 -State Listen` → should show result
+
+**Step 4**: Restart both
+```powershell
+# Kill processes
+Get-Process | Where-Object {$_.Name -like "*dotnet*" -or $_.Name -like "*node*"} | Stop-Process -Force
+
+# Wait
+Start-Sleep 2
+
+# Restart backend
+cd c:\Backup\ old\dev\bankinsight\BankInsight.API; dotnet run
+
+# In NEW terminal, restart frontend
+cd c:\Backup\ old\dev\bankinsight; npm run dev
+```
+
+Then try: http://localhost:3000
+
+---
+
+## What You Should See After Login
+
+- ✅ Dashboard with graphs and metrics
+- ✅ Sidebar with all features (admin sees everything)
+- ✅ User profile in top right showing your email
+- ✅ Role badge showing "Administrator"
+- ✅ No error messages
+
+---
+
+## Support Docs
+
+📖 **Full Details**: [WORKING-CREDENTIALS.md](WORKING-CREDENTIALS.md)  
+🔍 **Troubleshooting**: [CREDENTIALS-RESOLUTION.md](CREDENTIALS-RESOLUTION.md)  
+🎯 **System Setup**: [README.md](README.md)
+
+---
+
+**Status**: ✅ Credentials Confirmed  
+**Tested**: March 4, 2026  
+**All Systems**: Operational

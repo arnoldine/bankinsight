@@ -1,0 +1,8 @@
+﻿C:\Program Files\dotnet\sdk\10.0.103\Microsoft.Common.CurrentVersion.targets(5381,5): error MSB3027: Could not copy "C:\Backup old\dev\bankinsight\BankInsight.API\obj\Debug\net8.0\apphost.exe" to "bin\Debug\net8.0\BankInsight.API.exe". Exceeded retry count of 10. Failed. The file is locked by: "BankInsight.API (49504)" [C:\Backup old\dev\bankinsight\BankInsight.API\BankInsight.API.csproj]
+C:\Program Files\dotnet\sdk\10.0.103\Microsoft.Common.CurrentVersion.targets(5381,5): error MSB3021: Unable to copy file "C:\Backup old\dev\bankinsight\BankInsight.API\obj\Debug\net8.0\apphost.exe" to "bin\Debug\net8.0\BankInsight.API.exe". The process cannot access the file 'C:\Backup old\dev\bankinsight\BankInsight.API\bin\Debug\net8.0\BankInsight.API.exe' because it is being used by another process. [C:\Backup old\dev\bankinsight\BankInsight.API\BankInsight.API.csproj]
+
+Build FAILED.
+    10 Warning(s)
+    2 Error(s)
+
+Time Elapsed 00:00:14.31
