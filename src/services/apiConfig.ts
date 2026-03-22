@@ -6,6 +6,18 @@ const resolveBaseUrl = (): string => {
     return 'http://localhost:5176/api';
   }
 
+  // Render static sites commonly receive the API web service's external URL,
+  // which does not include the /api prefix used by this app's controllers.
+  try {
+    const parsed = new URL(configuredBaseUrl);
+    if (!parsed.pathname || parsed.pathname === '/') {
+      parsed.pathname = '/api';
+      return parsed.toString().replace(/\/$/, '');
+    }
+  } catch {
+    // Ignore parse failures and fall through to the existing logic.
+  }
+
   // In Vite dev mode, a relative /api base usually points back to the dev server.
   // Redirect to the local API server to avoid 300x/api -> 404/500 loops.
   if (env.DEV && configuredBaseUrl.startsWith('/')) {
