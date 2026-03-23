@@ -38,3 +38,9 @@ public class VerifyMfaRequest
     [StringLength(8, MinimumLength = 4, ErrorMessage = "Verification code must be between 4 and 8 digits")]
     public string Code { get; set; } = string.Empty;
 }
+
+public class ResendMfaRequest
+{
+    [Required(ErrorMessage = "MFA token is required")]
+    public string MfaToken { get; set; } = string.Empty;
+}

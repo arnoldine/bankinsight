@@ -34,6 +34,10 @@ export interface VerifyMfaRequest {
   code: string;
 }
 
+export interface ResendMfaRequest {
+  mfaToken: string;
+}
+
 export interface User {
   id: string;
   name: string;
@@ -85,6 +89,13 @@ class AuthService {
     }
 
     return response;
+  }
+
+  async resendMfa(payload: ResendMfaRequest): Promise<LoginResponse> {
+    return await httpClient.post<LoginResponse>(
+      API_ENDPOINTS.auth.verifyMfa.replace('/verify', '/resend'),
+      payload
+    );
   }
 
   async logout(): Promise<void> {

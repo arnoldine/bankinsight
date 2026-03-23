@@ -5,6 +5,7 @@ import { LoginResponse } from '../services/authService';
 export interface LoginProps {
   onLogin: (email: string, password: string) => Promise<LoginResponse>;
   onVerifyMfa?: (mfaToken: string, code: string) => Promise<LoginResponse>;
+  onResendMfa?: (mfaToken: string) => Promise<LoginResponse>;
   loading?: boolean;
   error?: string | null;
   onErrorDismiss?: () => void;
@@ -14,6 +15,7 @@ export interface LoginProps {
 export default function LoginScreen({
   onLogin,
   onVerifyMfa,
+  onResendMfa,
   loading = false,
   error,
   onErrorDismiss,
@@ -28,11 +30,13 @@ export default function LoginScreen({
   const [mfaDebugCode, setMfaDebugCode] = useState<string | null>(null);
   const [validationError, setValidationError] = useState<string | null>(null);
   const [mfaMessage, setMfaMessage] = useState<string | null>(null);
+  const [resendMessage, setResendMessage] = useState<string | null>(null);
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
     setValidationError(null);
     setMfaMessage(null);
+    setResendMessage(null);
 
     if (mfaToken) {
       if (!mfaCode || mfaCode.trim().length < 4) {
@@ -126,12 +130,12 @@ export default function LoginScreen({
             </div>
           ) : null}
 
-          {mfaToken && mfaMessage ? (
+          {mfaToken && (mfaMessage || resendMessage) ? (
             <div className="mt-6 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-4 text-sm text-emerald-900">
               <div className="flex items-start gap-3">
                 <CheckCircle2 className="mt-0.5 h-4 w-4 flex-shrink-0 text-emerald-600" />
                 <div className="space-y-2 leading-6">
-                  <p className="font-medium">{mfaMessage}</p>
+                  <p className="font-medium">{resendMessage || mfaMessage}</p>
                   <ul className="list-disc space-y-1 pl-5 text-emerald-800/90">
                     <li>Check your inbox, spam, and promotions folders.</li>
                     <li>Use the most recent 6-digit code only.</li>
@@ -208,21 +212,51 @@ export default function LoginScreen({
             </button>
 
             {mfaToken ? (
-              <button
-                type="button"
-                onClick={() => {
-                  setMfaToken(null);
-                  setMfaHint(null);
-                  setMfaExpiry(null);
-                  setMfaDebugCode(null);
-                  setMfaCode('');
-                  setMfaMessage(null);
-                  setValidationError(null);
-                }}
-                className="screen-button-secondary w-full"
-              >
-                Back to credentials
-              </button>
+              <div className="space-y-3">
+                <button
+                  type="button"
+                  onClick={async () => {
+                    if (!mfaToken || !onResendMfa || loading) {
+                      return;
+                    }
+
+                    setValidationError(null);
+                    try {
+                      const response = await onResendMfa(mfaToken);
+                      setMfaHint(response.deliveryHint || mfaHint);
+                      setMfaExpiry(response.mfaExpiresAtUtc || null);
+                      setMfaDebugCode(response.debugCode || null);
+                      setMfaCode('');
+                      setResendMessage(
+                        response.deliveryMessage ||
+                        `A fresh verification code was sent to ${response.deliveryHint || mfaHint || 'your registered channel'}.`
+                      );
+                    } catch {
+                      // Parent handles API errors.
+                    }
+                  }}
+                  className="screen-button-secondary w-full"
+                >
+                  Resend code
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMfaToken(null);
+                    setMfaHint(null);
+                    setMfaExpiry(null);
+                    setMfaDebugCode(null);
+                    setMfaCode('');
+                    setMfaMessage(null);
+                    setResendMessage(null);
+                    setValidationError(null);
+                  }}
+                  className="screen-button-secondary w-full"
+                >
+                  Back to credentials
+                </button>
+              </div>
             ) : null}
 
             {onUseClerk ? (

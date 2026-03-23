@@ -51,6 +51,22 @@ public class AuthController : ControllerBase
         return Ok(result);
     }
 
+    [HttpPost("mfa/resend")]
+    [AllowAnonymous]
+    public async Task<IActionResult> ResendMfa([FromBody] ResendMfaRequest request)
+    {
+        var ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+        var userAgent = HttpContext.Request.Headers["User-Agent"].ToString();
+
+        var result = await _authService.ResendMfaAsync(request, ipAddress, userAgent);
+        if (result == null)
+        {
+            return Unauthorized(new { message = "Your verification session is no longer active. Please sign in again." });
+        }
+
+        return Ok(result);
+    }
+
     [HttpGet("validate")]
     [Authorize]
     public IActionResult Validate()

@@ -181,6 +181,103 @@ public class AuthService
         return await IssueAuthenticatedSessionAsync(user, permissionBundle, ipAddress, userAgent);
     }
 
+    public async Task<LoginResponse?> ResendMfaAsync(ResendMfaRequest request, string ipAddress, string? userAgent)
+    {
+        var challengeRow = await _context.SystemConfigs.FirstOrDefaultAsync(config => config.Key == GetMfaChallengeKey(request.MfaToken));
+        if (challengeRow == null)
+        {
+            return null;
+        }
+
+        var challenge = DeserializeChallenge(challengeRow.Value);
+        if (challenge == null)
+        {
+            return null;
+        }
+
+        var user = await LoadUserByIdAsync(challenge.UserId);
+        if (user == null)
+        {
+            return null;
+        }
+
+        var code = Random.Shared.Next(100000, 999999).ToString();
+        challenge.CodeHash = BCrypt.Net.BCrypt.HashPassword(code);
+        challenge.ExpiresAt = DateTime.UtcNow.AddMinutes(5);
+        challenge.Attempts = 0;
+        challenge.RequestedIpAddress = ipAddress;
+        challenge.RequestedUserAgent = userAgent;
+
+        try
+        {
+            await _emailAlertService.SendEmailAsync(
+                user.Email,
+                "Your BankInsight verification code",
+                $"Use this one-time verification code to complete your sign-in: {code}\n\nThe code expires in 5 minutes. If you did not attempt to sign in, please contact your administrator immediately.",
+                new
+                {
+                    userId = user.Id,
+                    deliveryChannel = challenge.DeliveryChannel,
+                    expiresAt = challenge.ExpiresAt,
+                    resend = true
+                },
+                category: "MFA_OTP");
+        }
+        catch (Exception ex)
+        {
+            await _auditLoggingService.LogActionAsync(
+                "MFA_OTP_RESEND_FAILED",
+                "Staff",
+                user.Id,
+                user.Id,
+                $"The verification code resend failed for {challenge.DeliveryHint}.",
+                ipAddress,
+                userAgent,
+                "FAILED",
+                errorMessage: ex.Message,
+                newValues: new
+                {
+                    challenge.DeliveryChannel,
+                    challenge.DeliveryHint,
+                    challenge.ExpiresAt
+                });
+
+            throw new InvalidOperationException(
+                $"We could not resend your verification code to {challenge.DeliveryHint}. Please try again in a moment or contact your administrator.",
+                ex);
+        }
+
+        challenge.DeliveryStatus = "sent";
+        challenge.DeliveryMessage = $"A new 6-digit verification code was sent to {challenge.DeliveryHint}. Use the most recent email only. The code expires in 5 minutes.";
+
+        challengeRow.Value = JsonSerializer.Serialize(challenge);
+        challengeRow.UpdatedAt = DateTime.UtcNow;
+        await _context.SaveChangesAsync();
+
+        await _auditLoggingService.LogActionAsync(
+            "MFA_OTP_RESENT",
+            "Staff",
+            user.Id,
+            user.Id,
+            $"A fresh one-time login code was sent to {challenge.DeliveryHint}.",
+            ipAddress,
+            userAgent,
+            "SUCCESS");
+
+        return new LoginResponse
+        {
+            MfaRequired = true,
+            MfaToken = challenge.Token,
+            DeliveryChannel = challenge.DeliveryChannel,
+            DeliveryHint = challenge.DeliveryHint,
+            DeliveryStatus = challenge.DeliveryStatus,
+            DeliveryMessage = challenge.DeliveryMessage,
+            MfaExpiresAtUtc = challenge.ExpiresAt,
+            AllowedFactors = ["otp"],
+            DebugCode = _hostEnvironment.IsDevelopment() ? code : null
+        };
+    }
+
     private async Task<Staff?> LoadUserAsync(string email)
     {
         return await _context.Staff

@@ -95,6 +95,22 @@ export function useAuth() {
     }
   }, []);
 
+  const resendMfa = useCallback(async (mfaToken: string) => {
+    try {
+      setError(null);
+      setIsAuthenticating(true);
+      return await authService.resendMfa({ mfaToken });
+    } catch (err) {
+      const message = err instanceof ApiError
+        ? err.data?.message || err.data?.error || err.message || 'Could not resend verification code'
+        : (err as Error).message;
+      setError(message);
+      throw err;
+    } finally {
+      setIsAuthenticating(false);
+    }
+  }, []);
+
   const syncAuthState = useCallback(() => {
     const currentUser = authService.getUser();
     const token = authService.getToken();
@@ -102,7 +118,7 @@ export function useAuth() {
     setIsAuthenticated(!!token && !!currentUser);
   }, []);
 
-  return { user, isAuthenticated, isLoading, isAuthenticating, error, login, verifyMfa, logout, syncAuthState };
+  return { user, isAuthenticated, isLoading, isAuthenticating, error, login, verifyMfa, resendMfa, logout, syncAuthState };
 }
 
 // Reports Hook

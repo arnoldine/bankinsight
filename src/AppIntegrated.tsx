@@ -29,7 +29,7 @@ function AppContent() {
 
   const { isLoaded, isSignedIn, getToken } = clerkAuth;
   const { user: clerkUser } = clerkUserHook;
-  const { user, isAuthenticated, isLoading, isAuthenticating, login, verifyMfa, logout } = useAuth();
+  const { user, isAuthenticated, isLoading, isAuthenticating, login, verifyMfa, resendMfa, logout } = useAuth();
   const [error, setError] = useState<string | null>(null);
   const [syncing, setSyncing] = useState(false);
   const [authMode, setAuthMode] = useState<'legacy' | 'clerk'>('legacy');
@@ -71,6 +71,16 @@ function AppContent() {
     try {
       setError(null);
       return await verifyMfa(mfaToken, code);
+    } catch (err) {
+      setError((err as Error).message);
+      throw err;
+    }
+  };
+
+  const handleResendMfa = async (mfaToken: string): Promise<LoginResponse> => {
+    try {
+      setError(null);
+      return await resendMfa(mfaToken);
     } catch (err) {
       setError((err as Error).message);
       throw err;
@@ -141,6 +151,7 @@ function AppContent() {
         <LoginScreen
           onLogin={handleLogin}
           onVerifyMfa={handleVerifyMfa}
+          onResendMfa={handleResendMfa}
           loading={isAuthenticating}
           error={error}
           onUseClerk={enableClerkAuth ? () => setAuthMode('clerk') : undefined}
