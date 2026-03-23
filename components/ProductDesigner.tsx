@@ -28,6 +28,7 @@ const emptyEligibilityRules = {
 
 const ProductDesigner: React.FC<ProductDesignerProps> = ({ products, onCreateProduct, onUpdateProduct }) => {
   const [selectedType, setSelectedType] = useState<Product['type'] | 'ALL'>('ALL');
+  const [searchQuery, setSearchQuery] = useState('');
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [formData, setFormData] = useState<Partial<Product>>({
