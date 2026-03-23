@@ -72,18 +72,44 @@ public class EmailAlertService : IEmailAlertService
         object? context,
         string auditActionPrefix)
     {
+        var normalizedRecipients = recipients
+            .Where(recipient => !string.IsNullOrWhiteSpace(recipient))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
         try
         {
             // If SMTP is not configured, fall back to logging
             if (_smtpSettings?.Enabled != true || string.IsNullOrEmpty(_smtpSettings?.Host))
             {
-                _logger.LogWarning("EMAIL DELIVERY DISABLED: {Subject} | {Message} | Recipients: {@Recipients} | Context: {@Context}", subject, message, recipients, context);
+                _logger.LogWarning("EMAIL DELIVERY DISABLED: {Subject} | {Message} | Recipients: {@Recipients} | Context: {@Context}", subject, message, normalizedRecipients, context);
+
+                if (_auditLoggingService != null)
+                {
+                    await _auditLoggingService.LogActionAsync(
+                        action: $"{auditActionPrefix}_DISABLED",
+                        entityType: "EMAIL",
+                        entityId: null,
+                        userId: null,
+                        description: $"Email delivery skipped because SMTP is disabled or incomplete: {subject}",
+                        status: "SKIPPED",
+                        newValues: new
+                        {
+                            subject,
+                            recipients = normalizedRecipients,
+                            smtpEnabled = _smtpSettings?.Enabled == true,
+                            smtpHost = _smtpSettings?.Host,
+                            fromAddress = _smtpSettings?.FromAddress
+                        });
+                }
+
                 return;
             }
 
             using (var smtpClient = new SmtpClient(_smtpSettings.Host, _smtpSettings.Port))
             {
                 smtpClient.EnableSsl = _smtpSettings.EnableSsl;
+                smtpClient.UseDefaultCredentials = false;
                 smtpClient.Timeout = _smtpSettings.TimeoutSeconds * 1000;
 
                 if (!string.IsNullOrEmpty(_smtpSettings.Username) && !string.IsNullOrEmpty(_smtpSettings.Password))
@@ -103,7 +129,7 @@ public class EmailAlertService : IEmailAlertService
                     }
                     mailMessage.IsBodyHtml = false;
 
-                    foreach (var recipient in recipients)
+                    foreach (var recipient in normalizedRecipients)
                     {
                         if (!string.IsNullOrWhiteSpace(recipient))
                         {
@@ -124,7 +150,15 @@ public class EmailAlertService : IEmailAlertService
                             userId: null,
                             description: $"Email delivered: {subject}",
                             status: "SUCCESS",
-                            newValues: new { recipients = mailMessage.To.Count, subject });
+                            newValues: new
+                            {
+                                recipients = normalizedRecipients,
+                                recipientCount = mailMessage.To.Count,
+                                subject,
+                                smtpHost = _smtpSettings.Host,
+                                smtpPort = _smtpSettings.Port,
+                                fromAddress
+                            });
                     }
                 }
             }
@@ -144,7 +178,15 @@ public class EmailAlertService : IEmailAlertService
                     description: $"Failed to send email: {subject}",
                     status: "FAILED",
                     errorMessage: ex.Message,
-                    newValues: new { subject, errorType = ex.GetType().Name });
+                    newValues: new
+                    {
+                        subject,
+                        errorType = ex.GetType().Name,
+                        recipients = normalizedRecipients,
+                        smtpHost = _smtpSettings?.Host,
+                        smtpPort = _smtpSettings?.Port,
+                        fromAddress = _smtpSettings?.FromAddress
+                    });
             }
             // Rethrow to ensure alert is not silently lost
             throw;

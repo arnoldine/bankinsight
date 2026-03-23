@@ -22,6 +22,9 @@ public class LoginResponse
     public string? MfaToken { get; set; }
     public string? DeliveryChannel { get; set; }
     public string? DeliveryHint { get; set; }
+    public string? DeliveryStatus { get; set; }
+    public string? DeliveryMessage { get; set; }
+    public DateTime? MfaExpiresAtUtc { get; set; }
     public string[] AllowedFactors { get; set; } = [];
     public string? DebugCode { get; set; }
 }

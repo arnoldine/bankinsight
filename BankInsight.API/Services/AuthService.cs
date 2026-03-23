@@ -116,6 +116,9 @@ public class AuthService
                 MfaToken = challenge.Token,
                 DeliveryChannel = challenge.DeliveryChannel,
                 DeliveryHint = challenge.DeliveryHint,
+                DeliveryStatus = challenge.DeliveryStatus,
+                DeliveryMessage = challenge.DeliveryMessage,
+                MfaExpiresAtUtc = challenge.ExpiresAt,
                 AllowedFactors = ["otp"],
                 DebugCode = _hostEnvironment.IsDevelopment() ? challenge.DebugCode : null
             };
@@ -368,17 +371,43 @@ public class AuthService
         _context.SystemConfigs.Add(row);
         await _context.SaveChangesAsync();
 
-        await _emailAlertService.SendEmailAsync(
-            user.Email,
-            "Your BankInsight verification code",
-            $"Use this one-time verification code to complete your sign-in: {code}\n\nThe code expires in 5 minutes. If you did not attempt to sign in, please contact your administrator immediately.",
-            new
-            {
-                userId = user.Id,
-                deliveryChannel = challenge.DeliveryChannel,
-                expiresAt = challenge.ExpiresAt
-            },
-            category: "MFA_OTP");
+        try
+        {
+            await _emailAlertService.SendEmailAsync(
+                user.Email,
+                "Your BankInsight verification code",
+                $"Use this one-time verification code to complete your sign-in: {code}\n\nThe code expires in 5 minutes. If you did not attempt to sign in, please contact your administrator immediately.",
+                new
+                {
+                    userId = user.Id,
+                    deliveryChannel = challenge.DeliveryChannel,
+                    expiresAt = challenge.ExpiresAt
+                },
+                category: "MFA_OTP");
+        }
+        catch (Exception ex)
+        {
+            await _auditLoggingService.LogActionAsync(
+                "MFA_OTP_DELIVERY_FAILED",
+                "Staff",
+                user.Id,
+                user.Id,
+                $"The one-time login code could not be delivered to {challenge.DeliveryHint}.",
+                ipAddress,
+                userAgent,
+                "FAILED",
+                errorMessage: ex.Message,
+                newValues: new
+                {
+                    challenge.DeliveryChannel,
+                    challenge.DeliveryHint,
+                    challenge.ExpiresAt
+                });
+
+            throw new InvalidOperationException(
+                $"We could not deliver your verification code to {challenge.DeliveryHint}. Please try again in a moment or contact your administrator.",
+                ex);
+        }
 
         await _auditLoggingService.LogActionAsync(
             "MFA_OTP_GENERATED",
@@ -389,6 +418,9 @@ public class AuthService
             ipAddress,
             userAgent,
             "PENDING");
+
+        challenge.DeliveryStatus = "sent";
+        challenge.DeliveryMessage = $"A 6-digit verification code was sent to {challenge.DeliveryHint}. Check your inbox, spam, or promotions folders. The code expires in 5 minutes.";
 
         return challenge;
     }
@@ -431,6 +463,8 @@ public class AuthService
         public int Attempts { get; set; }
         public string DeliveryChannel { get; set; } = "EMAIL_OTP";
         public string DeliveryHint { get; set; } = string.Empty;
+        public string DeliveryStatus { get; set; } = "pending";
+        public string DeliveryMessage { get; set; } = string.Empty;
         public string? DebugCode { get; set; }
         public string RequestedIpAddress { get; set; } = string.Empty;
         public string? RequestedUserAgent { get; set; }

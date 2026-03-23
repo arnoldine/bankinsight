@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { AlertCircle, ArrowRight, Loader2, Lock, Mail, ShieldCheck } from 'lucide-react';
+import { AlertCircle, ArrowRight, CheckCircle2, Loader2, Lock, Mail, ShieldCheck } from 'lucide-react';
 import { LoginResponse } from '../services/authService';
 
 export interface LoginProps {
@@ -24,6 +24,7 @@ export default function LoginScreen({
   const [mfaCode, setMfaCode] = useState('');
   const [mfaToken, setMfaToken] = useState<string | null>(null);
   const [mfaHint, setMfaHint] = useState<string | null>(null);
+  const [mfaExpiry, setMfaExpiry] = useState<string | null>(null);
   const [mfaDebugCode, setMfaDebugCode] = useState<string | null>(null);
   const [validationError, setValidationError] = useState<string | null>(null);
   const [mfaMessage, setMfaMessage] = useState<string | null>(null);
@@ -72,16 +73,23 @@ export default function LoginScreen({
       if (response.mfaRequired && response.mfaToken) {
         setMfaToken(response.mfaToken);
         setMfaHint(response.deliveryHint || null);
+        setMfaExpiry(response.mfaExpiresAtUtc || null);
         setMfaDebugCode(response.debugCode || null);
         setMfaCode('');
-        setMfaMessage(`Enter the one-time code sent to ${response.deliveryHint || 'your registered channel'}.`);
+        setMfaMessage(
+          response.deliveryMessage ||
+          `Enter the one-time code sent to ${response.deliveryHint || 'your registered channel'}.`
+        );
       }
     } catch {
       // Parent handles API errors.
     }
   };
 
-  const message = error || validationError || mfaMessage;
+  const errorMessage = error || validationError;
+  const mfaExpiryLabel = mfaExpiry
+    ? new Date(mfaExpiry).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    : null;
 
   return (
     <div className="simple-screen min-h-screen bg-slate-100 px-4 py-8 text-slate-900">
@@ -104,10 +112,10 @@ export default function LoginScreen({
             </p>
           </div>
 
-          {message ? (
+          {errorMessage ? (
             <div className="mt-6 flex items-start gap-3 rounded-xl border border-[#f2dad6] bg-[#fbf0ef] px-4 py-3 text-sm text-[#8f4439]">
               <AlertCircle className="mt-0.5 h-4 w-4 flex-shrink-0" />
-              <div className="flex-1 leading-6">{message}</div>
+              <div className="flex-1 leading-6">{errorMessage}</div>
               <button
                 type="button"
                 onClick={onErrorDismiss || (() => setValidationError(null))}
@@ -115,6 +123,22 @@ export default function LoginScreen({
               >
                 Close
               </button>
+            </div>
+          ) : null}
+
+          {mfaToken && mfaMessage ? (
+            <div className="mt-6 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-4 text-sm text-emerald-900">
+              <div className="flex items-start gap-3">
+                <CheckCircle2 className="mt-0.5 h-4 w-4 flex-shrink-0 text-emerald-600" />
+                <div className="space-y-2 leading-6">
+                  <p className="font-medium">{mfaMessage}</p>
+                  <ul className="list-disc space-y-1 pl-5 text-emerald-800/90">
+                    <li>Check your inbox, spam, and promotions folders.</li>
+                    <li>Use the most recent 6-digit code only.</li>
+                    {mfaExpiryLabel ? <li>The current code expires around {mfaExpiryLabel}.</li> : null}
+                  </ul>
+                </div>
+              </div>
             </div>
           ) : null}
 
@@ -189,6 +213,7 @@ export default function LoginScreen({
                 onClick={() => {
                   setMfaToken(null);
                   setMfaHint(null);
+                  setMfaExpiry(null);
                   setMfaDebugCode(null);
                   setMfaCode('');
                   setMfaMessage(null);

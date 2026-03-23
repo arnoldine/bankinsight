@@ -51,7 +51,9 @@ export function useAuth() {
       }
       return response;
     } catch (err) {
-      const message = err instanceof ApiError ? 'Login failed' : (err as Error).message;
+      const message = err instanceof ApiError
+        ? err.data?.message || err.data?.error || err.message || 'Login failed'
+        : (err as Error).message;
       setError(message);
       throw err;
     } finally {
@@ -83,7 +85,9 @@ export function useAuth() {
       }
       return response;
     } catch (err) {
-      const message = err instanceof ApiError ? 'Verification failed' : (err as Error).message;
+      const message = err instanceof ApiError
+        ? err.data?.message || err.data?.error || err.message || 'Verification failed'
+        : (err as Error).message;
       setError(message);
       throw err;
     } finally {

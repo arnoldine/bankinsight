@@ -22,6 +22,9 @@ export interface LoginResponse {
   mfaToken?: string | null;
   deliveryChannel?: string | null;
   deliveryHint?: string | null;
+  deliveryStatus?: string | null;
+  deliveryMessage?: string | null;
+  mfaExpiresAtUtc?: string | null;
   allowedFactors?: string[];
   debugCode?: string | null;
 }
@@ -221,4 +224,3 @@ class AuthService {
 }
 
 export const authService = new AuthService();
-
