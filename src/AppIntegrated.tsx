@@ -5,6 +5,7 @@ import { useAuth } from './hooks/useApi';
 import LoginScreen from './components/LoginScreen';
 import EnhancedDashboardLayout from './components/EnhancedDashboardLayout';
 import ErrorBoundary from './components/ErrorBoundary';
+import { API_CONFIG } from './services/apiConfig';
 import { setClerkGetToken } from './services/httpClient';
 import { authService, LoginResponse } from './services/authService';
 
@@ -84,7 +85,7 @@ function AppContent() {
     setSyncing(true);
     try {
       const response = await fetch(
-        `${import.meta.env.VITE_API_URL || 'http://localhost:5176/api'}/clerk/sync`,
+        `${API_CONFIG.baseUrl}/clerk/sync`,
         {
           method: 'POST',
           headers: {
@@ -237,9 +238,8 @@ function AppContent() {
  * Clerk-wrapped App component
  */
 export default function App() {
-  // Always wrap with ClerkProvider if we have a publishable key
-  // This is required because AppContent uses Clerk hook logic
-  if (clerkPublishableKey) {
+  // Only enable Clerk when it is explicitly turned on.
+  if (enableClerkAuth) {
     return (
       <ClerkProvider publishableKey={clerkPublishableKey}>
         <ErrorBoundary>
