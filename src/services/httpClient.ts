@@ -1,11 +1,40 @@
 import { API_CONFIG } from './apiConfig';
 
 export class ApiError extends Error {
+  private static resolveMessage(status: number, data?: any): string {
+    const explicitMessage =
+      (typeof data?.message === 'string' && data.message.trim()) ||
+      (typeof data?.error === 'string' && data.error.trim());
+
+    if (explicitMessage) {
+      return explicitMessage;
+    }
+
+    switch (status) {
+      case 0:
+        return 'Network error. Please check your connection and try again.';
+      case 400:
+        return 'The request could not be processed. Please review your input and try again.';
+      case 401:
+        return 'Your credentials or verification code are invalid or expired.';
+      case 403:
+        return 'You do not have permission to perform this action.';
+      case 404:
+        return 'The requested resource could not be found.';
+      case 408:
+        return 'The request timed out. Please try again.';
+      case 500:
+        return 'The server encountered an unexpected error. Please try again shortly.';
+      default:
+        return `Request failed (${status}). Please try again.`;
+    }
+  }
+
   constructor(
     public status: number,
     public data?: any
   ) {
-    super(`API Error: ${status}`);
+    super(ApiError.resolveMessage(status, data));
     this.name = 'ApiError';
   }
 }
