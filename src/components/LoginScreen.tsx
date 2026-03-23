@@ -39,8 +39,8 @@ export default function LoginScreen({
     setResendMessage(null);
 
     if (mfaToken) {
-      if (!mfaCode || mfaCode.trim().length < 4) {
-        setValidationError('Enter the one-time verification code.');
+      if (!mfaCode || mfaCode.trim().length !== 6) {
+        setValidationError('Enter the full 6-digit verification code.');
         return;
       }
 
@@ -189,7 +189,7 @@ export default function LoginScreen({
                     inputMode="numeric"
                     value={mfaCode}
                     onChange={(event) => setMfaCode(event.target.value.replace(/\D/g, '').slice(0, 6))}
-                    placeholder="Enter verification code"
+                    placeholder="Enter 6-digit code"
                     disabled={loading}
                     className="w-full bg-transparent text-[15px] text-slate-900 placeholder:text-slate-400 focus:outline-none"
                   />
@@ -204,7 +204,7 @@ export default function LoginScreen({
 
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || (!!mfaToken && mfaCode.trim().length !== 6)}
               className="screen-button-primary inline-flex w-full items-center justify-center gap-2 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowRight className="h-4 w-4" />}

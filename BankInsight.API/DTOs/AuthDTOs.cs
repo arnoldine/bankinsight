@@ -35,7 +35,7 @@ public class VerifyMfaRequest
     public string MfaToken { get; set; } = string.Empty;
 
     [Required(ErrorMessage = "Verification code is required")]
-    [StringLength(8, MinimumLength = 4, ErrorMessage = "Verification code must be between 4 and 8 digits")]
+    [StringLength(6, MinimumLength = 6, ErrorMessage = "Verification code must be exactly 6 digits")]
     public string Code { get; set; } = string.Empty;
 }
 
