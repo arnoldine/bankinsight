@@ -400,7 +400,8 @@ public class AuthService
         Staff user,
         (string RoleName, string RoleId, string[] AllPermissions, string[] LeasedPermissions) permissionBundle)
     {
-        var secret = _config["JwtSettings:Secret"];
+        var secret = Environment.GetEnvironmentVariable("JWT_SECRET")
+            ?? _config["JwtSettings:Secret"];
         if (string.IsNullOrEmpty(secret))
         {
             throw new InvalidOperationException("JWT secret key is not configured");
