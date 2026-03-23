@@ -7,7 +7,6 @@ using BankInsight.API.Infrastructure;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.AspNetCore.Authorization;
-using System.Text;
 using Microsoft.OpenApi.Models;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -22,9 +21,8 @@ if (string.IsNullOrEmpty(connectionString))
         "Database connection string must be provided via DB_CONNECTION_STRING environment variable or ConnectionStrings:DefaultConnection in configuration");
 }
 
-// Read JWT secret from environment variable with fallback to configuration
-var jwtSecret = Environment.GetEnvironmentVariable("JWT_SECRET") 
-    ?? builder.Configuration["JwtSettings:Secret"];
+// Resolve and validate JWT secret once during startup.
+var jwtSecretBytes = JwtSecretResolver.ResolveBytes(builder.Configuration);
 
 // Add services to the container.
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
@@ -117,12 +115,6 @@ builder.Services.AddAntiforgery(options =>
     options.SuppressXFrameOptionsHeader = false;
 });
 
-var secretKey = jwtSecret;
-if (string.IsNullOrEmpty(secretKey))
-{
-    throw new InvalidOperationException("JWT secret key must be configured in appsettings.json");
-}
-
 var issuer = builder.Configuration["JwtSettings:Issuer"] ?? "BankInsight";
 var audience = builder.Configuration["JwtSettings:Audience"] ?? "BankInsightAPI";
 
@@ -153,7 +145,7 @@ builder.Services.AddAuthentication(options =>
     options.TokenValidationParameters = new TokenValidationParameters
     {
         ValidateIssuerSigningKey = true,
-        IssuerSigningKey = new SymmetricSecurityKey(Encoding.ASCII.GetBytes(secretKey)),
+        IssuerSigningKey = new SymmetricSecurityKey(jwtSecretBytes),
         ValidateIssuer = true,
         ValidIssuer = issuer,
         ValidateAudience = true,

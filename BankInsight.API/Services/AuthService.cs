@@ -1,10 +1,10 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
-using System.Text;
 using System.Text.Json;
 using BankInsight.API.Data;
 using BankInsight.API.DTOs;
 using BankInsight.API.Entities;
+using BankInsight.API.Security;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
@@ -400,16 +400,9 @@ public class AuthService
         Staff user,
         (string RoleName, string RoleId, string[] AllPermissions, string[] LeasedPermissions) permissionBundle)
     {
-        var secret = Environment.GetEnvironmentVariable("JWT_SECRET")
-            ?? _config["JwtSettings:Secret"];
-        if (string.IsNullOrEmpty(secret))
-        {
-            throw new InvalidOperationException("JWT secret key is not configured");
-        }
-
         var issuer = _config["JwtSettings:Issuer"] ?? "BankInsight";
         var audience = _config["JwtSettings:Audience"] ?? "BankInsightAPI";
-        var key = Encoding.ASCII.GetBytes(secret);
+        var key = JwtSecretResolver.ResolveBytes(_config);
 
         var claims = new List<Claim>
         {

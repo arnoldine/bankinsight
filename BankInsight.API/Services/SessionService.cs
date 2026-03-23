@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using BankInsight.API.Data;
 using BankInsight.API.DTOs;
 using BankInsight.API.Entities;
+using BankInsight.API.Security;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Tokens;
@@ -251,7 +252,7 @@ public class SessionService : ISessionService
     private string GenerateJwtToken(Staff staff)
     {
         var jwtSettings = _configuration.GetSection("JwtSettings");
-        var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSettings["Secret"] ?? "DefaultSecretKey123!"));
+        var key = new SymmetricSecurityKey(JwtSecretResolver.ResolveBytes(_configuration));
         var credentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
 
         var claims = new List<Claim>
