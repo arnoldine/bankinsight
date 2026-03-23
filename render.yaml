@@ -28,7 +28,7 @@ services:
     plan: free
     dockerfilePath: ./BankInsight.API/Dockerfile
     autoDeployTrigger: commit
-    healthCheckPath: /swagger/index.html
+    healthCheckPath: /health
     envVars:
       - key: ASPNETCORE_ENVIRONMENT
         value: Production

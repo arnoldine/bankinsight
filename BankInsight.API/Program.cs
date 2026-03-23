@@ -117,7 +117,7 @@ builder.Services.AddAntiforgery(options =>
     options.SuppressXFrameOptionsHeader = false;
 });
 
-var secretKey = builder.Configuration["JwtSettings:Secret"];
+var secretKey = jwtSecret;
 if (string.IsNullOrEmpty(secretKey))
 {
     throw new InvalidOperationException("JWT secret key must be configured in appsettings.json");
@@ -251,6 +251,14 @@ app.UseHttpsRedirection();
 app.UseAuthentication();
 app.UseAuthorization();
 app.UseAntiforgery(); // CSRF protection after authentication
+
+app.MapGet("/health", () => Results.Ok(new
+{
+    status = "ok",
+    service = "bankinsight-api",
+    environment = app.Environment.EnvironmentName,
+    timestampUtc = DateTime.UtcNow
+})).AllowAnonymous();
 
 app.MapControllers();
 app.Run();
