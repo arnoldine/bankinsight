@@ -129,6 +129,14 @@ public class AuthService
 
     public async Task<LoginResponse?> VerifyMfaAsync(VerifyMfaRequest request, string ipAddress, string? userAgent)
     {
+        if (string.IsNullOrWhiteSpace(request.MfaToken) ||
+            string.IsNullOrWhiteSpace(request.Code) ||
+            request.Code.Trim().Length != 6 ||
+            !request.Code.All(char.IsDigit))
+        {
+            return null;
+        }
+
         var challengeRow = await _context.SystemConfigs.FirstOrDefaultAsync(config => config.Key == GetMfaChallengeKey(request.MfaToken));
         if (challengeRow == null)
         {
