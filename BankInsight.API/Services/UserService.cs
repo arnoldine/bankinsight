@@ -30,13 +30,21 @@ public class UserService
 
     public async Task<Staff> CreateUserAsync(CreateUserRequest request)
     {
+        var normalizedEmail = request.Email?.Trim();
+        if (!string.IsNullOrEmpty(normalizedEmail))
+        {
+            var emailTaken = await _context.Staff.AnyAsync(s => s.Email == normalizedEmail);
+            if (emailTaken)
+                throw new InvalidOperationException($"A user with email '{normalizedEmail}' already exists.");
+        }
+
         var id = $"STF{(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() % 10000).ToString().PadLeft(4, '0')}";
 
         var user = new Staff
         {
             Id = id,
             Name = request.Name,
-            Email = request.Email,
+            Email = normalizedEmail ?? request.Email,
             Phone = request.Phone,
             BranchId = string.IsNullOrEmpty(request.BranchId) ? null : request.BranchId,
             PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.Password),
