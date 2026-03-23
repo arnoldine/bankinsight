@@ -48,9 +48,27 @@ public class UserController : ControllerBase
     [RequirePermission("MANAGE_USERS")]
     public async Task<IActionResult> UpdateUser(string id, [FromBody] UpdateUserRequest request)
     {
-        var user = await _userService.UpdateUserAsync(id, request);
-        if (user == null) return NotFound(new { message = "User not found" });
-        return Ok(user);
+        try
+        {
+            var user = await _userService.UpdateUserAsync(id, request);
+            if (user == null) return NotFound(new { message = "User not found" });
+            return Ok(user);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Conflict(new { message = ex.Message });
+        }
+        catch (Microsoft.EntityFrameworkCore.DbUpdateException ex)
+        {
+            var inner = ex.InnerException?.Message ?? ex.Message;
+            if (inner.Contains("unique", StringComparison.OrdinalIgnoreCase) ||
+                inner.Contains("duplicate", StringComparison.OrdinalIgnoreCase))
+                return Conflict(new { message = "A user with that email already exists." });
+            if (inner.Contains("foreign key", StringComparison.OrdinalIgnoreCase) ||
+                inner.Contains("violates", StringComparison.OrdinalIgnoreCase))
+                return BadRequest(new { message = "Invalid branch or role reference." });
+            return StatusCode(500, new { message = "An unexpected error occurred while updating the user." });
+        }
     }
 
     [HttpDelete("{id}")]

@@ -61,9 +61,20 @@ public class UserService
         if (user == null) return null;
 
         if (request.Name != null) user.Name = request.Name;
-        if (request.Email != null) user.Email = request.Email;
-        if (request.Phone != null) user.Phone = request.Phone;
-        if (request.RoleId != null) 
+
+        if (request.Email != null)
+        {
+            // Guard against duplicate email on another user
+            var emailTaken = await _context.Staff
+                .AnyAsync(s => s.Id != id && s.Email == request.Email);
+            if (emailTaken)
+                throw new InvalidOperationException($"Email '{request.Email}' is already in use.");
+            user.Email = request.Email;
+        }
+
+        if (request.Phone != null) user.Phone = string.IsNullOrEmpty(request.Phone) ? null : request.Phone;
+
+        if (request.RoleId != null)
         {
             user.UserRoles.Clear();
             if (!string.IsNullOrEmpty(request.RoleId))
@@ -71,7 +82,11 @@ public class UserService
                 user.UserRoles.Add(new UserRole { RoleId = request.RoleId });
             }
         }
-        if (request.BranchId != null) user.BranchId = request.BranchId;
+
+        // Normalize empty strings to null so FK constraints are not violated
+        if (request.BranchId != null)
+            user.BranchId = string.IsNullOrEmpty(request.BranchId) ? null : request.BranchId;
+
         if (request.Status != null) user.Status = request.Status;
         if (request.Password != null) user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.Password);
 
