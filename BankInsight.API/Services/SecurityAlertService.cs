@@ -6,6 +6,7 @@ using System.Net.Mail;
 public interface IEmailAlertService
 {
     Task SendSecurityAlertAsync(string subject, string message, object? context = null);
+    Task SendEmailAsync(string recipient, string subject, string message, object? context = null, string? category = null);
 }
 
 public class EmailAlertService : IEmailAlertService
@@ -28,19 +29,55 @@ public class EmailAlertService : IEmailAlertService
 
     public async Task SendSecurityAlertAsync(string subject, string message, object? context = null)
     {
+        var recipients = (_smtpSettings?.Recipients ?? new List<string>())
+            .Where(recipient => !string.IsNullOrWhiteSpace(recipient))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        if (!recipients.Any())
+        {
+            _logger.LogWarning("SECURITY ALERT: No recipients configured for email delivery. {Subject} | {Message}", subject, message);
+            return;
+        }
+
+        await SendEmailCoreAsync(
+            recipients,
+            $"[SECURITY] {subject}",
+            $"Timestamp: {DateTime.UtcNow:O}\n\n{message}",
+            context,
+            auditActionPrefix: "SECURITY_EMAIL");
+    }
+
+    public async Task SendEmailAsync(string recipient, string subject, string message, object? context = null, string? category = null)
+    {
+        if (string.IsNullOrWhiteSpace(recipient))
+        {
+            _logger.LogWarning("EMAIL DELIVERY: Recipient was empty for subject {Subject}", subject);
+            return;
+        }
+
+        var normalizedCategory = string.IsNullOrWhiteSpace(category) ? "GENERIC" : category.Trim().ToUpperInvariant();
+        await SendEmailCoreAsync(
+            [recipient],
+            subject,
+            message,
+            context,
+            auditActionPrefix: $"{normalizedCategory}_EMAIL");
+    }
+
+    private async Task SendEmailCoreAsync(
+        IReadOnlyCollection<string> recipients,
+        string subject,
+        string message,
+        object? context,
+        string auditActionPrefix)
+    {
         try
         {
             // If SMTP is not configured, fall back to logging
             if (_smtpSettings?.Enabled != true || string.IsNullOrEmpty(_smtpSettings?.Host))
             {
-                _logger.LogWarning("SECURITY ALERT (SMTP DISABLED): {Subject} | {Message} | Context: {@Context}", subject, message, context);
-                return;
-            }
-
-            var recipients = _smtpSettings.Recipients ?? new List<string>();
-            if (!recipients.Any())
-            {
-                _logger.LogWarning("SECURITY ALERT: No recipients configured for email delivery. {Subject} | {Message}", subject, message);
+                _logger.LogWarning("EMAIL DELIVERY DISABLED: {Subject} | {Message} | Recipients: {@Recipients} | Context: {@Context}", subject, message, recipients, context);
                 return;
             }
 
@@ -58,7 +95,7 @@ public class EmailAlertService : IEmailAlertService
                 {
                     var fromAddress = _smtpSettings.FromAddress ?? "alerts@bankinsight.local";
                     mailMessage.From = new MailAddress(fromAddress, "BankInsight Security");
-                    mailMessage.Subject = $"[SECURITY] {subject}";
+                    mailMessage.Subject = subject;
                     mailMessage.Body = $"Timestamp: {DateTime.UtcNow:O}\n\n{message}";
                     if (context != null)
                     {
@@ -75,17 +112,17 @@ public class EmailAlertService : IEmailAlertService
                     }
 
                     await smtpClient.SendMailAsync(mailMessage);
-                    _logger.LogInformation("Security alert email sent: {Subject} to {RecipientCount} recipients", subject, mailMessage.To.Count);
+                    _logger.LogInformation("Email sent: {Subject} to {RecipientCount} recipients", subject, mailMessage.To.Count);
 
                     // Log successful email delivery to audit trail
                     if (_auditLoggingService != null)
                     {
                         await _auditLoggingService.LogActionAsync(
-                            action: "SECURITY_EMAIL_SENT",
-                            entityType: "SECURITY",
+                            action: $"{auditActionPrefix}_SENT",
+                            entityType: "EMAIL",
                             entityId: null,
                             userId: null,
-                            description: $"Security alert email delivered: {subject}",
+                            description: $"Email delivered: {subject}",
                             status: "SUCCESS",
                             newValues: new { recipients = mailMessage.To.Count, subject });
                     }
@@ -94,17 +131,17 @@ public class EmailAlertService : IEmailAlertService
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to send security alert email: {Subject}", subject);
+            _logger.LogError(ex, "Failed to send email: {Subject}", subject);
 
             // Log failed email delivery to audit trail
             if (_auditLoggingService != null)
             {
                 await _auditLoggingService.LogActionAsync(
-                    action: "SECURITY_EMAIL_FAILED",
-                    entityType: "SECURITY",
+                    action: $"{auditActionPrefix}_FAILED",
+                    entityType: "EMAIL",
                     entityId: null,
                     userId: null,
-                    description: $"Failed to send security alert email: {subject}",
+                    description: $"Failed to send email: {subject}",
                     status: "FAILED",
                     errorMessage: ex.Message,
                     newValues: new { subject, errorType = ex.GetType().Name });

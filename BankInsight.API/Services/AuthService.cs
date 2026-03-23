@@ -23,6 +23,7 @@ public class AuthService
     private readonly ISuspiciousActivityService _suspiciousActivityService;
     private readonly IPrivilegeLeaseService _privilegeLeaseService;
     private readonly IAuditLoggingService _auditLoggingService;
+    private readonly IEmailAlertService _emailAlertService;
     private readonly IHostEnvironment _hostEnvironment;
 
     public AuthService(
@@ -33,6 +34,7 @@ public class AuthService
         ISuspiciousActivityService suspiciousActivityService,
         IPrivilegeLeaseService privilegeLeaseService,
         IAuditLoggingService auditLoggingService,
+        IEmailAlertService emailAlertService,
         IHostEnvironment hostEnvironment)
     {
         _context = context;
@@ -42,6 +44,7 @@ public class AuthService
         _suspiciousActivityService = suspiciousActivityService;
         _privilegeLeaseService = privilegeLeaseService;
         _auditLoggingService = auditLoggingService;
+        _emailAlertService = emailAlertService;
         _hostEnvironment = hostEnvironment;
     }
 
@@ -364,6 +367,18 @@ public class AuthService
 
         _context.SystemConfigs.Add(row);
         await _context.SaveChangesAsync();
+
+        await _emailAlertService.SendEmailAsync(
+            user.Email,
+            "Your BankInsight verification code",
+            $"Use this one-time verification code to complete your sign-in: {code}\n\nThe code expires in 5 minutes. If you did not attempt to sign in, please contact your administrator immediately.",
+            new
+            {
+                userId = user.Id,
+                deliveryChannel = challenge.DeliveryChannel,
+                expiresAt = challenge.ExpiresAt
+            },
+            category: "MFA_OTP");
 
         await _auditLoggingService.LogActionAsync(
             "MFA_OTP_GENERATED",
