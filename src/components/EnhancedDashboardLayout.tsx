@@ -48,6 +48,7 @@ import { transactionService } from '../services/transactionService';
 import { approvalService } from '../services/approvalService';
 import { getDefaultRoute } from '../../lib/permissionUtils';
 import { groupLendingService } from '../services/groupLendingService';
+import PlatformToolsScreen from '../../components/PlatformToolsScreen';
 
 // Import missing screens
 import ReportingHub from './ReportingHub';
@@ -1402,7 +1403,11 @@ export default function EnhancedDashboardLayout({
           </ProtectedRoute>
         );
       case 'extensibility':
-        return <ExtensibilityTestPage />;
+        return (
+          <ProtectedRoute requiredPermission={Permissions.Roles.View} userPermissions={userPermissions}>
+            <PlatformToolsScreen />
+          </ProtectedRoute>
+        );
       case 'settings':
         return (
           <ProtectedRoute requiredPermission={Permissions.Roles.View} userPermissions={userPermissions}>
@@ -1583,7 +1588,7 @@ export default function EnhancedDashboardLayout({
                   <button
                     key={item.id}
                     onClick={() => handleMenuClick(item.id)}
-                    className={`rounded-full px-3.5 py-2 text-xs font-semibold transition ${activeTab === item.id ? 'bg-slate-950 text-white dark:bg-white dark:text-slate-950' : 'bg-white/75 text-slate-600 hover:bg-white dark:bg-drk-850/75 dark:text-slate-300 dark:hover:bg-drk-800'}`}
+                    className={`rounded-full px-3.5 py-2.5 text-xs font-semibold transition ${activeTab === item.id ? 'bg-slate-950 text-white dark:bg-white dark:text-slate-950' : 'bg-white/75 text-slate-600 hover:bg-white dark:bg-drk-850/75 dark:text-slate-300 dark:hover:bg-drk-800'}`}
                   >
                     {item.label}
                   </button>
@@ -1857,33 +1862,6 @@ function DashboardView({
                 <CheckCircle size={32} className="text-green-300" />
               )}
             </div>
-          </div>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1.2fr_0.8fr]">
-        <div className="glass-card rounded-[28px] border border-white/70 p-6 shadow-soft dark:border-white/10">
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <p className="font-accent text-[11px] uppercase tracking-[0.28em] text-slate-500 dark:text-slate-400">System status</p>
-              <h2 className="mt-1 text-2xl font-heading font-bold text-slate-950 dark:text-white">Operations dashboard</h2>
-              <p className="mt-2 max-w-2xl text-sm text-slate-600 dark:text-slate-300">
-                BankInsight provides system status, audit visibility, and direct navigation for daily banking operations.
-              </p>
-            </div>
-            <div className="rounded-[22px] border border-white/70 bg-white/75 px-4 py-3 text-right dark:border-white/10 dark:bg-white/5">
-              <p className="text-[11px] font-accent uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">User role</p>
-              <p className="mt-1 text-sm font-semibold text-slate-900 dark:text-white">{user.role || 'Operations User'}</p>
-            </div>
-          </div>
-        </div>
-        <div className="glass-card rounded-[28px] border border-white/70 p-6 shadow-soft dark:border-white/10">
-          <p className="font-accent text-[11px] uppercase tracking-[0.28em] text-slate-500 dark:text-slate-400">Readiness markers</p>
-          <div className="mt-4 grid grid-cols-2 gap-3">
-            <MetricMini label="Customers" value={customers.length.toLocaleString()} />
-            <MetricMini label="Accounts" value={accounts.length.toLocaleString()} />
-            <MetricMini label="Loans" value={loans.length.toLocaleString()} />
-            <MetricMini label="Audits" value={auditLogs.length.toLocaleString()} />
           </div>
         </div>
       </div>
