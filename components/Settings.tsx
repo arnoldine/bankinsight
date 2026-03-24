@@ -436,6 +436,22 @@ export default function Settings({
             .filter((group) => group.entries.length > 0);
     }, [permissionCatalog, roleSearch]);
 
+    const totalPermissionCount = useMemo(
+        () => permissionCatalog.reduce((count, group) => count + group.entries.length, 0),
+        [permissionCatalog]
+    );
+
+    const latestPermissionHighlights = useMemo(() => ([
+        'reports.generate',
+        'reports.approve',
+        'reports.submit',
+        'reports.configure',
+        Permissions.Processes.Publish,
+        Permissions.Tasks.Claim,
+        Permissions.Tasks.Complete,
+        Permissions.Audit.View,
+    ]), []);
+
     const selectedProcess = processDefinitions.find((definition) => definition.id === selectedProcessId) || null;
 
     const tabs: Array<{ id: SettingsTab; label: string; icon: React.ReactNode }> = [
@@ -1130,6 +1146,27 @@ export default function Settings({
                     <InfoCard label="Assigned Permissions" value={String(roleDraft.permissions.length)} />
                     <InfoCard label="Users With Role" value={String(roleDraft.userCount || 0)} />
                     <InfoCard label="Role Type" value={roleDraft.isSystemRole ? 'System' : selectedRoleId ? 'Existing' : 'Draft'} />
+                </div>
+
+                <div className="rounded-2xl border border-blue-200 bg-blue-50 px-4 py-4 text-sm text-blue-900 dark:border-blue-900/60 dark:bg-blue-950/30 dark:text-blue-100">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                        <div>
+                            <div className="font-semibold">Permission catalog synced with current platform modules</div>
+                            <div className="mt-1 text-xs text-blue-800/80 dark:text-blue-200/80">
+                                Settings now includes the latest reporting, process, workflow, and audit permissions exposed by the platform.
+                            </div>
+                        </div>
+                        <div className="rounded-full bg-white/80 px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] text-blue-700 dark:bg-slate-900/60 dark:text-blue-200">
+                            {totalPermissionCount} permissions
+                        </div>
+                    </div>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                        {latestPermissionHighlights.map((code) => (
+                            <span key={code} className="rounded-full border border-blue-200 bg-white px-2.5 py-1 text-[11px] font-medium text-blue-700 dark:border-blue-900/60 dark:bg-slate-900/60 dark:text-blue-200">
+                                {code}
+                            </span>
+                        ))}
+                    </div>
                 </div>
 
                 <div className="relative">

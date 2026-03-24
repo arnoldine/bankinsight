@@ -42,7 +42,11 @@ export const Permissions = {
     View: "reports.view",
     Financial: "reports.financial",
     Regulatory: "reports.regulatory",
-    Risk: "reports.risk"
+    Risk: "reports.risk",
+    Generate: "reports.generate",
+    Approve: "reports.approve",
+    Submit: "reports.submit",
+    Configure: "reports.configure"
   },
   Workflow: {
     View: "workflow.view",
