@@ -77,9 +77,9 @@ export default function SecurityOperationsHub({
 
   const tabs: Array<{ id: SecurityTab; label: string; helper: string }> = [
     { id: 'overview', label: 'Overview', helper: 'Security posture and quick actions' },
-    { id: 'terminal-setup', label: 'Terminal Setup', helper: 'Register and update cash terminals' },
-    { id: 'device-management', label: 'Device Management', helper: 'Block, isolate, search, and review devices' },
-    { id: 'monitoring', label: 'Monitoring', helper: 'Irregular transactions and security alerts' },
+    { id: 'terminal-setup', label: 'Terminal Registration', helper: 'Register and update cash terminals' },
+    { id: 'device-management', label: 'Device Governance', helper: 'Block, isolate, search, and review devices' },
+    { id: 'monitoring', label: 'Threat Monitoring', helper: 'Irregular transactions, alerts, and audit logs' },
   ];
 
   const loadData = async () => {
@@ -543,6 +543,7 @@ export default function SecurityOperationsHub({
                   : `This ${item.type.toLowerCase()} was highlighted for investigation with risk score ${item.riskScore}.`}
               </p>
               <div className="mt-3 text-xs text-slate-500 dark:text-slate-400">{item.detectedAt ? new Date(item.detectedAt).toLocaleString() : 'Timestamp unavailable'}</div>
+              <button className="mt-2 rounded bg-blue-600 px-3 py-1 text-xs font-semibold text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-400" aria-label="Open in Audit Log">View in Audit Log</button>
             </div>
           ))}
         </div>
@@ -577,8 +578,16 @@ export default function SecurityOperationsHub({
               </div>
               <p className="mt-3 text-sm text-slate-600 dark:text-slate-300">{alert.description}</p>
               <div className="mt-3 text-xs text-slate-500 dark:text-slate-400">{alert.createdAt ? new Date(alert.createdAt).toLocaleString() : 'Timestamp unavailable'}</div>
+              <button className="mt-2 rounded bg-blue-600 px-3 py-1 text-xs font-semibold text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-400" aria-label="Open in Audit Log">View in Audit Log</button>
             </div>
           ))}
+        </div>
+        <div className="mt-6">
+          <h4 className="text-md font-bold mb-2">Recent Audit Log Entries</h4>
+          <div className="rounded bg-slate-50 dark:bg-slate-800 p-3 text-xs max-h-40 overflow-y-auto">
+            {/* Placeholder for audit log entries - integrate with audit log service */}
+            <div className="text-slate-500 dark:text-slate-400">Audit log integration coming soon.</div>
+          </div>
         </div>
       </div>
     </div>
