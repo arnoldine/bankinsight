@@ -1,3 +1,4 @@
+using System.Linq;
 using System.Threading.Tasks;
 using BankInsight.API.DTOs;
 using BankInsight.API.Infrastructure;
@@ -19,12 +20,28 @@ public class UserController : ControllerBase
         _userService = userService;
     }
 
+    private static object ToUserResponse(BankInsight.API.Entities.Staff user) => new
+    {
+        user.Id,
+        user.Name,
+        user.Email,
+        user.Phone,
+        user.BranchId,
+        user.Status,
+        user.AvatarInitials,
+        user.AccessScopeType,
+        user.LastLogin,
+        user.ClerkUserId,
+        user.CreatedAt,
+        RoleIds = user.UserRoles.Select(role => role.RoleId).ToList()
+    };
+
     [HttpGet]
     [RequirePermission("VIEW_USERS")]
     public async Task<IActionResult> GetUsers()
     {
         var users = await _userService.GetUsersAsync();
-        return Ok(users);
+        return Ok(users.Select(ToUserResponse));
     }
 
     [HttpGet("{id}")]
@@ -33,7 +50,7 @@ public class UserController : ControllerBase
     {
         var user = await _userService.GetUserByIdAsync(id);
         if (user == null) return NotFound(new { message = "User not found" });
-        return Ok(user);
+        return Ok(ToUserResponse(user));
     }
 
     [HttpPost]
@@ -43,7 +60,7 @@ public class UserController : ControllerBase
         try
         {
             var user = await _userService.CreateUserAsync(request);
-            return StatusCode(201, user);
+            return StatusCode(201, ToUserResponse(user));
         }
         catch (InvalidOperationException ex)
         {
@@ -70,7 +87,7 @@ public class UserController : ControllerBase
         {
             var user = await _userService.UpdateUserAsync(id, request);
             if (user == null) return NotFound(new { message = "User not found" });
-            return Ok(user);
+            return Ok(ToUserResponse(user));
         }
         catch (InvalidOperationException ex)
         {
