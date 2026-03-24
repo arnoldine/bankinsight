@@ -25,7 +25,8 @@ export const Permissions = {
     Disburse: "loans.disburse",
     Restructure: "loans.restructure",
     WriteOff: "loans.writeoff",
-    Reschedule: "loans.reschedule"
+    Reschedule: "loans.reschedule",
+    ConfigureProducts: "loans.products.configure"
   },
   Transactions: {
     View: "transactions.view",

@@ -162,7 +162,8 @@ public class LoanController : ControllerBase
     }
 
     [HttpPost("products/configure")]
-    [HasPermission(BankInsight.API.Security.AppPermissions.Roles.Manage)]
+    [Authorize(Roles = "Administrator")]
+    [HasPermission(BankInsight.API.Security.AppPermissions.Loans.ConfigureProducts)]
     public async Task<IActionResult> ConfigureLoanProduct([FromBody] ConfigureLoanProductRequest request)
     {
         var result = await _loanService.ConfigureLoanProductAsync(request);

@@ -1,6 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useLoans } from '../../hooks/useApi';
 import { loanService, Loan, LoanProductDefinition } from '../../services/loanService';
+import { authService } from '../../services/authService';
+import { Permissions } from '../../../lib/Permissions';
 
 interface Props {
   loans: Loan[];
@@ -21,7 +23,13 @@ export default function LoanOperationsSuite({ loans, onReload }: Props) {
     getGlPostings,
   } = useLoans();
 
-  const [active, setActive] = useState<'products' | 'workflow' | 'credit' | 'repayment' | 'delinquency' | 'postings' | 'pnl' | 'balancesheet'>('products');
+  const currentUser = authService.getUser();
+  const isSuperAdmin = currentUser?.role === 'Administrator';
+  const canConfigureProducts = isSuperAdmin || Boolean(currentUser?.permissions?.includes(Permissions.Loans.ConfigureProducts));
+  const availableTabs = (canConfigureProducts
+    ? ['products', 'workflow', 'credit', 'repayment', 'delinquency', 'postings', 'pnl', 'balancesheet']
+    : ['workflow', 'credit', 'repayment', 'delinquency', 'postings', 'pnl', 'balancesheet']) as Array<'products' | 'workflow' | 'credit' | 'repayment' | 'delinquency' | 'postings' | 'pnl' | 'balancesheet'>;
+  const [active, setActive] = useState<'products' | 'workflow' | 'credit' | 'repayment' | 'delinquency' | 'postings' | 'pnl' | 'balancesheet'>(canConfigureProducts ? 'products' : 'workflow');
   const [loanId, setLoanId] = useState('');
   const [customerId, setCustomerId] = useState('CUST0001');
   const [creditResult, setCreditResult] = useState<any>(null);
@@ -80,6 +88,12 @@ export default function LoanOperationsSuite({ loans, onReload }: Props) {
     void loadLoanProducts();
   }, [workflowForm.loanProductId]);
 
+  useEffect(() => {
+    if (!canConfigureProducts && active === 'products') {
+      setActive('workflow');
+    }
+  }, [active, canConfigureProducts]);
+
   const runProductConfig = async () => {
     await loanService.configureLoanProduct(productForm as any);
     await onReload();
@@ -136,7 +150,7 @@ export default function LoanOperationsSuite({ loans, onReload }: Props) {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap gap-2">
-        {['products', 'workflow', 'credit', 'repayment', 'delinquency', 'postings', 'pnl', 'balancesheet'].map((tab) => (
+        {availableTabs.map((tab) => (
           <button
             key={tab}
             onClick={() => setActive(tab as any)}
@@ -150,10 +164,10 @@ export default function LoanOperationsSuite({ loans, onReload }: Props) {
       {error && <div className="text-red-600 text-sm">{error}</div>}
       {statusMessage && <div className="text-sm text-blue-700 dark:text-blue-300">{statusMessage}</div>}
 
-      {active === 'products' && (
+      {active === 'products' && canConfigureProducts && (
         <div className="bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-lg p-4 space-y-3">
           <h4 className="font-semibold">Loan Product Definition</h4>
-          <div className="text-xs text-slate-500 dark:text-slate-400">Pricing, tenor, repayment frequency, and interest method are edited here and enforced in every other loan workflow.</div>
+          <div className="text-xs text-slate-500 dark:text-slate-400">Super-admin business governance flow. Pricing, tenor, repayment frequency, and interest method are edited here and enforced in every other loan workflow.</div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <input className="px-3 py-2 rounded border" value={productForm.id} onChange={e => setProductForm({ ...productForm, id: e.target.value })} placeholder="Product ID" />
             <input className="px-3 py-2 rounded border" value={productForm.code} onChange={e => setProductForm({ ...productForm, code: e.target.value })} placeholder="Code" />
