@@ -234,8 +234,23 @@ export interface SecuritySummary {
   isolatedDevices: number;
   outdatedDevices: number;
   irregularActivityCount: number;
+  newlyObservedDevices: number;
+  monitoredDevices: number;
+  suspiciousDevices: number;
+  restrictedDevices: number;
+  revokedDevices: number;
+  activeSessions: number;
   minimumSupportedVersion: string;
   generatedAt: string;
+}
+
+export interface FailedLoginAttempt {
+  id: number;
+  email: string;
+  ipAddress: string;
+  failureReason?: string;
+  userAgent?: string;
+  attemptedAt: string;
 }
 
 export interface SecurityAlert {
@@ -256,7 +271,10 @@ export interface SecurityDevice {
   id: string;
   name: string;
   deviceType: string;
-  status: 'ACTIVE' | 'BLOCKED' | 'ISOLATED' | 'FLAGGED' | 'PENDING_SETUP';
+  status: 'ACTIVE' | 'BLOCKED' | 'ISOLATED' | 'FLAGGED' | 'PENDING_SETUP' | 'RESTRICTED' | 'REVOKED';
+  lifecycleState: 'NEW_OBSERVED' | 'ALLOWED' | 'MONITORED' | 'SUSPICIOUS' | 'RESTRICTED' | 'REVOKED';
+  accessDecision: 'ALLOWED' | 'RESTRICTED' | 'REVOKED';
+  riskLevel: 'LOW' | 'MEDIUM' | 'HIGH';
   softwareStatus: 'COMPLIANT' | 'OUTDATED';
   softwareVersion: string;
   minimumSupportedVersion: string;
@@ -268,11 +286,35 @@ export interface SecurityDevice {
   ipAddress?: string;
   notes?: string;
   blockReason?: string;
+  detectionSource?: string;
+  userAgent?: string;
+  lastSeenUserId?: string;
+  lastSeenUserName?: string;
+  lastAction?: string;
+  lastActionByUserId?: string;
+  autoObserved: boolean;
+  requiresReview: boolean;
+  observationCount: number;
+  firstObservedAt?: string;
   createdAt: string;
   updatedAt: string;
   lastSeenAt?: string;
   lastPatchedAt?: string;
   lastBlockedAt?: string;
+  lastActionAt?: string;
+}
+
+export interface SecuritySession {
+  id: string;
+  staffId: string;
+  staffName: string;
+  email: string;
+  ipAddress: string;
+  userAgent?: string;
+  createdAt: string;
+  expiresAt: string;
+  lastActivity: string;
+  isActive: boolean;
 }
 
 export interface DeviceScanResult {

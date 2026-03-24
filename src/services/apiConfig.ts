@@ -241,6 +241,7 @@ export const API_ENDPOINTS = {
     summary: '/security/summary',
     alerts: '/security/alerts',
     failedLogins: '/security/failed-logins',
+    sessions: '/security/sessions',
     devices: '/security/devices',
     deviceActions: (id: string) => `/security/devices/${id}/actions`,
     scanOutdated: '/security/devices/scan-outdated',

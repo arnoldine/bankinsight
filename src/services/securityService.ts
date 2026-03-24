@@ -1,6 +1,6 @@
 import { httpClient } from './httpClient';
 import { API_ENDPOINTS } from './apiConfig';
-import { DeviceScanResult, IrregularTransaction, SecurityAlert, SecurityDevice, SecuritySummary } from '../../types';
+import { DeviceScanResult, FailedLoginAttempt, IrregularTransaction, SecurityAlert, SecurityDevice, SecuritySession, SecuritySummary } from '../../types';
 
 class SecurityService {
   async getSummary(hours: number = 24): Promise<SecuritySummary> {
@@ -9,6 +9,14 @@ class SecurityService {
 
   async getAlerts(limit: number = 25): Promise<SecurityAlert[]> {
     return httpClient.get<SecurityAlert[]>(`${API_ENDPOINTS.security.alerts}?limit=${limit}`);
+  }
+
+  async getFailedLogins(sinceMinutes: number = 1440, limit: number = 50): Promise<FailedLoginAttempt[]> {
+    return httpClient.get<FailedLoginAttempt[]>(`${API_ENDPOINTS.security.failedLogins}?sinceMinutes=${sinceMinutes}&limit=${limit}`);
+  }
+
+  async getSessions(): Promise<SecuritySession[]> {
+    return httpClient.get<SecuritySession[]>(API_ENDPOINTS.security.sessions);
   }
 
   async getDevices(): Promise<SecurityDevice[]> {

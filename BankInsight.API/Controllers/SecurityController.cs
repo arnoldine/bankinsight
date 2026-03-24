@@ -15,15 +15,18 @@ public class SecurityController : ControllerBase
 {
     private readonly ApplicationDbContext _context;
     private readonly IDeviceSecurityService _deviceSecurityService;
+    private readonly ISessionService _sessionService;
     private readonly ICurrentUserContext _currentUser;
 
     public SecurityController(
         ApplicationDbContext context,
         IDeviceSecurityService deviceSecurityService,
+        ISessionService sessionService,
         ICurrentUserContext currentUser)
     {
         _context = context;
         _deviceSecurityService = deviceSecurityService;
+        _sessionService = sessionService;
         _currentUser = currentUser;
     }
 
@@ -68,18 +71,26 @@ public class SecurityController : ControllerBase
             .Where(a => !a.Success && a.AttemptedAt >= since)
             .OrderByDescending(a => a.AttemptedAt)
             .Take(safeLimit)
-            .Select(a => new
+            .Select(a => new FailedLoginAttemptDto
             {
-                a.Id,
-                a.Email,
-                a.IpAddress,
-                a.FailureReason,
-                a.UserAgent,
-                a.AttemptedAt
+                Id = a.Id,
+                Email = a.Email,
+                IpAddress = a.IpAddress,
+                FailureReason = a.FailureReason,
+                UserAgent = a.UserAgent,
+                AttemptedAt = a.AttemptedAt,
             })
             .ToListAsync();
 
         return Ok(failedLogins);
+    }
+
+    [HttpGet("sessions")]
+    [HasPermission(AppPermissions.Audit.View)]
+    public async Task<IActionResult> GetSecuritySessions()
+    {
+        var sessions = await _sessionService.GetActiveSessionsAsync();
+        return Ok(sessions);
     }
 
     [HttpGet("summary")]

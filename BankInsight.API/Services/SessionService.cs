@@ -33,11 +33,13 @@ public class SessionService : ISessionService
 {
     private readonly ApplicationDbContext _context;
     private readonly IConfiguration _configuration;
+    private readonly IDeviceSecurityService _deviceSecurityService;
 
-    public SessionService(ApplicationDbContext context, IConfiguration configuration)
+    public SessionService(ApplicationDbContext context, IConfiguration configuration, IDeviceSecurityService deviceSecurityService)
     {
         _context = context;
         _configuration = configuration;
+        _deviceSecurityService = deviceSecurityService;
     }
 
     public async Task<UserSession> CreateSessionAsync(Staff staff, string token, string ipAddress, string? userAgent)
@@ -61,6 +63,15 @@ public class SessionService : ISessionService
 
         _context.UserSessions.Add(session);
         await _context.SaveChangesAsync();
+
+        try
+        {
+            await _deviceSecurityService.ObserveConnectionAsync(staff, ipAddress, userAgent);
+        }
+        catch
+        {
+            // Device observation should not block session issuance.
+        }
 
         return session;
     }

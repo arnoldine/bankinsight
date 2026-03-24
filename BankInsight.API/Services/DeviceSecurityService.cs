@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Security.Cryptography;
 using System.Text.Json;
+using System.Text;
 using System.Threading.Tasks;
 using BankInsight.API.Data;
 using BankInsight.API.DTOs;
@@ -19,6 +21,7 @@ public interface IDeviceSecurityService
     Task<DeviceScanResultDto> ScanOutdatedDevicesAsync(string? actorUserId);
     Task<List<TransactionIrregularityDto>> GetIrregularTransactionsAsync(int hours, int limit);
     Task<SecuritySummaryDto> GetSecuritySummaryAsync(int sinceHours);
+    Task ObserveConnectionAsync(Staff staff, string? ipAddress, string? userAgent);
 }
 
 public class DeviceSecurityService : IDeviceSecurityService
@@ -96,6 +99,17 @@ public class DeviceSecurityService : IDeviceSecurityService
         device.UpdatedAt = now;
         device.SoftwareStatus = DetermineSoftwareStatus(device.SoftwareVersion, minimumVersion);
         device.Status = device.SoftwareStatus == "OUTDATED" ? "FLAGGED" : "ACTIVE";
+        device.AccessDecision = "ALLOWED";
+        device.LifecycleState = device.SoftwareStatus == "OUTDATED" ? "SUSPICIOUS" : "ALLOWED";
+        device.RiskLevel = CalculateRiskLevel(device);
+        device.RequiresReview = device.SoftwareStatus == "OUTDATED";
+        device.AutoObserved = false;
+        device.ObservationCount = Math.Max(device.ObservationCount, 1);
+        device.FirstObservedAt ??= now;
+        device.DetectionSource = existing == null ? "MANUAL_REGISTRATION" : device.DetectionSource ?? "MANUAL_REGISTRATION";
+        device.LastAction = existing == null ? "REGISTER" : "UPDATE";
+        device.LastActionByUserId = actorUserId;
+        device.LastActionAt = now;
         device.BlockReason = device.SoftwareStatus == "OUTDATED" ? "Device is running outdated software and needs review." : null;
         if (device.SoftwareStatus == "COMPLIANT")
         {
@@ -151,31 +165,76 @@ public class DeviceSecurityService : IDeviceSecurityService
         {
             case "BLOCK":
                 device.Status = "BLOCKED";
+                device.AccessDecision = "RESTRICTED";
+                device.LifecycleState = "RESTRICTED";
                 device.BlockReason = NormalizeNull(request.Reason) ?? "Blocked by operations.";
                 device.LastBlockedAt = now;
+                device.RequiresReview = true;
                 break;
             case "UNBLOCK":
                 device.Status = DetermineSoftwareStatus(device.SoftwareVersion, device.MinimumSupportedVersion) == "OUTDATED"
                     ? "FLAGGED"
                     : "ACTIVE";
+                device.AccessDecision = "ALLOWED";
+                device.LifecycleState = device.Status == "FLAGGED" ? "SUSPICIOUS" : "MONITORED";
                 device.BlockReason = NormalizeNull(request.Reason);
+                device.RequiresReview = device.Status == "FLAGGED";
                 break;
             case "ISOLATE":
                 device.Status = "ISOLATED";
+                device.AccessDecision = "RESTRICTED";
+                device.LifecycleState = "RESTRICTED";
                 device.BlockReason = NormalizeNull(request.Reason) ?? "Isolated pending software remediation.";
                 device.LastBlockedAt = now;
+                device.RequiresReview = true;
                 break;
             case "FLAG":
                 device.Status = "FLAGGED";
+                device.AccessDecision = "ALLOWED";
+                device.LifecycleState = "SUSPICIOUS";
                 device.BlockReason = NormalizeNull(request.Reason) ?? "Flagged for review.";
+                device.RequiresReview = true;
+                break;
+            case "ALLOW":
+                device.Status = "ACTIVE";
+                device.AccessDecision = "ALLOWED";
+                device.LifecycleState = "ALLOWED";
+                device.BlockReason = NormalizeNull(request.Reason);
+                device.RequiresReview = false;
+                break;
+            case "MONITOR":
+                device.Status = "ACTIVE";
+                device.AccessDecision = "ALLOWED";
+                device.LifecycleState = "MONITORED";
+                device.BlockReason = NormalizeNull(request.Reason);
+                device.RequiresReview = false;
+                break;
+            case "RESTRICT":
+                device.Status = "RESTRICTED";
+                device.AccessDecision = "RESTRICTED";
+                device.LifecycleState = "RESTRICTED";
+                device.BlockReason = NormalizeNull(request.Reason) ?? "Restricted by security operations.";
+                device.LastBlockedAt = now;
+                device.RequiresReview = true;
+                break;
+            case "REVOKE":
+                device.Status = "REVOKED";
+                device.AccessDecision = "REVOKED";
+                device.LifecycleState = "REVOKED";
+                device.BlockReason = NormalizeNull(request.Reason) ?? "Terminal access revoked.";
+                device.LastBlockedAt = now;
+                device.RequiresReview = true;
                 break;
             case "PATCH":
                 device.SoftwareStatus = DetermineSoftwareStatus(device.SoftwareVersion, device.MinimumSupportedVersion);
                 device.Status = device.SoftwareStatus == "OUTDATED" ? "FLAGGED" : "ACTIVE";
+                device.AccessDecision = device.Status == "FLAGGED" ? "ALLOWED" : "ALLOWED";
+                device.LifecycleState = device.Status == "FLAGGED" ? "SUSPICIOUS" : "MONITORED";
                 if (device.SoftwareStatus == "COMPLIANT")
                 {
                     device.BlockReason = NormalizeNull(request.Reason);
                 }
+                device.RequiresReview = device.Status == "FLAGGED";
                 break;
             default:
                 throw new InvalidOperationException("Unsupported device action.");
@@ -185,10 +244,16 @@ public class DeviceSecurityService : IDeviceSecurityService
         if (device.SoftwareStatus == "OUTDATED" && action == "UNBLOCK")
         {
             device.Status = "FLAGGED";
+            device.LifecycleState = "SUSPICIOUS";
+            device.RequiresReview = true;
         }
 
         device.UpdatedAt = now;
         device.LastSeenAt = now;
+        device.RiskLevel = CalculateRiskLevel(device);
+        device.LastAction = action;
+        device.LastActionByUserId = actorUserId;
+        device.LastActionAt = now;
         await SaveDeviceAsync(device, existing.ConfigRow);
 
         await _auditLoggingService.LogActionAsync(
@@ -225,17 +290,25 @@ public class DeviceSecurityService : IDeviceSecurityService
                 if (device.Status == "ACTIVE" || device.Status == "PENDING_SETUP")
                 {
                     device.Status = "FLAGGED";
+                    device.LifecycleState = "SUSPICIOUS";
                     device.BlockReason = "Flagged by outdated software scan.";
+                    device.RequiresReview = true;
                     flaggedCount++;
                 }
             }
             else if (device.Status == "FLAGGED" && string.Equals(device.BlockReason, "Flagged by outdated software scan.", StringComparison.OrdinalIgnoreCase))
             {
                 device.Status = "ACTIVE";
+                device.LifecycleState = "MONITORED";
                 device.BlockReason = null;
+                device.RequiresReview = false;
             }
 
             device.UpdatedAt = DateTime.UtcNow;
+            device.RiskLevel = CalculateRiskLevel(device);
+            device.LastAction = "OUTDATED_SCAN";
+            device.LastActionByUserId = actorUserId;
+            device.LastActionAt = DateTime.UtcNow;
             await SaveDeviceAsync(device, entry.ConfigRow);
 
             if (!string.Equals(previousState, JsonSerializer.Serialize(device), StringComparison.Ordinal))
@@ -261,6 +334,80 @@ public class DeviceSecurityService : IDeviceSecurityService
             Devices = await GetDevicesAsync(),
             ScannedAt = DateTime.UtcNow,
         };
+    }
+
+    public async Task ObserveConnectionAsync(Staff staff, string? ipAddress, string? userAgent)
+    {
+        var normalizedIp = NormalizeNull(ipAddress) ?? "UNKNOWN_IP";
+        var normalizedAgent = NormalizeNull(userAgent) ?? "UNKNOWN_AGENT";
+        var deviceId = BuildObservedDeviceId(normalizedIp, normalizedAgent);
+        var existing = await FindDeviceConfigAsync(deviceId);
+        var now = DateTime.UtcNow;
+        var minimumVersion = await GetMinimumSupportedVersionAsync();
+        var device = existing?.Device ?? new ManagedSecurityDeviceRecord
+        {
+            Id = deviceId,
+            CreatedAt = now,
+            FirstObservedAt = now,
+            LastSeenAt = now,
+            ObservationCount = 0,
+        };
+
+        var previousState = existing?.Device != null ? JsonSerializer.Serialize(existing.Device) : null;
+
+        device.Name = existing?.Device?.Name ?? BuildObservedDeviceName(staff, normalizedIp);
+        device.DeviceType = existing?.Device?.DeviceType ?? "REMOTE_TERMINAL";
+        device.BranchId ??= staff.BranchId;
+        device.AssignedStaffId ??= staff.Id;
+        device.IpAddress = normalizedIp;
+        device.UserAgent = normalizedAgent;
+        device.SoftwareVersion = string.IsNullOrWhiteSpace(device.SoftwareVersion) ? minimumVersion : device.SoftwareVersion;
+        device.MinimumSupportedVersion = minimumVersion;
+        device.LastSeenAt = now;
+        device.UpdatedAt = now;
+        device.LastSeenUserId = staff.Id;
+        device.ObservationCount = Math.Max(device.ObservationCount, 0) + 1;
+        device.SoftwareStatus = DetermineSoftwareStatus(device.SoftwareVersion, minimumVersion);
+        device.AutoObserved = true;
+        device.AccessDecision = existing?.Device?.AccessDecision == "REVOKED" ? "REVOKED" : "ALLOWED";
+        if (existing == null)
+        {
+            device.Status = "ACTIVE";
+            device.LifecycleState = "NEW_OBSERVED";
+            device.RequiresReview = true;
+            device.DetectionSource = "SESSION_LOGIN";
+            device.BlockReason = "New terminal observed and allowed automatically pending operator review.";
+        }
+        else if (device.LifecycleState == "REVOKED" || device.AccessDecision == "REVOKED")
+        {
+            device.Status = "REVOKED";
+            device.RequiresReview = true;
+        }
+        else
+        {
+            device.Status = device.Status is "RESTRICTED" or "BLOCKED" or "ISOLATED" ? device.Status : "ACTIVE";
+            device.LifecycleState = device.LifecycleState == "NEW_OBSERVED" ? "NEW_OBSERVED" : device.LifecycleState == "SUSPICIOUS" ? "SUSPICIOUS" : "MONITORED";
+        }
+
+        device.RiskLevel = CalculateRiskLevel(device);
+        device.LastAction = existing == null ? "AUTO_OBSERVE_NEW_TERMINAL" : "AUTO_OBSERVE_SEEN";
+        device.LastActionByUserId = staff.Id;
+        device.LastActionAt = now;
+
+        await SaveDeviceAsync(device, existing?.ConfigRow);
+
+        await _auditLoggingService.LogActionAsync(
+            action: existing == null ? "SECURITY_DEVICE_AUTO_OBSERVED" : "SECURITY_DEVICE_SESSION_OBSERVED",
+            entityType: "SECURITY_DEVICE",
+            entityId: device.Id,
+            userId: staff.Id,
+            description: existing == null
+                ? $"New terminal observed and auto-allowed for {staff.Name}"
+                : $"Observed terminal activity for {device.Name}",
+            status: existing == null ? "ALERT" : "SUCCESS",
+            ipAddress: normalizedIp,
+            oldValues: previousState,
+            newValues: device);
     }
 
     public async Task<List<TransactionIrregularityDto>> GetIrregularTransactionsAsync(int hours, int limit)
@@ -382,6 +529,12 @@ public class DeviceSecurityService : IDeviceSecurityService
             IsolatedDevices = deviceList.Count(device => device.Status == "ISOLATED"),
             OutdatedDevices = deviceList.Count(device => DetermineSoftwareStatus(device.SoftwareVersion, minimumVersion) == "OUTDATED"),
             IrregularActivityCount = irregular.Count,
+            NewlyObservedDevices = deviceList.Count(device => device.LifecycleState == "NEW_OBSERVED"),
+            MonitoredDevices = deviceList.Count(device => device.LifecycleState == "MONITORED"),
+            SuspiciousDevices = deviceList.Count(device => device.LifecycleState == "SUSPICIOUS"),
+            RestrictedDevices = deviceList.Count(device => device.LifecycleState == "RESTRICTED" || device.Status is "BLOCKED" or "ISOLATED" or "RESTRICTED"),
+            RevokedDevices = deviceList.Count(device => device.LifecycleState == "REVOKED" || device.Status == "REVOKED"),
+            ActiveSessions = await _context.UserSessions.CountAsync(session => session.IsActive && session.ExpiresAt > DateTime.UtcNow),
             MinimumSupportedVersion = minimumVersion,
             GeneratedAt = DateTime.UtcNow,
         };
@@ -506,6 +659,9 @@ public class DeviceSecurityService : IDeviceSecurityService
             Name = device.Name,
             DeviceType = device.DeviceType,
             Status = device.Status,
+            LifecycleState = device.LifecycleState,
+            AccessDecision = device.AccessDecision,
+            RiskLevel = device.RiskLevel,
             SoftwareStatus = DetermineSoftwareStatus(device.SoftwareVersion, device.MinimumSupportedVersion),
             SoftwareVersion = device.SoftwareVersion,
             MinimumSupportedVersion = device.MinimumSupportedVersion,
@@ -517,12 +673,52 @@ public class DeviceSecurityService : IDeviceSecurityService
             IpAddress = device.IpAddress,
             Notes = device.Notes,
             BlockReason = device.BlockReason,
+            DetectionSource = device.DetectionSource,
+            UserAgent = device.UserAgent,
+            LastSeenUserId = device.LastSeenUserId,
+            LastSeenUserName = staff.TryGetValue(device.LastSeenUserId ?? string.Empty, out var lastSeenUserName) ? lastSeenUserName : null,
+            LastAction = device.LastAction,
+            LastActionByUserId = device.LastActionByUserId,
+            AutoObserved = device.AutoObserved,
+            RequiresReview = device.RequiresReview,
+            ObservationCount = device.ObservationCount,
+            FirstObservedAt = device.FirstObservedAt,
             CreatedAt = device.CreatedAt,
             UpdatedAt = device.UpdatedAt,
             LastSeenAt = device.LastSeenAt,
             LastPatchedAt = device.LastPatchedAt,
             LastBlockedAt = device.LastBlockedAt,
+            LastActionAt = device.LastActionAt,
         };
+    }
+
+    private static string BuildObservedDeviceId(string ipAddress, string userAgent)
+    {
+        var fingerprint = $"{ipAddress}|{userAgent}".ToUpperInvariant();
+        var bytes = SHA256.HashData(Encoding.UTF8.GetBytes(fingerprint));
+        return $"AUTO-{Convert.ToHexString(bytes)[..10]}";
+    }
+
+    private static string BuildObservedDeviceName(Staff staff, string ipAddress)
+    {
+        var branch = string.IsNullOrWhiteSpace(staff.BranchId) ? "UNASSIGNED" : staff.BranchId;
+        var lastIpSegment = ipAddress.Split('.').LastOrDefault() ?? "TERM";
+        return $"{branch}-terminal-{lastIpSegment}".ToUpperInvariant();
+    }
+
+    private static string CalculateRiskLevel(ManagedSecurityDeviceRecord device)
+    {
+        if (device.Status is "REVOKED" or "RESTRICTED" or "BLOCKED" or "ISOLATED" || device.LifecycleState is "REVOKED" or "RESTRICTED")
+        {
+            return "HIGH";
+        }
+
+        if (device.SoftwareStatus == "OUTDATED" || device.LifecycleState is "SUSPICIOUS" or "NEW_OBSERVED")
+        {
+            return "MEDIUM";
+        }
+
+        return "LOW";
     }
 
     private static string DetermineSoftwareStatus(string? version, string? minimumVersion)
@@ -578,6 +774,9 @@ public class DeviceSecurityService : IDeviceSecurityService
         public string Name { get; set; } = string.Empty;
         public string DeviceType { get; set; } = "CASH_TERMINAL";
         public string Status { get; set; } = "ACTIVE";
+        public string LifecycleState { get; set; } = "ALLOWED";
+        public string AccessDecision { get; set; } = "ALLOWED";
+        public string RiskLevel { get; set; } = "LOW";
         public string SoftwareStatus { get; set; } = "COMPLIANT";
         public string SoftwareVersion { get; set; } = "1.0.0";
         public string MinimumSupportedVersion { get; set; } = DefaultMinimumVersion;
@@ -585,13 +784,23 @@ public class DeviceSecurityService : IDeviceSecurityService
         public string? AssignedStaffId { get; set; }
         public string? SerialNumber { get; set; }
         public string? IpAddress { get; set; }
+        public string? UserAgent { get; set; }
         public string? Notes { get; set; }
         public string? BlockReason { get; set; }
+        public string? DetectionSource { get; set; }
+        public string? LastSeenUserId { get; set; }
+        public string? LastAction { get; set; }
+        public string? LastActionByUserId { get; set; }
+        public bool AutoObserved { get; set; }
+        public bool RequiresReview { get; set; }
+        public int ObservationCount { get; set; }
+        public DateTime? FirstObservedAt { get; set; }
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
         public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
         public DateTime? LastSeenAt { get; set; }
         public DateTime? LastPatchedAt { get; set; }
         public DateTime? LastBlockedAt { get; set; }
+        public DateTime? LastActionAt { get; set; }
     }
 
     private sealed record DeviceConfigEnvelope(SystemConfig ConfigRow, ManagedSecurityDeviceRecord Device);

@@ -30,8 +30,24 @@ public class SecuritySummaryDto
     public int IsolatedDevices { get; set; }
     public int OutdatedDevices { get; set; }
     public int IrregularActivityCount { get; set; }
+    public int NewlyObservedDevices { get; set; }
+    public int MonitoredDevices { get; set; }
+    public int SuspiciousDevices { get; set; }
+    public int RestrictedDevices { get; set; }
+    public int RevokedDevices { get; set; }
+    public int ActiveSessions { get; set; }
     public string MinimumSupportedVersion { get; set; } = "2.0.0";
     public DateTime GeneratedAt { get; set; }
+}
+
+public class FailedLoginAttemptDto
+{
+    public int Id { get; set; }
+    public string Email { get; set; } = string.Empty;
+    public string IpAddress { get; set; } = string.Empty;
+    public string? FailureReason { get; set; }
+    public string? UserAgent { get; set; }
+    public DateTime AttemptedAt { get; set; }
 }
 
 public class RegisterTerminalDeviceRequest
@@ -63,6 +79,9 @@ public class SecurityDeviceDto
     public string Name { get; set; } = string.Empty;
     public string DeviceType { get; set; } = string.Empty;
     public string Status { get; set; } = "ACTIVE";
+    public string LifecycleState { get; set; } = "ALLOWED";
+    public string AccessDecision { get; set; } = "ALLOWED";
+    public string RiskLevel { get; set; } = "LOW";
     public string SoftwareStatus { get; set; } = "COMPLIANT";
     public string SoftwareVersion { get; set; } = "1.0.0";
     public string MinimumSupportedVersion { get; set; } = "2.0.0";
@@ -74,11 +93,22 @@ public class SecurityDeviceDto
     public string? IpAddress { get; set; }
     public string? Notes { get; set; }
     public string? BlockReason { get; set; }
+    public string? DetectionSource { get; set; }
+    public string? UserAgent { get; set; }
+    public string? LastSeenUserId { get; set; }
+    public string? LastSeenUserName { get; set; }
+    public string? LastAction { get; set; }
+    public string? LastActionByUserId { get; set; }
+    public bool AutoObserved { get; set; }
+    public bool RequiresReview { get; set; }
+    public int ObservationCount { get; set; }
+    public DateTime? FirstObservedAt { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
     public DateTime? LastSeenAt { get; set; }
     public DateTime? LastPatchedAt { get; set; }
     public DateTime? LastBlockedAt { get; set; }
+    public DateTime? LastActionAt { get; set; }
 }
 
 public class DeviceScanResultDto
