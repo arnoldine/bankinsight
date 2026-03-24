@@ -12,7 +12,7 @@ interface UserProfileProps {
 const UserProfile: React.FC<UserProfileProps> = ({ user, onUpdate, onChangePassword }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState<StaffUser>(user);
-  const [notification, setNotification] = useState<string | null>(null);
+  const [notification, setNotification] = useState<{ tone: 'success' | 'error'; message: string } | null>(null);
   
   // Password Change State
   const [showPasswordModal, setShowPasswordModal] = useState(false);
@@ -25,14 +25,14 @@ const UserProfile: React.FC<UserProfileProps> = ({ user, onUpdate, onChangePassw
   const handleSave = () => {
     // Basic validation
     if (!formData.name || !formData.email) {
-      setNotification('Name and Email are required.');
+      setNotification({ tone: 'error', message: 'Name and email are required.' });
       setTimeout(() => setNotification(null), 3000);
       return;
     }
 
     onUpdate(formData);
     setIsEditing(false);
-    setNotification('Profile updated successfully.');
+    setNotification({ tone: 'success', message: 'Profile updated successfully.' });
     setTimeout(() => setNotification(null), 3000);
   };
 
@@ -43,17 +43,17 @@ const UserProfile: React.FC<UserProfileProps> = ({ user, onUpdate, onChangePassw
 
   const handleChangePasswordSubmit = () => {
       if (passwordForm.new !== passwordForm.confirm) {
-          alert("Passwords do not match");
+          setNotification({ tone: 'error', message: 'Passwords do not match.' });
           return;
       }
       if (passwordForm.new.length < 6) {
-          alert("Password must be at least 6 characters");
+          setNotification({ tone: 'error', message: 'Password must be at least 6 characters long.' });
           return;
       }
       onChangePassword(passwordForm.new);
       setShowPasswordModal(false);
       setPasswordForm({ new: '', confirm: '' });
-      setNotification("Password changed successfully.");
+      setNotification({ tone: 'success', message: 'Password changed successfully.' });
       setTimeout(() => setNotification(null), 3000);
   };
 
@@ -65,8 +65,12 @@ const UserProfile: React.FC<UserProfileProps> = ({ user, onUpdate, onChangePassw
       </div>
 
       {notification && (
-        <div className="mb-4 p-4 bg-green-50 text-green-700 border border-green-200 rounded-lg flex items-center gap-2 animate-in fade-in slide-in-from-top-2">
-           <BadgeCheck size={18} /> {notification}
+        <div className={`mb-4 flex items-center gap-2 rounded-lg border p-4 animate-in fade-in slide-in-from-top-2 ${
+          notification.tone === 'success'
+            ? 'border-green-200 bg-green-50 text-green-700'
+            : 'border-rose-200 bg-rose-50 text-rose-700'
+        }`}>
+           <BadgeCheck size={18} /> {notification.message}
         </div>
       )}
 

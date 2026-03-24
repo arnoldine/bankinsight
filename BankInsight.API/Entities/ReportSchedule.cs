@@ -18,16 +18,16 @@ namespace BankInsight.API.Entities
         [Column("schedule_name")]
         [StringLength(255)]
         [Required]
-        public string ScheduleName { get; set; }
+        public string ScheduleName { get; set; } = string.Empty;
 
         [Column("cron_expression")]
         [StringLength(100)]
         [Required]
-        public string CronExpression { get; set; } // Hangfire CRON format
+        public string CronExpression { get; set; } = string.Empty; // Hangfire CRON format
 
         [Column("frequency")]
         [StringLength(50)]
-        public string Frequency { get; set; } // "Daily", "Weekly", "Monthly", "Custom"
+        public string Frequency { get; set; } = string.Empty; // "Daily", "Weekly", "Monthly", "Custom"
 
         [Column("day_of_week")]
         public int? DayOfWeek { get; set; } // 0=Sunday, 1=Monday, etc. (for Weekly)
@@ -49,7 +49,7 @@ namespace BankInsight.API.Entities
 
         [Column("hangfire_job_id")]
         [StringLength(50)]
-        public string HangfireJobId { get; set; }
+        public string HangfireJobId { get; set; } = string.Empty;
 
         [Column("created_at")]
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
@@ -59,7 +59,7 @@ namespace BankInsight.API.Entities
 
         // Navigation
         [ForeignKey(nameof(ReportDefinitionId))]
-        public virtual ReportDefinition ReportDefinition { get; set; }
+        public virtual ReportDefinition ReportDefinition { get; set; } = null!;
     }
 
     [Table("report_runs")]
@@ -78,7 +78,7 @@ namespace BankInsight.API.Entities
 
         [Column("run_by")]
         [StringLength(50)]
-        public string RunBy { get; set; }
+        public string RunBy { get; set; } = string.Empty;
 
         [Column("started_at")]
         public DateTime StartedAt { get; set; } = DateTime.UtcNow;
@@ -93,31 +93,31 @@ namespace BankInsight.API.Entities
 
         [Column("file_name")]
         [StringLength(255)]
-        public string FileName { get; set; }
+        public string FileName { get; set; } = string.Empty;
 
         [Column("file_path")]
         [StringLength(500)]
-        public string FilePath { get; set; }
+        public string FilePath { get; set; } = string.Empty;
 
         [Column("file_size_bytes")]
         public long? FileSizeBytes { get; set; }
 
         [Column("format")]
         [StringLength(50)]
-        public string Format { get; set; } // "Excel", "PDF", "CSV", "JSON"
+        public string Format { get; set; } = string.Empty; // "Excel", "PDF", "CSV", "JSON"
 
         [Column("row_count")]
         public int RowCount { get; set; }
 
         [Column("error_message")]
-        public string ErrorMessage { get; set; }
+        public string ErrorMessage { get; set; } = string.Empty;
 
         [Column("execution_time_ms")]
         public long? ExecutionTimeMs { get; set; }
 
         // Navigation
         [ForeignKey(nameof(ReportDefinitionId))]
-        public virtual ReportDefinition ReportDefinition { get; set; }
+        public virtual ReportDefinition ReportDefinition { get; set; } = null!;
     }
 
     [Table("report_subscriptions")]
@@ -134,17 +134,17 @@ namespace BankInsight.API.Entities
         [Column("staff_id")]
         [StringLength(50)]
         [Required]
-        public string StaffId { get; set; }
+        public string StaffId { get; set; } = string.Empty;
 
         [Column("email_address")]
         [StringLength(255)]
         [Required]
-        public string EmailAddress { get; set; }
+        public string EmailAddress { get; set; } = string.Empty;
 
         [Column("delivery_frequency")]
         [StringLength(50)]
         [Required]
-        public string DeliveryFrequency { get; set; } // "Daily", "Weekly", "Monthly",  "OnCompletion"
+        public string DeliveryFrequency { get; set; } = string.Empty; // "Daily", "Weekly", "Monthly",  "OnCompletion"
 
         [Column("is_active")]
         public bool IsActive { get; set; } = true;
@@ -154,6 +154,6 @@ namespace BankInsight.API.Entities
 
         // Navigation
         [ForeignKey(nameof(ReportDefinitionId))]
-        public virtual ReportDefinition ReportDefinition { get; set; }
+        public virtual ReportDefinition ReportDefinition { get; set; } = null!;
     }
 }

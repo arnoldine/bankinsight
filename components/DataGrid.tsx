@@ -8,6 +8,7 @@ interface DataGridProps {
 
 const DataGrid: React.FC<DataGridProps> = ({ data }) => {
   const [searchTerm, setSearchTerm] = useState('');
+  const [statusMessage, setStatusMessage] = useState<{ tone: 'success' | 'info'; message: string } | null>(null);
 
   const filteredData = data.filter(item => 
     item.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -16,7 +17,7 @@ const DataGrid: React.FC<DataGridProps> = ({ data }) => {
 
   const handleExport = () => {
     if (filteredData.length === 0) {
-      alert("No data to export.");
+      setStatusMessage({ tone: 'info', message: 'There are no matching account records to export.' });
       return;
     }
 
@@ -49,10 +50,21 @@ const DataGrid: React.FC<DataGridProps> = ({ data }) => {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    setStatusMessage({ tone: 'success', message: `Exported ${filteredData.length} account record${filteredData.length === 1 ? '' : 's'} to CSV.` });
   };
 
   return (
     <div className="flex flex-col h-full">
+      {statusMessage && (
+        <div className={`mx-4 mt-4 rounded-lg border px-4 py-3 text-sm ${
+          statusMessage.tone === 'success'
+            ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
+            : 'border-sky-200 bg-sky-50 text-sky-800'
+        }`}>
+          {statusMessage.message}
+        </div>
+      )}
       {/* Table Toolbar */}
       <div className="p-4 bg-gray-50 border-b border-gray-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center gap-2">

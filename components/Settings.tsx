@@ -35,7 +35,7 @@ interface SettingsProps {
     pageTargets?: Array<{ id: string; label: string; helper?: string }>;
 }
 
-type SettingsTab = 'USERS' | 'ROLES' | 'PROCESS' | 'MENU' | 'CONFIG' | 'AUTH' | 'ORASS' | 'BRANCHES' | 'SYSTEM_INFO';
+type SettingsTab = 'USERS' | 'ROLES' | 'MENU' | 'CONFIG' | 'AUTH' | 'ORASS' | 'BRANCHES' | 'SYSTEM_INFO';
 
 interface RoleRecord {
     id: string;
@@ -226,7 +226,6 @@ export default function Settings({
     const needsRoles = activeTab === 'USERS' || activeTab === 'ROLES' || activeTab === 'MENU' || activeTab === 'SYSTEM_INFO';
     const needsBranches = activeTab === 'BRANCHES' || activeTab === 'SYSTEM_INFO';
     const needsConfig = activeTab === 'CONFIG' || activeTab === 'AUTH' || activeTab === 'ORASS' || activeTab === 'SYSTEM_INFO';
-    const needsProcesses = activeTab === 'PROCESS';
     const needsOrassReadiness = activeTab === 'ORASS';
 
     const { data: usersData, loading: usersLoading, error: usersError } = useFetch(
@@ -459,7 +458,6 @@ export default function Settings({
         { id: 'ROLES', label: 'Permissions', icon: <Shield size={16} /> },
         { id: 'AUTH', label: 'Authentication', icon: <Lock size={16} /> },
         { id: 'ORASS', label: 'ORASS Setup', icon: <UploadCloud size={16} /> },
-        { id: 'PROCESS', label: 'Process Designer', icon: <GitBranch size={16} /> },
         { id: 'MENU', label: 'Menu Config', icon: <Menu size={16} /> },
         { id: 'CONFIG', label: 'Configuration', icon: <Sliders size={16} /> },
         { id: 'BRANCHES', label: 'Branches', icon: <Landmark size={16} /> },
@@ -1983,8 +1981,6 @@ const renderAuth = () => (
                 return renderAuth();
             case 'ORASS':
                 return renderOrass();
-            case 'PROCESS':
-                return renderProcess();
             case 'MENU':
                 return onSaveMenu && onDeleteMenu
                     ? <MenuEditor menuItems={menuItems} workflows={workflows} forms={customForms} roles={roles as any} onSaveMenu={onSaveMenu} onDeleteMenu={onDeleteMenu} pageTargets={pageTargets} currentUserId={currentUserId} />

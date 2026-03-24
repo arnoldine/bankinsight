@@ -37,14 +37,14 @@ public class DepositController : ControllerBase
                 .Select(a => new FixedDepositDto
                 {
                     Id = a.Id,
-                    CustomerId = a.CustomerId,
+                    CustomerId = a.CustomerId ?? string.Empty,
                     AccountId = a.Id,
                     Principal = a.Balance,
                     Rate = 0,
                     Tenure = 90, // Default tenure in days (hardcoded for demo)
                     StartDate = a.CreatedAt.ToString("yyyy-MM-dd"),
                     MaturityDate = a.CreatedAt.AddDays(90).ToString("yyyy-MM-dd"),
-                    Currency = a.Currency,
+                    Currency = a.Currency ?? string.Empty,
                     InterestPaymentFrequency = "AT_MATURITY",
                     Status = a.Status == "ACTIVE" ? "ACTIVE" : "CLOSED",
                     AccruedInterest = 0,
@@ -77,14 +77,14 @@ public class DepositController : ControllerBase
             var deposit = new FixedDepositDto
             {
                 Id = account.Id,
-                CustomerId = account.CustomerId,
+                CustomerId = account.CustomerId ?? string.Empty,
                 AccountId = account.Id,
                 Principal = account.Balance,
                 Rate = 0,
                 Tenure = 90,
                 StartDate = account.CreatedAt.ToString("yyyy-MM-dd"),
                 MaturityDate = account.CreatedAt.AddDays(90).ToString("yyyy-MM-dd"),
-                Currency = account.Currency,
+                Currency = account.Currency ?? string.Empty,
                 InterestPaymentFrequency = "AT_MATURITY",
                 Status = account.Status == "ACTIVE" ? "ACTIVE" : "CLOSED",
                 AccruedInterest = 0,
@@ -134,14 +134,14 @@ public class DepositController : ControllerBase
             var deposit = new FixedDepositDto
             {
                 Id = account.Id,
-                CustomerId = account.CustomerId,
+                CustomerId = account.CustomerId ?? string.Empty,
                 AccountId = account.Id,
                 Principal = account.Balance,
                 Rate = request.Rate,
                 Tenure = request.Tenure,
                 StartDate = account.CreatedAt.ToString("yyyy-MM-dd"),
                 MaturityDate = maturityDate.ToString("yyyy-MM-dd"),
-                Currency = account.Currency,
+                Currency = account.Currency ?? string.Empty,
                 InterestPaymentFrequency = request.InterestPaymentFrequency,
                 Status = "ACTIVE",
                 AccruedInterest = 0,
@@ -180,14 +180,14 @@ public class DepositController : ControllerBase
             var deposit = new FixedDepositDto
             {
                 Id = account.Id,
-                CustomerId = account.CustomerId,
+                CustomerId = account.CustomerId ?? string.Empty,
                 AccountId = account.Id,
                 Principal = account.Balance,
                 Rate = 0,
                 Tenure = request.Tenure,
                 StartDate = account.CreatedAt.ToString("yyyy-MM-dd"),
                 MaturityDate = maturityDate.ToString("yyyy-MM-dd"),
-                Currency = account.Currency,
+                Currency = account.Currency ?? string.Empty,
                 InterestPaymentFrequency = "AT_MATURITY",
                 Status = "ACTIVE",
                 AccruedInterest = 0,

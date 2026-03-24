@@ -12,11 +12,12 @@ interface AccountingEngineProps {
 
 const AccountingEngine: React.FC<AccountingEngineProps> = ({ accounts, journalEntries: jvs, onPostJournal, onCreateAccount, initialView = 'COA' }) => {
   const [view, setView] = useState<'COA' | 'JV' | 'LEDGER'>(initialView);
-    const [glSearch, setGlSearch] = useState('');
+  const [glSearch, setGlSearch] = useState('');
   const [jvLines, setJvLines] = useState([{ accountCode: '', debit: 0, credit: 0 }, { accountCode: '', debit: 0, credit: 0 }]);
   const [jvDescription, setJvDescription] = useState('');
   const [showAddGLModal, setShowAddGLModal] = useState(false);
   const [newGL, setNewGL] = useState<Partial<GLAccount>>({ category: 'ASSET', currency: 'GHS', balance: 0, isHeader: false });
+  const [feedback, setFeedback] = useState<{ tone: 'success' | 'error'; message: string } | null>(null);
   
   // COA Tree State
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set(['10000', '20000', '30000', '40000', '50000']));
@@ -36,8 +37,20 @@ const AccountingEngine: React.FC<AccountingEngineProps> = ({ accounts, journalEn
       const totalDebit = jvLines.reduce((sum, line) => sum + Number(line.debit), 0);
       const totalCredit = jvLines.reduce((sum, line) => sum + Number(line.credit), 0);
 
+      setFeedback(null);
+
+      if (!jvDescription.trim()) {
+          setFeedback({ tone: 'error', message: 'Enter a journal description before posting.' });
+          return;
+      }
+
+      if (jvLines.some(line => !line.accountCode || (Number(line.debit) === 0 && Number(line.credit) === 0))) {
+          setFeedback({ tone: 'error', message: 'Each journal line must have an account and either a debit or credit amount.' });
+          return;
+      }
+
       if (totalDebit !== totalCredit) {
-          alert(`Unbalanced Journal! Difference: ${totalDebit - totalCredit}`);
+          setFeedback({ tone: 'error', message: `Journal is out of balance by ${Math.abs(totalDebit - totalCredit).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}.` });
           return;
       }
       
@@ -48,17 +61,21 @@ const AccountingEngine: React.FC<AccountingEngineProps> = ({ accounts, journalEn
 
       setJvLines([{ accountCode: '', debit: 0, credit: 0 }, { accountCode: '', debit: 0, credit: 0 }]);
       setJvDescription('');
-      alert("Journal Posted Successfully");
+      setFeedback({ tone: 'success', message: 'Journal posted successfully.' });
   };
 
   const handleCreateGL = () => {
-      if (!newGL.code || !newGL.name) return;
+      if (!newGL.code || !newGL.name) {
+          setFeedback({ tone: 'error', message: 'Account code and account name are required before creating a GL account.' });
+          return;
+      }
       try {
           onCreateAccount(newGL as GLAccount);
           setShowAddGLModal(false);
           setNewGL({ category: 'ASSET', currency: 'GHS', balance: 0, isHeader: false });
+          setFeedback({ tone: 'success', message: `GL account ${newGL.code} created successfully.` });
       } catch (e: any) {
-          alert(e.message);
+          setFeedback({ tone: 'error', message: e?.message || 'Unable to create the GL account right now.' });
       }
   };
 
@@ -102,6 +119,16 @@ const AccountingEngine: React.FC<AccountingEngineProps> = ({ accounts, journalEn
                 </div>
             </div>
         </div>
+
+        {feedback && (
+            <div className={`mx-6 mt-4 rounded-2xl border px-4 py-3 text-sm ${
+                feedback.tone === 'success'
+                    ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
+                    : 'border-rose-200 bg-rose-50 text-rose-800'
+            }`}>
+                {feedback.message}
+            </div>
+        )}
 
         {/* Navigation Tabs */}
         <div className="flex border-b border-gray-200 bg-gray-50">
@@ -393,6 +420,5 @@ const AccountingEngine: React.FC<AccountingEngineProps> = ({ accounts, journalEn
 };
 
 export default AccountingEngine;
-
 
 

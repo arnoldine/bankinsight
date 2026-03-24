@@ -15,36 +15,36 @@ namespace BankInsight.API.Entities
         [Column("report_code")]
         [StringLength(50)]
         [Required]
-        public string ReportCode { get; set; }
+        public string ReportCode { get; set; } = string.Empty;
 
         [Column("report_name")]
         [StringLength(255)]
         [Required]
-        public string ReportName { get; set; }
+        public string ReportName { get; set; } = string.Empty;
 
         [Column("description")]
         [StringLength(1000)]
-        public string Description { get; set; }
+        public string Description { get; set; } = string.Empty;
 
         [Column("report_type")]
         [StringLength(50)]
         [Required]
-        public string ReportType { get; set; } // "Regulatory", "Financial", "Analytics", "Operational"
+        public string ReportType { get; set; } = string.Empty; // "Regulatory", "Financial", "Analytics", "Operational"
 
         [Column("data_source")]
         [StringLength(255)]
-        public string DataSource { get; set; } // Table names or stored procedure
+        public string DataSource { get; set; } = string.Empty; // Table names or stored procedure
 
         [Column("frequency")]
         [StringLength(50)]
-        public string Frequency { get; set; } // "Daily", "Weekly", "Monthly", "Quarterly", "Annual", "OnDemand"
+        public string Frequency { get; set; } = string.Empty; // "Daily", "Weekly", "Monthly", "Quarterly", "Annual", "OnDemand"
 
         [Column("template_format")]
         [StringLength(50)]
-        public string TemplateFormat { get; set; } // "Excel", "PDF", "CSV", "JSON"
+        public string TemplateFormat { get; set; } = string.Empty; // "Excel", "PDF", "CSV", "JSON"
 
         [Column("template_content")]
-        public string TemplateContent { get; set; } // Liquid template
+        public string TemplateContent { get; set; } = string.Empty; // Liquid template
 
         [Column("is_active")]
         public bool IsActive { get; set; } = true;
@@ -54,7 +54,7 @@ namespace BankInsight.API.Entities
 
         [Column("created_by")]
         [StringLength(50)]
-        public string CreatedBy { get; set; }
+        public string CreatedBy { get; set; } = string.Empty;
 
         [Column("created_at")]
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
@@ -83,28 +83,28 @@ namespace BankInsight.API.Entities
         [Column("parameter_name")]
         [StringLength(50)]
         [Required]
-        public string ParameterName { get; set; }
+        public string ParameterName { get; set; } = string.Empty;
 
         [Column("parameter_type")]
         [StringLength(50)]
         [Required]
-        public string ParameterType { get; set; } // "String", "Date", "DateRange", "Number", "Currency", "Dropdown"
+        public string ParameterType { get; set; } = string.Empty; // "String", "Date", "DateRange", "Number", "Currency", "Dropdown"
 
         [Column("default_value")]
-        public string DefaultValue { get; set; }
+        public string DefaultValue { get; set; } = string.Empty;
 
         [Column("is_required")]
         public bool IsRequired { get; set; }
 
         [Column("display_label")]
         [StringLength(100)]
-        public string DisplayLabel { get; set; }
+        public string DisplayLabel { get; set; } = string.Empty;
 
         [Column("sort_order")]
         public int SortOrder { get; set; }
 
         // Navigation
         [ForeignKey(nameof(ReportDefinitionId))]
-        public virtual ReportDefinition ReportDefinition { get; set; }
+        public virtual ReportDefinition ReportDefinition { get; set; } = null!;
     }
 }

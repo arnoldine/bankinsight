@@ -418,7 +418,7 @@ public class DeviceSecurityService : IDeviceSecurityService
         var threshold = GetLargeTransactionThreshold();
 
         var transactions = await _context.Transactions
-            .Include(transaction => transaction.Account)
+            .Include(transaction => transaction.Account!)
                 .ThenInclude(account => account.Customer)
             .Include(transaction => transaction.Teller)
             .Where(transaction => transaction.Date >= since)

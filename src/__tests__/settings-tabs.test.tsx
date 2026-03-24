@@ -106,30 +106,6 @@ describe('Settings tabs', () => {
     expect(screen.getByText('Active Database Engine')).toBeInTheDocument();
   });
 
-  it('switches to Process Designer tab', async () => {
-    const user = userEvent.setup();
-
-    render(
-      <Settings
-        users={users}
-        roles={roles}
-        systemConfig={systemConfig}
-        onCreateRole={() => undefined}
-        onUpdateUserRole={() => undefined}
-        onCreateStaff={() => undefined}
-        onResetPassword={() => undefined}
-        onUpdateConfig={() => undefined}
-        workflows={[]}
-        onCreateWorkflow={() => undefined}
-        onUpdateWorkflow={() => undefined}
-      />
-    );
-
-    await user.click(screen.getByRole('button', { name: /Process Designer/i }));
-
-    expect(screen.getByText('Processes')).toBeInTheDocument();
-  });
-
   it('switches to Menu Config tab', async () => {
     const user = userEvent.setup();
 

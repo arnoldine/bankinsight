@@ -1,7 +1,6 @@
 import React, { Suspense, lazy, useState, useMemo, useEffect } from 'react';
 import { User } from '../services/authService';
 import { MenuItem as AppMenuItem, Role, UILayout, Workflow } from '../../types';
-import FormDesignerScreen from './FormDesignerScreen';
 import { localRegistryService } from '../services/localRegistryService';
 import {
   Menu,
@@ -48,7 +47,6 @@ import { transactionService } from '../services/transactionService';
 import { approvalService } from '../services/approvalService';
 import { getDefaultRoute } from '../../lib/permissionUtils';
 import { groupLendingService } from '../services/groupLendingService';
-import PlatformToolsScreen from '../../components/PlatformToolsScreen';
 
 // Import missing screens
 import ReportingHub from './ReportingHub';
@@ -56,7 +54,6 @@ import TreasuryManagementHub from './TreasuryManagementHub';
 import VaultManagementHub from './VaultManagementHub';
 import LoanManagementHub from './LoanManagementHub';
 import ExtensibilityTestPage from './DynamicForms/ExtensibilityTestPage';
-import ProcessDesigner from './ProcessDesigner';
 import TaskInbox from './TaskInbox';
 import BankingOSControlCenter from './BankingOSControlCenter';
 import Settings from '../../components/Settings';
@@ -67,16 +64,11 @@ import TransactionExplorer from '../../components/TransactionExplorer';
 import StatementVerification from '../../components/StatementVerification';
 import AccountingEngine from '../../components/AccountingEngine';
 import OperationsHub from '../../components/OperationsHub';
-import LoanOfficerScreen from '../../components/LoanOfficerScreen';
-import AccountantScreen from '../../components/AccountantScreen';
-import CustomerServiceScreen from '../../components/CustomerServiceScreen';
-import ComplianceOfficerScreen from '../../components/ComplianceOfficerScreen';
 import ApprovalInbox from '../../components/ApprovalInbox';
 import ProductDesigner from '../../components/ProductDesigner';
 import EodConsole from '../../components/EodConsole';
 import AuditTrail from '../../components/AuditTrail';
 import SecurityOperationsHub from './SecurityOperationsHub';
-import DevelopmentTasks from '../../components/DevelopmentTasks';
 import GroupLendingHub from './group-lending/GroupLendingHub';
 import ClientManager from '../../components/ClientManager';
 import FeePanel from '../../components/FeePanel';
@@ -822,21 +814,10 @@ export default function EnhancedDashboardLayout({
           permission: Permissions.Audit.View,
         },
         {
-          id: 'form-designer',
-          label: 'Form Designer',
-          icon: <ClipboardList size={18} />,
-          permission: Permissions.Roles.View,
-        },
-        {
           id: 'extensibility',
           label: 'Platform Tools',
           icon: <Zap size={18} />,
           permission: Permissions.Roles.View,
-        },
-        {
-          id: 'tasks',
-          label: 'Maintenance Tasks',
-          icon: <CheckSquare size={18} />,
         },
       ],
     },
@@ -876,10 +857,10 @@ export default function EnhancedDashboardLayout({
   }, [customMenuGroup, menuQuery, userPermissions]);
 
   const activeMenuMeta = useMemo(() => {
-    if (activeTab.startsWith('form-designer')) {
+    if (activeTab.startsWith('form-designer') || activeTab === 'process-designer') {
       return {
-        label: 'Form Designer',
-        icon: <ClipboardList className="w-6 h-6 text-brand-500" />,
+        label: 'BankingOS Config Studio',
+        icon: <Boxes className="w-6 h-6 text-brand-500" />,
       };
     }
 
@@ -967,11 +948,17 @@ export default function EnhancedDashboardLayout({
       return <ScreenLoadingFallback />;
     }
 
-    if (activeTab.startsWith('form-designer:')) {
-      const initialFormId = activeTab.split(':')[1] || null;
+    if (activeTab.startsWith('form-designer:') || activeTab === 'form-designer' || activeTab === 'process-designer') {
       return (
-        <ProtectedRoute requiredPermission={Permissions.Roles.View} userPermissions={userPermissions}>
-          <FormDesignerScreen user={user} forms={customForms} onSaveForm={handleSaveForm} initialFormId={initialFormId} />
+        <ProtectedRoute requiredPermission={Permissions.Processes.View} userPermissions={userPermissions}>
+          <NavigationLanding
+            title="Design tooling has moved to BankingOS"
+            description="Form Designer and Process Designer are now maintained only in BankingOS so configuration stays in one governed platform workspace."
+            primaryActionLabel="Open BankingOS"
+            onPrimaryAction={() => setActiveTab('bankingos')}
+            secondaryActionLabel="Open Task Inbox"
+            onSecondaryAction={() => setActiveTab('task-inbox')}
+          />
         </ProtectedRoute>
       );
     }
@@ -1057,18 +1044,6 @@ export default function EnhancedDashboardLayout({
         return (
           <ProtectedRoute requiredPermission={Permissions.Processes.View} userPermissions={userPermissions}>
             <BankingOSControlCenter />
-          </ProtectedRoute>
-        );
-      case 'process-designer':
-        return (
-          <ProtectedRoute requiredPermission={Permissions.Processes.View} userPermissions={userPermissions}>
-            <ProcessDesigner userPermissions={userPermissions} />
-          </ProtectedRoute>
-        );
-      case 'form-designer':
-        return (
-          <ProtectedRoute requiredPermission={Permissions.Roles.View} userPermissions={userPermissions}>
-            <FormDesignerScreen user={user} forms={customForms} onSaveForm={handleSaveForm} initialFormId={null} />
           </ProtectedRoute>
         );
       case 'groups':
@@ -1346,42 +1321,55 @@ export default function EnhancedDashboardLayout({
       case 'loanofficer':
         return (
           <ProtectedRoute requiredPermission={Permissions.Loans.View} userPermissions={userPermissions}>
-            <LoanOfficerScreen 
-              loans={loans} 
-              customers={customers} 
-              products={products} 
-              onDisburseLoan={handleDisburseLoan} 
-              onAppraiseLoan={(id) => console.log('Appraise loan:', id)} 
+            <NavigationLanding
+              title="Loan officer work happens in the loan pipeline"
+              description="Use the production loan workbench for origination, appraisal, approvals, and disbursement instead of the legacy role-specific screen."
+              primaryActionLabel="Open Loan Pipeline"
+              onPrimaryAction={() => setActiveTab('loans-pipeline')}
+              secondaryActionLabel="Open Portfolio"
+              onSecondaryAction={() => setActiveTab('loans-portfolio')}
             />
           </ProtectedRoute>
         );
       case 'accountant':
         return (
           <ProtectedRoute requiredPermission={Permissions.GeneralLedger.Post} userPermissions={userPermissions}>
-            <AccountantScreen 
-              glAccounts={glAccounts} 
-              journalEntries={journalEntries} 
-              transactions={transactions} 
-              onPostJournal={handlePostJournal} 
-              onReconcile={() => console.log('Reconcile')} 
+            <NavigationLanding
+              title="Accounting operations run through the accounting engine"
+              description="Use the core accounting workspace for journals, reconciliations, and ledger review so finance actions stay in the governed production flow."
+              primaryActionLabel="Open Accounting Engine"
+              onPrimaryAction={() => setActiveTab('accounting')}
+              secondaryActionLabel="Open Audit Trail"
+              onSecondaryAction={() => setActiveTab('audit')}
             />
           </ProtectedRoute>
         );
       case 'customerservice':
-        return <CustomerServiceScreen 
-          clients={customers} 
-          accounts={accounts} 
-          transactions={transactions} 
-          onResolveIssue={(id) => console.log('Resolve issue:', id)} 
-          onCreateTicket={(data) => console.log('Create ticket:', data)} 
-        />;
+        return (
+          <ProtectedRoute requiredPermission={Permissions.Customers.View} userPermissions={userPermissions}>
+            <NavigationLanding
+              title="Customer service runs from client and statement workspaces"
+              description="Use the client manager and statement verification screens for production customer servicing instead of the legacy prototype support dashboard."
+              primaryActionLabel="Open Client List"
+              onPrimaryAction={() => setActiveTab('clients-list')}
+              secondaryActionLabel="Open Statements"
+              onSecondaryAction={() => setActiveTab('statements')}
+            />
+          </ProtectedRoute>
+        );
       case 'compliance':
-        return <ComplianceOfficerScreen 
-          clients={customers} 
-          onVerifyKYC={(id) => console.log('Verify KYC:', id)} 
-          onFlagTransaction={(id) => console.log('Flag transaction:', id)} 
-          onUpdateRiskScore={(id, score) => console.log('Update risk score:', id, score)} 
-        />;
+        return (
+          <ProtectedRoute requiredPermission={Permissions.Audit.View} userPermissions={userPermissions}>
+            <NavigationLanding
+              title="Compliance monitoring has moved to governed operations screens"
+              description="Use Security Ops, reporting, and onboarding review queues for production compliance work instead of the legacy prototype dashboard."
+              primaryActionLabel="Open Security Ops"
+              onPrimaryAction={() => setActiveTab('security-ops')}
+              secondaryActionLabel="Open Reporting"
+              onSecondaryAction={() => setActiveTab('reporting')}
+            />
+          </ProtectedRoute>
+        );
       case 'products':
         return <ProductDesigner 
           products={products} 
@@ -1405,17 +1393,22 @@ export default function EnhancedDashboardLayout({
       case 'extensibility':
         return (
           <ProtectedRoute requiredPermission={Permissions.Roles.View} userPermissions={userPermissions}>
-            <PlatformToolsScreen />
+            <NavigationLanding
+              title="Platform configuration lives in BankingOS"
+              description="Developer sandboxes and draft extensibility tooling are not exposed in production. Use BankingOS for governed configuration and release management."
+              primaryActionLabel="Open BankingOS"
+              onPrimaryAction={() => setActiveTab('bankingos')}
+              secondaryActionLabel="Open Settings"
+              onSecondaryAction={() => setActiveTab('settings')}
+            />
           </ProtectedRoute>
         );
       case 'settings':
         return (
           <ProtectedRoute requiredPermission={Permissions.Roles.View} userPermissions={userPermissions}>
-            <Settings workflows={[]} customForms={customForms} menuItems={menuItems} onSaveMenu={handleSaveMenu} onDeleteMenu={handleDeleteMenu} currentUserId={user.id} pageTargets={[{ id: 'form-designer', label: 'Form Designer', helper: 'Open the form catalog and designer' }, { id: 'process-designer', label: 'Process Designer', helper: 'Open workflow definitions and operational metadata' }, { id: 'security-ops', label: 'Security Ops', helper: 'Open device governance and monitoring' }]} />
+            <Settings workflows={[]} customForms={customForms} menuItems={menuItems} onSaveMenu={handleSaveMenu} onDeleteMenu={handleDeleteMenu} currentUserId={user.id} pageTargets={[{ id: 'bankingos', label: 'BankingOS Config Studio', helper: 'Open the BankingOS workspace for forms, processes, themes, and governed releases' }, { id: 'security-ops', label: 'Security Ops', helper: 'Open device governance and monitoring' }]} />
           </ProtectedRoute>
         );
-      case 'tasks':
-        return <DevelopmentTasks />;
       default:
         return (
           <DashboardView

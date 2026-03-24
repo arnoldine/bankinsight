@@ -34,7 +34,7 @@ public class OperationsService
     {
         var businessDate = await GetBusinessDateAsync();
         var schedulerEnabled = await GetBoolConfigAsync(SchedulerEnabledKey, false);
-        var schedulerTimeUtc = await GetStringConfigAsync(SchedulerTimeKey, "23:00");
+        var schedulerTimeUtc = await GetStringConfigAsync(SchedulerTimeKey, "23:00") ?? "23:00";
         var lastSchedulerRunDate = await GetStringConfigAsync(SchedulerLastRunKey, null);
 
         return new EodStatusDto

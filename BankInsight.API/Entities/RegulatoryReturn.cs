@@ -26,7 +26,7 @@ namespace BankInsight.API.Entities
         [Column("return_type")]
         [StringLength(50)]
         [Required]
-        public string ReturnType { get; set; } // ReturnType enum as string
+        public string ReturnType { get; set; } = string.Empty; // ReturnType enum as string
 
         [Column("return_date")]
         [Required]
@@ -47,25 +47,25 @@ namespace BankInsight.API.Entities
 
         [Column("bog_reference_number")]
         [StringLength(100)]
-        public string BogReferenceNumber { get; set; }
+        public string BogReferenceNumber { get; set; } = string.Empty;
 
         [Column("submitted_by")]
         [StringLength(50)]
-        public string SubmittedBy { get; set; }
+        public string SubmittedBy { get; set; } = string.Empty;
 
         [Column("total_records")]
         public int TotalRecords { get; set; }
 
         [Column("file_path")]
         [StringLength(500)]
-        public string FilePath { get; set; }
+        public string FilePath { get; set; } = string.Empty;
 
         [Column("file_format")]
         [StringLength(50)]
-        public string FileFormat { get; set; } // "Excel", "PDF", "XML"
+        public string FileFormat { get; set; } = string.Empty; // "Excel", "PDF", "XML"
 
         [Column("validation_errors")]
-        public string ValidationErrors { get; set; } // JSON array of errors
+        public string ValidationErrors { get; set; } = string.Empty; // JSON array of errors
 
         [Column("created_at")]
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
@@ -84,12 +84,12 @@ namespace BankInsight.API.Entities
         [Column("extract_name")]
         [StringLength(255)]
         [Required]
-        public string ExtractName { get; set; }
+        public string ExtractName { get; set; } = string.Empty;
 
         [Column("extract_type")]
         [StringLength(100)]
         [Required]
-        public string ExtractType { get; set; } // "CustomerData", "TransactionData", "LoanData", "PositionData"
+        public string ExtractType { get; set; } = string.Empty; // "CustomerData", "TransactionData", "LoanData", "PositionData"
 
         [Column("extract_date")]
         [Required]
@@ -100,15 +100,15 @@ namespace BankInsight.API.Entities
 
         [Column("file_path")]
         [StringLength(500)]
-        public string FilePath { get; set; }
+        public string FilePath { get; set; } = string.Empty;
 
         [Column("file_format")]
         [StringLength(50)]
-        public string FileFormat { get; set; } // "CSV", "Excel", "XML", "JSON"
+        public string FileFormat { get; set; } = string.Empty; // "CSV", "Excel", "XML", "JSON"
 
         [Column("created_by")]
         [StringLength(50)]
-        public string CreatedBy { get; set; }
+        public string CreatedBy { get; set; } = string.Empty;
 
         [Column("created_at")]
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;

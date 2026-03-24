@@ -30,7 +30,7 @@ public class UserService
 
     public async Task<Staff> CreateUserAsync(CreateUserRequest request)
     {
-        var normalizedEmail = request.Email?.Trim();
+        var normalizedEmail = request.Email.Trim();
         if (!string.IsNullOrEmpty(normalizedEmail))
         {
             var emailTaken = await _context.Staff.AnyAsync(s => s.Email == normalizedEmail);
@@ -44,7 +44,7 @@ public class UserService
         {
             Id = id,
             Name = request.Name,
-            Email = normalizedEmail ?? request.Email,
+            Email = normalizedEmail,
             Phone = request.Phone,
             BranchId = string.IsNullOrEmpty(request.BranchId) ? null : request.BranchId,
             PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.Password),

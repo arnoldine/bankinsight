@@ -26,7 +26,7 @@ const emptyMenuItem = (): MenuItem => ({
   label: '',
   icon: 'FileText',
   type: 'PAGE',
-  targetId: 'form-designer',
+  targetId: 'bankingos',
   requiredRoleIds: [],
   description: '',
 });

@@ -286,8 +286,8 @@ public class LedgerEngine : ILedgerEngine
             result.Message = $"Deposit successfully posted. Fees: GHS {fees:F2}";
             result.JournalLines = journalLines.Select(jl => new LedgerEntry
             {
-                JournalId = jl.JournalId,
-                GLCode = jl.AccountCode,
+                JournalId = jl.JournalId ?? string.Empty,
+                GLCode = jl.AccountCode ?? string.Empty,
                 Debit = jl.Debit,
                 Credit = jl.Credit
             }).ToList();
@@ -610,11 +610,11 @@ public class LedgerEngine : ILedgerEngine
             .Select(x => new LedgerEntry
             {
                 Id = x.t.Id,
-                JournalId = x.jl.JournalId,
-                GLCode = x.jl.AccountCode,
+                JournalId = x.jl.JournalId ?? string.Empty,
+                GLCode = x.jl.AccountCode ?? string.Empty,
                 Debit = x.jl.Debit,
                 Credit = x.jl.Credit,
-                Narration = x.t.Narration,
+                Narration = x.t.Narration ?? string.Empty,
                 PostedDate = x.t.Date
             })
             .ToListAsync();

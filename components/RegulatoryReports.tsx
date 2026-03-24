@@ -1,234 +1,253 @@
-import React, { useState, useEffect } from 'react';
-import { FileText, AlertCircle, CheckCircle, Clock, Download, Send } from 'lucide-react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { AlertCircle, CheckCircle, Clock, Download, RefreshCw, Send, ShieldCheck, UploadCloud } from 'lucide-react';
+import { RegulatoryReturnDTO, reportService } from '../src/services/reportService';
+import { adminService, OrassReadiness } from '../src/services/adminService';
+import { getUiErrorMessage } from '../src/utils/errorUtils';
 
-interface RegulatoryReturn {
-  id: number;
-  returnType: string;
-  returnDate: string;
-  submissionStatus: string;
-  bogReferenceNumber?: string;
-  totalRecords: number;
-  createdAt: string;
-}
+type ReturnTypeOption = {
+  id: string;
+  name: string;
+  frequency: string;
+};
+
+const reportTypes: ReturnTypeOption[] = [
+  { id: 'DailyPosition', name: 'Daily Position Report', frequency: 'Daily' },
+  { id: 'MonthlyReturn1', name: 'Monthly Return 1 (Deposits)', frequency: 'Monthly' },
+  { id: 'MonthlyReturn2', name: 'Monthly Return 2 (Loans)', frequency: 'Monthly' },
+  { id: 'MonthlyReturn3', name: 'Monthly Return 3 (Off-BS)', frequency: 'Monthly' },
+  { id: 'PrudentialReturn', name: 'Prudential Return', frequency: 'Quarterly' },
+  { id: 'LargeExposure', name: 'Large Exposure Report', frequency: 'Monthly' },
+];
 
 export default function RegulatoryReports() {
-  const [returns, setReturns] = useState<RegulatoryReturn[]>([]);
-  const [selectedReturn, setSelectedReturn] = useState<string>('');
-  const [reportDate, setReportDate] = useState(new Date().toISOString().split('T')[0]);
-  const [loading, setLoading] = useState(false);
-  const [generating, setGenerating] = useState(false);
+  const [returns, setReturns] = useState<RegulatoryReturnDTO[]>([]);
+  const [readiness, setReadiness] = useState<OrassReadiness | null>(null);
+  const [selectedReturnType, setSelectedReturnType] = useState<string>('DailyPosition');
+  const [loading, setLoading] = useState(true);
+  const [actionStatus, setActionStatus] = useState<{ tone: 'success' | 'error'; message: string } | null>(null);
+  const [busyId, setBusyId] = useState<number | null>(null);
+
+  const loadData = async () => {
+    setLoading(true);
+    setActionStatus(null);
+    try {
+      const [returnData, readinessData] = await Promise.all([
+        reportService.getRegulatoryReturns().catch(() => []),
+        adminService.getOrassReadiness().catch(() => null),
+      ]);
+
+      setReturns(returnData || []);
+      setReadiness(readinessData);
+    } catch (error) {
+      setActionStatus({ tone: 'error', message: getUiErrorMessage(error, 'Unable to load regulatory reporting posture.') });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    fetchRegulatoryReturns();
+    void loadData();
   }, []);
 
-  const fetchRegulatoryReturns = async () => {
-    setLoading(true);
+  const filteredReturns = useMemo(() => {
+    return returns.filter((item) => !selectedReturnType || item.returnType === selectedReturnType);
+  }, [returns, selectedReturnType]);
+
+  const metrics = useMemo(() => {
+    return {
+      total: returns.length,
+      ready: returns.filter((item) => item.isReadyForSubmission).length,
+      warnings: returns.filter((item) => item.validationStatus === 'WARNING').length,
+      errors: returns.filter((item) => item.validationStatus === 'ERROR').length,
+    };
+  }, [returns]);
+
+  const handleSubmit = async (returnId: number) => {
+    setBusyId(returnId);
     try {
-      // Mock data for demonstration
-      const mockReturns: RegulatoryReturn[] = [
-        {
-          id: 1,
-          returnType: 'DailyPosition',
-          returnDate: '2025-02-24',
-          submissionStatus: 'Draft',
-          totalRecords: 15,
-          createdAt: '2025-02-24'
-        },
-        {
-          id: 2,
-          returnType: 'MonthlyReturn1',
-          returnDate: '2025-01-31',
-          submissionStatus: 'Submitted',
-          bogReferenceNumber: 'BOG-20250201-A1B2C3D4',
-          totalRecords: 1203,
-          createdAt: '2025-02-01'
-        },
-        {
-          id: 3,
-          returnType: 'PrudentialReturn',
-          returnDate: '2025-02-24',
-          submissionStatus: 'Draft',
-          totalRecords: 42,
-          createdAt: '2025-02-24'
-        }
-      ];
-      setReturns(mockReturns);
+      await reportService.submitRegulatoryReturn(returnId);
+      setActionStatus({ tone: 'success', message: `Regulatory return ${returnId} submitted successfully.` });
+      await loadData();
     } catch (error) {
-      console.error('Error fetching regulatory returns:', error);
+      setActionStatus({ tone: 'error', message: getUiErrorMessage(error, 'Unable to submit the selected regulatory return.') });
+    } finally {
+      setBusyId(null);
     }
-    setLoading(false);
   };
 
-  const handleGenerateReturn = async (returnType: string) => {
-    setGenerating(true);
-    try {
-      // In real implementation, call API endpoint
-      const token = localStorage.getItem('token');
-      // const response = await fetch(`/api/regulatory-reports/${returnType}?asOfDate=${reportDate}`, {
-      //   headers: { Authorization: `Bearer ${token}` }
-      // });
-      
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      // Refresh the list
-      fetchRegulatoryReturns();
-    } catch (error) {
-      console.error('Error generating return:', error);
-    }
-    setGenerating(false);
+  const handleRefresh = async () => {
+    await loadData();
   };
-
-  const statusIcons: Record<string, React.ReactNode> = {
-    'Draft': <Clock className="w-5 h-5 text-yellow-600" />,
-    'Submitted': <CheckCircle className="w-5 h-5 text-green-600" />,
-    'Rejected': <AlertCircle className="w-5 h-5 text-red-600" />
-  };
-
-  const statusColors: Record<string, string> = {
-    'Draft': 'bg-yellow-50 border-yellow-200',
-    'Submitted': 'bg-green-50 border-green-200',
-    'Rejected': 'bg-red-50 border-red-200'
-  };
-
-  const regulatoryReportTypes = [
-    { id: 'daily-position', name: 'Daily Position Report', frequency: 'Daily' },
-    { id: 'monthly-return-1', name: 'Monthly Return 1 (Deposits)', frequency: 'Monthly' },
-    { id: 'monthly-return-2', name: 'Monthly Return 2 (Loans)', frequency: 'Monthly' },
-    { id: 'monthly-return-3', name: 'Monthly Return 3 (Off-BS)', frequency: 'Monthly' },
-    { id: 'prudential', name: 'Prudential Return', frequency: 'Quarterly' },
-    { id: 'large-exposure', name: 'Large Exposure Report', frequency: 'Monthly' }
-  ];
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-            <FileText className="w-6 h-6 text-red-600" />
-            Bank of Ghana Regulatory Reports
-          </h2>
-          <p className="text-gray-600 mt-1">Generate and submit required compliance reports</p>
+      <div className="rounded-[24px] border border-slate-200 bg-white p-6 shadow-sm">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+          <div>
+            <h2 className="flex items-center gap-2 text-2xl font-bold text-slate-900">
+              <UploadCloud className="h-6 w-6 text-red-600" />
+              Bank of Ghana Regulatory Reporting
+            </h2>
+            <p className="mt-2 text-sm text-slate-600">
+              Review prepared returns, validation posture, and ORASS readiness from live backend data instead of sample submissions.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => void handleRefresh()}
+            className="inline-flex items-center gap-2 rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-medium text-slate-700 hover:bg-slate-50"
+          >
+            <RefreshCw className="h-4 w-4" />
+            Refresh
+          </button>
         </div>
       </div>
 
-      {/* Generate Report Section */}
-      <div className="bg-white rounded-lg border border-gray-200 p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Generate New Report</h3>
-        
-        <div className="mb-4">
-          <label className="block text-sm font-medium text-gray-700 mb-2">Report Type</label>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            {regulatoryReportTypes.map(report => (
-              <button
-                key={report.id}
-                onClick={() => setSelectedReturn(report.id)}
-                className={`text-left p-3 rounded-lg border-2 transition-colors ${
-                  selectedReturn === report.id
-                    ? 'bg-blue-50 border-blue-500'
-                    : 'bg-gray-50 border-gray-200 hover:border-gray-300'
-                }`}
+      {actionStatus && (
+        <div className={`rounded-2xl border px-4 py-3 text-sm ${actionStatus.tone === 'success' ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : 'border-rose-200 bg-rose-50 text-rose-800'}`}>
+          {actionStatus.message}
+        </div>
+      )}
+
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <MetricCard label="Tracked Returns" value={String(metrics.total)} icon={<Clock className="h-5 w-5 text-slate-700" />} />
+        <MetricCard label="Ready to Submit" value={String(metrics.ready)} icon={<CheckCircle className="h-5 w-5 text-emerald-700" />} />
+        <MetricCard label="Validation Warnings" value={String(metrics.warnings)} icon={<AlertCircle className="h-5 w-5 text-amber-700" />} />
+        <MetricCard label="Validation Errors" value={String(metrics.errors)} icon={<AlertCircle className="h-5 w-5 text-rose-700" />} />
+      </div>
+
+      <div className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
+        <div className="rounded-[24px] border border-slate-200 bg-white p-6 shadow-sm">
+          <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+            <div>
+              <h3 className="text-lg font-semibold text-slate-900">Prepared Returns</h3>
+              <p className="mt-1 text-sm text-slate-500">Filter and action the live regulatory packages prepared by the reporting engine.</p>
+            </div>
+            <div>
+              <label className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Return Type</label>
+              <select
+                value={selectedReturnType}
+                onChange={(event) => setSelectedReturnType(event.target.value)}
+                className="mt-2 w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm md:w-72"
               >
-                <p className="font-medium text-gray-900">{report.name}</p>
-                <p className="text-xs text-gray-600">{report.frequency}</p>
-              </button>
-            ))}
+                {reportTypes.map((type) => (
+                  <option key={type.id} value={type.id}>{type.name}</option>
+                ))}
+              </select>
+            </div>
           </div>
-        </div>
 
-        <div className="mb-4">
-          <label className="block text-sm font-medium text-gray-700 mb-2">Report As Of Date</label>
-          <input
-            type="date"
-            value={reportDate}
-            onChange={e => setReportDate(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
-        </div>
-
-        <button
-          onClick={() => handleGenerateReturn(selectedReturn)}
-          disabled={!selectedReturn || generating}
-          className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white px-6 py-2 rounded-lg font-medium transition-colors"
-        >
-          {generating ? 'Generating...' : 'Generate Report'}
-        </button>
-      </div>
-
-      {/* Reports List */}
-      <div className="space-y-4">
-        <h3 className="text-lg font-semibold text-gray-900">Recent Reports</h3>
-
-        {loading ? (
-          <div className="text-center py-12">
-            <div className="animate-spin inline-block w-8 h-8 border-4 border-blue-200 border-t-blue-600 rounded-full"></div>
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {returns.map(ret => (
-              <div key={ret.id} className={`rounded-lg border-2 p-4 ${statusColors[ret.submissionStatus] || 'bg-gray-50 border-gray-200'}`}>
-                <div className="flex items-start justify-between">
-                  <div className="flex items-start gap-3 flex-1">
-                    <div className="mt-1">
-                      {statusIcons[ret.submissionStatus]}
-                    </div>
-                    <div className="flex-1">
+          <div className="mt-5 space-y-3">
+            {loading ? (
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-8 text-center text-sm text-slate-500">
+                Loading regulatory returns...
+              </div>
+            ) : filteredReturns.length === 0 ? (
+              <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-4 py-8 text-center text-sm text-slate-500">
+                No prepared returns were found for the selected return type.
+              </div>
+            ) : (
+              filteredReturns.map((item) => (
+                <div key={item.id} className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4">
+                  <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                    <div>
                       <div className="flex items-center gap-2">
-                        <h4 className="font-semibold text-gray-900">{ret.returnType}</h4>
-                        <span className={`text-xs font-medium px-2 py-1 rounded-full ${
-                          ret.submissionStatus === 'Submitted'
-                            ? 'bg-green-100 text-green-800'
-                            : ret.submissionStatus === 'Draft'
-                            ? 'bg-yellow-100 text-yellow-800'
-                            : 'bg-red-100 text-red-800'
-                        }`}>
-                          {ret.submissionStatus}
-                        </span>
+                        <div className="font-semibold text-slate-900">{item.returnType}</div>
+                        <StatusPill label={item.submissionStatus} tone={item.submissionStatus === 'Submitted' ? 'green' : item.validationStatus === 'ERROR' ? 'red' : item.validationStatus === 'WARNING' ? 'amber' : 'blue'} />
                       </div>
-                      <p className="text-sm text-gray-600 mt-1">
-                        As of: {new Date(ret.returnDate).toLocaleDateString()} • Records: {ret.totalRecords}
-                      </p>
-                      {ret.bogReferenceNumber && (
-                        <p className="text-xs text-gray-700 mt-2">
-                          <span className="font-medium">BoG Reference:</span> {ret.bogReferenceNumber}
-                        </p>
+                      <div className="mt-2 text-sm text-slate-600">
+                        Return date: {new Date(item.returnDate).toLocaleDateString()} | Records: {item.totalRecords}
+                      </div>
+                      <div className="mt-1 text-xs text-slate-500">
+                        Validation: {item.validationStatus} {item.bogReferenceNumber ? `| BoG Ref: ${item.bogReferenceNumber}` : ''}
+                      </div>
+                      {item.validationErrors?.length > 0 && (
+                        <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                          {item.validationErrors.join(' | ')}
+                        </div>
                       )}
                     </div>
-                  </div>
-
-                  <div className="flex items-center gap-2 ml-4">
-                    {ret.submissionStatus === 'Draft' && (
-                      <>
-                        <button className="p-2 hover:bg-blue-100 rounded-lg transition-colors">
-                          <Download className="w-5 h-5 text-blue-600" />
-                        </button>
-                        <button className="p-2 hover:bg-green-100 rounded-lg transition-colors">
-                          <Send className="w-5 h-5 text-green-600" />
-                        </button>
-                      </>
-                    )}
-                    {ret.submissionStatus === 'Submitted' && (
-                      <button className="p-2 hover:bg-blue-100 rounded-lg transition-colors">
-                        <Download className="w-5 h-5 text-blue-600" />
+                    <div className="flex items-center gap-2">
+                      <button type="button" className="inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+                        <Download className="h-4 w-4" />
+                        Review
                       </button>
-                    )}
+                      <button
+                        type="button"
+                        disabled={!item.isReadyForSubmission || busyId === item.id}
+                        onClick={() => void handleSubmit(item.id)}
+                        className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        {busyId === item.id ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                        Submit
+                      </button>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              ))
+            )}
           </div>
-        )}
-      </div>
+        </div>
 
-      {/* Information Box */}
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-        <p className="text-sm text-blue-900">
-          <strong>Note:</strong> All regulatory reports must be submitted within the specified deadlines. 
-          Ensure data accuracy before submission. Bank of Ghana will provide a reference number upon successful submission.
-        </p>
+        <div className="rounded-[24px] border border-slate-200 bg-white p-6 shadow-sm">
+          <div className="flex items-center gap-3">
+            <ShieldCheck className="h-5 w-5 text-slate-700" />
+            <h3 className="text-lg font-semibold text-slate-900">ORASS Readiness</h3>
+          </div>
+          <div className="mt-5 space-y-3 text-sm text-slate-700">
+            {readiness ? (
+              <>
+                <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4">
+                  <div className="font-semibold text-slate-900">Profile</div>
+                  <div className="mt-1">{readiness.profileConfigured ? 'Configured' : 'Incomplete'}</div>
+                </div>
+                <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4">
+                  <div className="font-semibold text-slate-900">Submission Mode</div>
+                  <div className="mt-1">{readiness.submissionMode}</div>
+                </div>
+                <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4">
+                  <div className="font-semibold text-slate-900">Ready Returns</div>
+                  <div className="mt-1">{readiness.returnsReadyForSubmission}</div>
+                </div>
+                {readiness.missingRequirements?.length > 0 && (
+                  <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-4 text-amber-900">
+                    {readiness.missingRequirements.join(' | ')}
+                  </div>
+                )}
+              </>
+            ) : (
+              <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-4 py-8 text-center text-sm text-slate-500">
+                ORASS readiness data is not available in this environment.
+              </div>
+            )}
+          </div>
+        </div>
       </div>
     </div>
   );
+}
+
+function MetricCard({ label, value, icon }: { label: string; value: string; icon: React.ReactNode }) {
+  return (
+    <div className="rounded-[24px] border border-slate-200 bg-white p-5 shadow-sm">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <div className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">{label}</div>
+          <div className="mt-2 text-2xl font-bold text-slate-900">{value}</div>
+        </div>
+        <div className="rounded-2xl bg-slate-100 p-3">{icon}</div>
+      </div>
+    </div>
+  );
+}
+
+function StatusPill({ label, tone }: { label: string; tone: 'green' | 'amber' | 'red' | 'blue' }) {
+  const classes = {
+    green: 'bg-emerald-100 text-emerald-800',
+    amber: 'bg-amber-100 text-amber-800',
+    red: 'bg-rose-100 text-rose-800',
+    blue: 'bg-sky-100 text-sky-800',
+  } as const;
+
+  return <span className={`rounded-full px-2 py-1 text-[11px] font-semibold ${classes[tone]}`}>{label}</span>;
 }
