@@ -206,6 +206,7 @@ export const API_ENDPOINTS = {
     profitabilityReport: '/loans/reports/profitability',
     balanceSheetReport: '/loans/reports/balance-sheet',
     glPostings: (id: string) => `/loans/${id}/gl-postings`,
+    products: '/loans/products',
     configureProduct: '/loans/products/configure',
     configureAccountingProfile: '/loans/accounting-profiles/configure',
   },

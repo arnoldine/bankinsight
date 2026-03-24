@@ -16,7 +16,7 @@ import { Can } from '../../components/Can';
 import { Permissions } from '../../lib/Permissions';
 import { useLoans } from '../hooks/useApi';
 import LoanOperationsSuite from './loans/LoanOperationsSuite';
-import { loanService, Loan, LoanScheduleDto } from '../services/loanService';
+import { loanService, Loan, LoanProductDefinition, LoanScheduleDto } from '../services/loanService';
 
 interface LoanManagementHubProps {
   loans?: Loan[];
@@ -34,32 +34,47 @@ type BannerState = {
   text: string;
 } | null;
 
-const PRODUCT_OPTIONS = [
+const FALLBACK_PRODUCT_OPTIONS: LoanProductDefinition[] = [
   {
     id: 'LP_CONS_MONTHLY',
-    label: 'Monthly Consumer Loans',
+    code: 'CONS_MONTHLY',
+    name: 'Monthly Consumer Loans',
+    productType: 'MonthlyConsumerLoan',
     repaymentFrequency: 'Monthly',
     interestMethod: 'Flat',
-    defaultRate: '22',
-    defaultTerm: '18',
+    annualInterestRate: 22,
+    termInPeriods: 18,
+    minAmount: 200,
+    maxAmount: 100000,
+    isActive: true,
   },
   {
     id: 'LP_BIZ_MONTHLY',
-    label: 'Monthly Business Loans',
+    code: 'BIZ_MONTHLY',
+    name: 'Monthly Business Loans',
+    productType: 'MonthlyBusinessLoan',
     repaymentFrequency: 'Monthly',
     interestMethod: 'ReducingBalance',
-    defaultRate: '18',
-    defaultTerm: '24',
+    annualInterestRate: 18,
+    termInPeriods: 24,
+    minAmount: 500,
+    maxAmount: 250000,
+    isActive: true,
   },
   {
     id: 'LP_GROUP_WEEKLY',
-    label: 'Weekly Group Loans',
+    code: 'GROUP_WEEKLY',
+    name: 'Weekly Group Loans',
+    productType: 'WeeklyGroupLoan',
     repaymentFrequency: 'Weekly',
     interestMethod: 'ReducingBalance',
-    defaultRate: '20',
-    defaultTerm: '24',
+    annualInterestRate: 20,
+    termInPeriods: 24,
+    minAmount: 100,
+    maxAmount: 50000,
+    isActive: true,
   },
-] as const;
+];
 
 const formatCurrency = (value?: number) =>
   new Intl.NumberFormat('en-GH', {
@@ -119,6 +134,7 @@ export default function LoanManagementHub({
   } = useLoans();
 
   const [loans, setLoans] = useState<Loan[]>(initialLoans || []);
+  const [loanProducts, setLoanProducts] = useState<LoanProductDefinition[]>(FALLBACK_PRODUCT_OPTIONS);
   const [customers] = useState(initialCustomers || []);
   const [activeTab, setActiveTab] = useState<LoanTab>(initialTab);
   const [selectedLoanId, setSelectedLoanId] = useState<string>('');
@@ -133,8 +149,6 @@ export default function LoanManagementHub({
   const [origCif, setOrigCif] = useState('');
   const [origProduct, setOrigProduct] = useState<string>('LP_CONS_MONTHLY');
   const [origPrincipal, setOrigPrincipal] = useState('');
-  const [origRate, setOrigRate] = useState('22');
-  const [origTerm, setOrigTerm] = useState('18');
   const [origCollateralType, setOrigCollateralType] = useState('');
   const [origCollateralValue, setOrigCollateralValue] = useState('');
   const [approvalNotes, setApprovalNotes] = useState('');
@@ -158,19 +172,14 @@ export default function LoanManagementHub({
     }
   }, [initialLoans]);
 
-  useEffect(() => {
-    const selectedProduct = PRODUCT_OPTIONS.find((product) => product.id === origProduct);
-    if (!selectedProduct) {
-      return;
-    }
-
-    setOrigRate(selectedProduct.defaultRate);
-    setOrigTerm(selectedProduct.defaultTerm);
-  }, [origProduct]);
-
   const customerMap = useMemo(
     () => new Map(customers.map((customer) => [customer.id, customer.name])),
     [customers],
+  );
+
+  const selectedProductDefinition = useMemo(
+    () => loanProducts.find((product) => product.id === origProduct) || loanProducts[0] || null,
+    [loanProducts, origProduct],
   );
 
   const selectedLoan = useMemo(
@@ -247,9 +256,18 @@ export default function LoanManagementHub({
 
   const loadData = async () => {
     try {
-      const data = await getLoans();
+      const [data, productCatalog] = await Promise.all([
+        getLoans(),
+        loanService.getLoanProducts().catch(() => FALLBACK_PRODUCT_OPTIONS),
+      ]);
       const nextLoans = Array.isArray(data) ? data : [];
+      const nextProducts = Array.isArray(productCatalog) && productCatalog.length > 0 ? productCatalog : FALLBACK_PRODUCT_OPTIONS;
       setLoans(nextLoans);
+      setLoanProducts(nextProducts);
+
+      if (!nextProducts.some((product) => product.id === origProduct)) {
+        setOrigProduct(nextProducts[0]?.id || 'LP_CONS_MONTHLY');
+      }
 
       if (!selectedLoanId && nextLoans.length > 0) {
         setSelectedLoanId(nextLoans[0].id);
@@ -268,10 +286,8 @@ export default function LoanManagementHub({
 
   const resetOriginationForm = () => {
     setOrigCif('');
-    setOrigProduct('LP_CONS_MONTHLY');
+    setOrigProduct(loanProducts[0]?.id || 'LP_CONS_MONTHLY');
     setOrigPrincipal('');
-    setOrigRate('22');
-    setOrigTerm('18');
     setOrigCollateralType('');
     setOrigCollateralValue('');
     setPreviewSchedule([]);
@@ -296,26 +312,21 @@ export default function LoanManagementHub({
   };
 
   const handlePreviewSchedule = async () => {
-    if (!origPrincipal || !origRate || !origTerm) {
-      setBanner({ tone: 'error', text: 'Enter principal, annual rate, and term before previewing the schedule.' });
+    if (!origPrincipal || !selectedProductDefinition) {
+      setBanner({ tone: 'error', text: 'Select a product and principal before previewing the schedule.' });
       return;
     }
 
     setPreviewLoading(true);
     setBanner(null);
     try {
-      const selectedProduct = PRODUCT_OPTIONS.find((product) => product.id === origProduct);
       const result = await loanService.generateSchedule({
+        loanProductId: selectedProductDefinition.id,
         principal: Number(origPrincipal),
-        annualInterestRate: Number(origRate),
-        termInPeriods: Number(origTerm),
-        interestMethod: selectedProduct?.interestMethod || 'Flat',
-        repaymentFrequency: selectedProduct?.repaymentFrequency || 'Monthly',
-        scheduleType: selectedProduct?.repaymentFrequency || 'Monthly',
       });
 
       setPreviewSchedule(Array.isArray(result?.lines) ? result.lines : []);
-      setBanner({ tone: 'info', text: 'Repayment preview generated from the current product and pricing inputs.' });
+      setBanner({ tone: 'info', text: 'Repayment preview generated from the selected product definition.' });
     } catch (previewError) {
       setBanner({ tone: 'error', text: getErrorMessage(previewError, 'Unable to preview repayment schedule.') });
     } finally {
@@ -348,16 +359,10 @@ export default function LoanManagementHub({
     setBanner(null);
 
     try {
-      const selectedProduct = PRODUCT_OPTIONS.find((product) => product.id === origProduct);
       const createdLoan = await applyLoan({
         customerId: origCif,
         loanProductId: origProduct,
         principal: Number(origPrincipal),
-        annualInterestRate: Number(origRate),
-        termInPeriods: Number(origTerm),
-        interestMethod: selectedProduct?.interestMethod || 'Flat',
-        repaymentFrequency: selectedProduct?.repaymentFrequency || 'Monthly',
-        scheduleType: selectedProduct?.repaymentFrequency || 'Monthly',
         clientReference: `WEB-APP-${Date.now()}`,
       });
 
@@ -730,8 +735,8 @@ export default function LoanManagementHub({
                 <div>
                   <label className="mb-2 block text-sm font-medium text-slate-600 dark:text-slate-300">Loan product</label>
                   <select value={origProduct} onChange={(event) => setOrigProduct(event.target.value)} className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 dark:border-slate-700 dark:bg-slate-900">
-                    {PRODUCT_OPTIONS.map((product) => (
-                      <option key={product.id} value={product.id}>{product.label}</option>
+                    {loanProducts.map((product) => (
+                      <option key={product.id} value={product.id}>{product.name}</option>
                     ))}
                   </select>
                 </div>
@@ -741,13 +746,33 @@ export default function LoanManagementHub({
                     <label className="mb-2 block text-sm font-medium text-slate-600 dark:text-slate-300">Principal</label>
                     <input type="number" min="100" value={origPrincipal} onChange={(event) => setOrigPrincipal(event.target.value)} className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 dark:border-slate-700 dark:bg-slate-900" required />
                   </div>
-                  <div>
-                    <label className="mb-2 block text-sm font-medium text-slate-600 dark:text-slate-300">Annual rate (%)</label>
-                    <input type="number" min="0" step="0.1" value={origRate} onChange={(event) => setOrigRate(event.target.value)} className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 dark:border-slate-700 dark:bg-slate-900" required />
+                  <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 dark:border-slate-700 dark:bg-slate-900">
+                    <div className="text-xs font-medium text-slate-500 dark:text-slate-400">Annual rate (%)</div>
+                    <div className="mt-1 text-sm font-semibold text-slate-900 dark:text-white">{selectedProductDefinition?.annualInterestRate ?? 0}%</div>
+                    <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">Controlled from Product Definition.</div>
                   </div>
-                  <div>
-                    <label className="mb-2 block text-sm font-medium text-slate-600 dark:text-slate-300">Term</label>
-                    <input type="number" min="1" value={origTerm} onChange={(event) => setOrigTerm(event.target.value)} className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 dark:border-slate-700 dark:bg-slate-900" required />
+                  <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 dark:border-slate-700 dark:bg-slate-900">
+                    <div className="text-xs font-medium text-slate-500 dark:text-slate-400">Term and schedule</div>
+                    <div className="mt-1 text-sm font-semibold text-slate-900 dark:text-white">
+                      {selectedProductDefinition?.termInPeriods ?? 0} periods · {selectedProductDefinition?.repaymentFrequency || 'N/A'}
+                    </div>
+                    <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">{selectedProductDefinition?.interestMethod || 'N/A'} interest</div>
+                  </div>
+                </div>
+
+                <div className="grid gap-4 md:grid-cols-3">
+                  <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 dark:border-slate-700 dark:bg-slate-900">
+                    <div className="text-xs font-medium text-slate-500 dark:text-slate-400">Minimum amount</div>
+                    <div className="mt-1 text-sm font-semibold text-slate-900 dark:text-white">{formatCurrency(selectedProductDefinition?.minAmount ?? 0)}</div>
+                  </div>
+                  <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 dark:border-slate-700 dark:bg-slate-900">
+                    <div className="text-xs font-medium text-slate-500 dark:text-slate-400">Maximum amount</div>
+                    <div className="mt-1 text-sm font-semibold text-slate-900 dark:text-white">{formatCurrency(selectedProductDefinition?.maxAmount ?? 0)}</div>
+                  </div>
+                  <div className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 dark:border-blue-900/60 dark:bg-blue-950/30">
+                    <div className="text-xs font-medium text-blue-700 dark:text-blue-300">Product governance</div>
+                    <div className="mt-1 text-sm font-semibold text-slate-900 dark:text-white">Parameters are enforced from Product Definition.</div>
+                    <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">Origination can only choose a product and submit facility-specific details.</div>
                   </div>
                 </div>
 

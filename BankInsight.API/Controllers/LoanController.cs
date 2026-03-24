@@ -169,6 +169,14 @@ public class LoanController : ControllerBase
         return Ok(result);
     }
 
+    [HttpGet("products")]
+    [HasPermission(BankInsight.API.Security.AppPermissions.Loans.View)]
+    public async Task<IActionResult> GetLoanProducts()
+    {
+        var result = await _loanService.GetLoanProductsAsync();
+        return Ok(result);
+    }
+
     [HttpPost("accounting-profiles/configure")]
     [HasPermission(BankInsight.API.Security.AppPermissions.GeneralLedger.Post)]
     public async Task<IActionResult> ConfigureLoanAccountingProfile([FromBody] ConfigureLoanAccountingProfileRequest request)

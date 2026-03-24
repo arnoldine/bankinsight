@@ -99,19 +99,7 @@ public class LoanService
                 throw new InvalidOperationException("Principal is required for direct disbursement");
             }
 
-            if (!request.Rate.HasValue)
-            {
-                throw new InvalidOperationException("Rate is required for direct disbursement");
-            }
-
-            if (!request.TermMonths.HasValue)
-            {
-                throw new InvalidOperationException("TermMonths is required for direct disbursement");
-            }
-
             var principalAmount = request.Principal.Value;
-            var rate = request.Rate.Value;
-            var termMonths = request.TermMonths.Value;
 
             var customer = await _context.Customers.FirstOrDefaultAsync(c => c.Id == request.Cif);
             if (customer == null)
@@ -119,17 +107,22 @@ public class LoanService
                 throw new InvalidOperationException("Customer not found");
             }
 
-            var product = await _context.Products.FirstOrDefaultAsync(p => p.Id == request.ProductCode);
-            if (product == null)
+            var loanProduct = await ResolveLoanProductDefinitionAsync(request.ProductCode);
+            if (loanProduct == null)
             {
-                throw new InvalidOperationException("Loan product not found");
+                throw new InvalidOperationException("Loan product definition not found or inactive");
             }
 
-            if (!string.Equals(product.Type, "LOAN", StringComparison.OrdinalIgnoreCase) ||
-                !string.Equals(product.Status, "ACTIVE", StringComparison.OrdinalIgnoreCase))
+            if (principalAmount < loanProduct.MinAmount || principalAmount > loanProduct.MaxAmount)
             {
-                throw new InvalidOperationException("Product is not an active loan product");
+                throw new InvalidOperationException("Requested amount is outside product limits");
             }
+
+            var product = await ResolveCoreLoanProductAsync();
+            var rate = loanProduct.AnnualInterestRate;
+            var termInPeriods = loanProduct.TermInPeriods;
+            var termMonths = NormalizeTermMonths(loanProduct.RepaymentFrequency.ToString(), termInPeriods);
+            var scheduleType = ResolveScheduleType(loanProduct).ToString();
 
             var account = await _context.Accounts
                 .FirstOrDefaultAsync(a => a.CustomerId == request.Cif && (a.Status == "ACTIVE" || a.Status == "Active"));
@@ -175,10 +168,14 @@ public class LoanService
                 Id = loanId,
                 CustomerId = request.Cif,
                 GroupId = request.GroupId,
-                ProductCode = request.ProductCode,
+                ProductCode = product.Id,
+                LoanProductId = loanProduct.Id,
                 Principal = principalAmount,
                 Rate = rate,
                 TermMonths = termMonths,
+                InterestMethod = loanProduct.InterestMethod.ToString(),
+                RepaymentFrequency = loanProduct.RepaymentFrequency.ToString(),
+                ScheduleType = scheduleType,
                 DisbursementDate = disbursementDate,
                 Status = "ACTIVE",
                 OutstandingBalance = principalAmount,
@@ -198,7 +195,7 @@ public class LoanService
                 Currency = ResolveCurrency(product.Currency, account.Currency),
                 BranchId = branchCode,
                 Reference = disbursementReference,
-                PayloadJson = System.Text.Json.JsonSerializer.Serialize(new { AccountId = account.Id, Rate = rate }),
+                PayloadJson = System.Text.Json.JsonSerializer.Serialize(new { AccountId = account.Id, Rate = rate, LoanProductId = loanProduct.Id }),
                 CreatedBy = null
             };
 
@@ -208,29 +205,26 @@ public class LoanService
                 throw new InvalidOperationException($"Posting Engine Failed: {postResult.ErrorMessage}");
             }
 
-            var remainingPrincipal = principalAmount;
-            var monthlyPrincipal = Math.Round(principalAmount / termMonths, 2, MidpointRounding.AwayFromZero);
+            var generatedSchedule = GenerateScheduleLines(
+                principal: principalAmount,
+                annualRate: rate,
+                termInPeriods: termInPeriods,
+                interestMethod: loanProduct.InterestMethod,
+                repaymentFrequency: loanProduct.RepaymentFrequency,
+                scheduleType: ResolveScheduleType(loanProduct),
+                startDate: disbursementDate);
 
-            for (int period = 1; period <= termMonths; period++)
+            foreach (var line in generatedSchedule)
             {
-                var openingBalance = remainingPrincipal;
-                var interest = Math.Round(openingBalance * (rate / 100m) / 12m, 2, MidpointRounding.AwayFromZero);
-                var principal = period == termMonths
-                    ? remainingPrincipal
-                    : Math.Min(monthlyPrincipal, remainingPrincipal);
-
-                principal = Math.Round(principal, 2, MidpointRounding.AwayFromZero);
-                remainingPrincipal = Math.Max(0m, Math.Round(remainingPrincipal - principal, 2, MidpointRounding.AwayFromZero));
-
                 var schedule = new LoanSchedule
                 {
                     LoanId = loanId,
-                    Period = period,
-                    DueDate = disbursementDate.AddMonths(period),
-                    Principal = principal,
-                    Interest = interest,
-                    Total = principal + interest,
-                    Balance = remainingPrincipal,
+                    Period = line.Period,
+                    DueDate = line.DueDate,
+                    Principal = line.Principal,
+                    Interest = line.Interest,
+                    Total = line.Installment,
+                    Balance = line.ClosingBalance,
                     Status = "DUE"
                 };
 
@@ -255,7 +249,7 @@ public class LoanService
                 userId: null,
                 description: $"Loan disbursed for customer {request.Cif} with principal {principalAmount:C}",
                 status: "SUCCESS",
-                newValues: new { loan.Id, request.Cif, Principal = principalAmount, Rate = rate, TermMonths = termMonths, disbursementReference });
+                newValues: new { loan.Id, request.Cif, Principal = principalAmount, Rate = rate, TermMonths = termMonths, LoanProductId = loanProduct.Id, disbursementReference });
 
             await _suspiciousActivityService.HandleLargeTransactionAsync(account.Id, principalAmount, "LOAN_DISBURSEMENT", null);
 
@@ -888,16 +882,15 @@ public class LoanService
             throw new InvalidOperationException("Requested amount is outside product limits");
         }
 
-        var rate = request.AnnualInterestRate <= 0 ? loanProduct.AnnualInterestRate : request.AnnualInterestRate;
-        var termInPeriods = request.TermInPeriods <= 0 ? loanProduct.TermInPeriods : request.TermInPeriods;
+        var rate = loanProduct.AnnualInterestRate;
+        var termInPeriods = loanProduct.TermInPeriods;
+        var interestMethod = loanProduct.InterestMethod.ToString();
+        var repaymentFrequency = loanProduct.RepaymentFrequency.ToString();
+        var scheduleType = ResolveScheduleType(loanProduct).ToString();
 
-        var defaultRetailLoanProductId = await _context.Products
-            .Where(p => p.Type == "LOAN" && p.Status == "ACTIVE")
-            .OrderBy(p => p.Id)
-            .Select(p => p.Id)
-            .FirstOrDefaultAsync();
+        var defaultRetailLoanProductId = (await ResolveCoreLoanProductAsync()).Id;
 
-        ValidateProductBusinessRules(loanProduct, request);
+        ValidateProductBusinessRules(loanProduct);
 
         var loanId = $"LN{DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}";
         var loan = new Loan
@@ -909,10 +902,10 @@ public class LoanService
             LoanProductId = loanProduct.Id,
             Principal = request.Principal,
             Rate = rate,
-            TermMonths = NormalizeTermMonths(request.RepaymentFrequency, termInPeriods),
-            InterestMethod = request.InterestMethod,
-            RepaymentFrequency = request.RepaymentFrequency,
-            ScheduleType = request.ScheduleType,
+            TermMonths = NormalizeTermMonths(repaymentFrequency, termInPeriods),
+            InterestMethod = interestMethod,
+            RepaymentFrequency = repaymentFrequency,
+            ScheduleType = scheduleType,
             Status = "PENDING_APPROVAL",
             OutstandingBalance = request.Principal,
             ParBucket = "0",
@@ -972,7 +965,7 @@ public class LoanService
             userId: resolvedMakerId,
             description: $"Loan application submitted for customer {request.CustomerId}",
             status: "SUCCESS",
-            newValues: new { request.CustomerId, request.Principal, request.LoanProductId, request.InterestMethod, request.RepaymentFrequency, request.ScheduleType });
+            newValues: new { request.CustomerId, request.Principal, request.LoanProductId, InterestMethod = interestMethod, RepaymentFrequency = repaymentFrequency, ScheduleType = scheduleType });
 
         return MapLoanDto(loan);
     }
@@ -1231,28 +1224,42 @@ public class LoanService
         };
     }
 
-    public Task<LoanScheduleGenerationResultDto> GenerateScheduleAsync(GenerateLoanScheduleRequest request)
+    public async Task<LoanScheduleGenerationResultDto> GenerateScheduleAsync(GenerateLoanScheduleRequest request)
     {
         var startDate = request.StartDate ?? DateOnly.FromDateTime(DateTime.UtcNow);
+        var loanProduct = !string.IsNullOrWhiteSpace(request.LoanProductId)
+            ? await _context.LoanProducts.FirstOrDefaultAsync(lp => lp.Id == request.LoanProductId && lp.IsActive)
+            : null;
+
+        var annualInterestRate = loanProduct?.AnnualInterestRate ?? request.AnnualInterestRate;
+        var termInPeriods = loanProduct?.TermInPeriods ?? request.TermInPeriods;
+        var interestMethod = loanProduct?.InterestMethod.ToString() ?? request.InterestMethod;
+        var repaymentFrequency = loanProduct?.RepaymentFrequency.ToString() ?? request.RepaymentFrequency;
+        var scheduleType = loanProduct != null ? ResolveScheduleType(loanProduct).ToString() : request.ScheduleType;
+
+        if (termInPeriods <= 0)
+        {
+            throw new InvalidOperationException("A valid loan product or positive term is required to generate a schedule.");
+        }
 
         var lines = GenerateScheduleLines(
             principal: request.Principal,
-            annualRate: request.AnnualInterestRate,
-            termInPeriods: request.TermInPeriods,
-            interestMethod: ParseInterestMethod(request.InterestMethod),
-            repaymentFrequency: ParseRepaymentFrequency(request.RepaymentFrequency),
-            scheduleType: ParseRepaymentFrequency(request.ScheduleType),
+            annualRate: annualInterestRate,
+            termInPeriods: termInPeriods,
+            interestMethod: ParseInterestMethod(interestMethod),
+            repaymentFrequency: ParseRepaymentFrequency(repaymentFrequency),
+            scheduleType: ParseRepaymentFrequency(scheduleType),
             startDate: startDate);
 
-        return Task.FromResult(new LoanScheduleGenerationResultDto
+        return new LoanScheduleGenerationResultDto
         {
             Principal = request.Principal,
-            AnnualInterestRate = request.AnnualInterestRate,
-            InterestMethod = request.InterestMethod,
-            RepaymentFrequency = request.RepaymentFrequency,
-            ScheduleType = request.ScheduleType,
+            AnnualInterestRate = annualInterestRate,
+            InterestMethod = interestMethod,
+            RepaymentFrequency = repaymentFrequency,
+            ScheduleType = scheduleType,
             Lines = lines
-        });
+        };
     }
 
     private static string ResolveCurrency(string? primaryCurrency, string? secondaryCurrency)
@@ -1478,6 +1485,28 @@ public class LoanService
 
         await _context.SaveChangesAsync();
         return existing;
+    }
+
+    public async Task<List<LoanProductDefinitionDto>> GetLoanProductsAsync()
+    {
+        return await _context.LoanProducts
+            .Where(lp => lp.IsActive)
+            .OrderBy(lp => lp.Name)
+            .Select(lp => new LoanProductDefinitionDto
+            {
+                Id = lp.Id,
+                Code = lp.Code,
+                Name = lp.Name,
+                ProductType = lp.ProductType.ToString(),
+                InterestMethod = lp.InterestMethod.ToString(),
+                RepaymentFrequency = lp.RepaymentFrequency.ToString(),
+                TermInPeriods = lp.TermInPeriods,
+                AnnualInterestRate = lp.AnnualInterestRate,
+                MinAmount = lp.MinAmount,
+                MaxAmount = lp.MaxAmount,
+                IsActive = lp.IsActive
+            })
+            .ToListAsync();
     }
 
     public async Task<LoanAccountingProfile> ConfigureLoanAccountingProfileAsync(ConfigureLoanAccountingProfileRequest request)
@@ -2069,32 +2098,62 @@ public class LoanService
             : Math.Max(1, loan.TermMonths);
     }
 
-    private static void ValidateProductBusinessRules(LoanProduct product, ApplyLoanRequest request)
+    private static void ValidateProductBusinessRules(LoanProduct product)
     {
         if (product.ProductType == LoanProductType.DigitalLoan30Days)
         {
-            if (!request.ScheduleType.Equals(nameof(LoanRepaymentFrequency.Bullet), StringComparison.OrdinalIgnoreCase))
+            if (ResolveScheduleType(product) != LoanRepaymentFrequency.Bullet)
             {
                 throw new InvalidOperationException("Digital loans must use bullet repayment schedule.");
             }
 
-            if (request.TermInPeriods != 1)
+            if (product.TermInPeriods != 1)
             {
                 throw new InvalidOperationException("Digital loans must have fixed 30-day tenor.");
             }
         }
 
         if (product.ProductType == LoanProductType.WeeklyGroupLoan &&
-            !request.RepaymentFrequency.Equals(nameof(LoanRepaymentFrequency.Weekly), StringComparison.OrdinalIgnoreCase))
+            product.RepaymentFrequency != LoanRepaymentFrequency.Weekly)
         {
             throw new InvalidOperationException("Group loans must have weekly schedules.");
         }
 
         if ((product.ProductType == LoanProductType.MonthlyBusinessLoan || product.ProductType == LoanProductType.MonthlyConsumerLoan) &&
-            !request.RepaymentFrequency.Equals(nameof(LoanRepaymentFrequency.Monthly), StringComparison.OrdinalIgnoreCase))
+            product.RepaymentFrequency != LoanRepaymentFrequency.Monthly)
         {
             throw new InvalidOperationException("Business and consumer loans must have monthly schedules.");
         }
+    }
+
+    private async Task<Product> ResolveCoreLoanProductAsync()
+    {
+        var product = await _context.Products
+            .Where(p => p.Type == "LOAN" && p.Status == "ACTIVE")
+            .OrderBy(p => p.Id)
+            .FirstOrDefaultAsync();
+
+        return product ?? throw new InvalidOperationException("No active core loan product is configured");
+    }
+
+    private async Task<LoanProduct?> ResolveLoanProductDefinitionAsync(string? productIdentifier)
+    {
+        if (string.IsNullOrWhiteSpace(productIdentifier))
+        {
+            return null;
+        }
+
+        var trimmed = productIdentifier.Trim();
+
+        return await _context.LoanProducts
+            .FirstOrDefaultAsync(lp => lp.IsActive && (lp.Id == trimmed || lp.Code == trimmed));
+    }
+
+    private static LoanRepaymentFrequency ResolveScheduleType(LoanProduct product)
+    {
+        return product.ProductType == LoanProductType.DigitalLoan30Days
+            ? LoanRepaymentFrequency.Bullet
+            : product.RepaymentFrequency;
     }
 
     private async Task<string?> ResolveStaffIdAsync(string? userClaim)

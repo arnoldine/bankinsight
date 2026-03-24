@@ -21,12 +21,6 @@ public class DisburseLoanRequest : IValidatableObject
     [Range(0.01, 999999999.99, ErrorMessage = "Principal must be between 0.01 and 999999999.99")]
     public decimal? Principal { get; set; }
 
-    [Range(0, 100, ErrorMessage = "Rate must be between 0 and 100")]
-    public decimal? Rate { get; set; }
-
-    [Range(1, 360, ErrorMessage = "TermMonths must be between 1 and 360")]
-    public int? TermMonths { get; set; }
-
     [StringLength(50, ErrorMessage = "CollateralType must not exceed 50 characters")]
     public string? CollateralType { get; set; }
 
@@ -58,15 +52,6 @@ public class DisburseLoanRequest : IValidatableObject
             yield return new ValidationResult("Principal is required when LoanId is not provided", new[] { nameof(Principal) });
         }
 
-        if (!Rate.HasValue)
-        {
-            yield return new ValidationResult("Rate is required when LoanId is not provided", new[] { nameof(Rate) });
-        }
-
-        if (!TermMonths.HasValue)
-        {
-            yield return new ValidationResult("TermMonths is required when LoanId is not provided", new[] { nameof(TermMonths) });
-        }
     }
 }
 
@@ -127,6 +112,21 @@ public class ConfigureLoanProductRequest
     public decimal MaxAmount { get; set; }
 }
 
+public class LoanProductDefinitionDto
+{
+    public string Id { get; set; } = string.Empty;
+    public string Code { get; set; } = string.Empty;
+    public string Name { get; set; } = string.Empty;
+    public string ProductType { get; set; } = string.Empty;
+    public string InterestMethod { get; set; } = string.Empty;
+    public string RepaymentFrequency { get; set; } = string.Empty;
+    public int TermInPeriods { get; set; }
+    public decimal AnnualInterestRate { get; set; }
+    public decimal MinAmount { get; set; }
+    public decimal MaxAmount { get; set; }
+    public bool IsActive { get; set; }
+}
+
 public class ApplyLoanRequest
 {
     [Required]
@@ -142,21 +142,6 @@ public class ApplyLoanRequest
 
     [Range(0.01, 999999999.99)]
     public decimal Principal { get; set; }
-
-    [Range(0, 100)]
-    public decimal AnnualInterestRate { get; set; }
-
-    [Range(1, 360)]
-    public int TermInPeriods { get; set; }
-
-    [Required]
-    public string InterestMethod { get; set; } = "Flat";
-
-    [Required]
-    public string RepaymentFrequency { get; set; } = "Monthly";
-
-    [Required]
-    public string ScheduleType { get; set; } = "Monthly";
 
     [StringLength(100)]
     public string? ClientReference { get; set; }
@@ -228,13 +213,14 @@ public class CreditCheckDto
 
 public class GenerateLoanScheduleRequest
 {
+    [StringLength(50)]
+    public string? LoanProductId { get; set; }
+
     [Range(0.01, 999999999.99)]
     public decimal Principal { get; set; }
 
-    [Range(0, 100)]
     public decimal AnnualInterestRate { get; set; }
 
-    [Range(1, 360)]
     public int TermInPeriods { get; set; }
 
     [Required]

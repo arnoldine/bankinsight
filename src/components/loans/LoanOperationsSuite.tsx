@@ -1,6 +1,6 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useLoans } from '../../hooks/useApi';
-import { loanService, Loan } from '../../services/loanService';
+import { loanService, Loan, LoanProductDefinition } from '../../services/loanService';
 
 interface Props {
   loans: Loan[];
@@ -22,7 +22,6 @@ export default function LoanOperationsSuite({ loans, onReload }: Props) {
   } = useLoans();
 
   const [active, setActive] = useState<'products' | 'workflow' | 'credit' | 'repayment' | 'delinquency' | 'postings' | 'pnl' | 'balancesheet'>('products');
-
   const [loanId, setLoanId] = useState('');
   const [customerId, setCustomerId] = useState('CUST0001');
   const [creditResult, setCreditResult] = useState<any>(null);
@@ -30,6 +29,8 @@ export default function LoanOperationsSuite({ loans, onReload }: Props) {
   const [postings, setPostings] = useState<any[]>([]);
   const [pnl, setPnl] = useState<any>(null);
   const [balanceSheet, setBalanceSheet] = useState<any>(null);
+  const [loanProducts, setLoanProducts] = useState<LoanProductDefinition[]>([]);
+  const [statusMessage, setStatusMessage] = useState<string | null>(null);
 
   const [productForm, setProductForm] = useState({
     id: 'LP_CONS_MONTHLY_EXT',
@@ -48,11 +49,6 @@ export default function LoanOperationsSuite({ loans, onReload }: Props) {
     customerId: 'CUST0001',
     loanProductId: 'LP_CONS_MONTHLY',
     principal: 900,
-    annualInterestRate: 22,
-    termInPeriods: 6,
-    interestMethod: 'ReducingBalance',
-    repaymentFrequency: 'Monthly',
-    scheduleType: 'Monthly',
   });
 
   const [repaymentForm, setRepaymentForm] = useState({
@@ -62,11 +58,34 @@ export default function LoanOperationsSuite({ loans, onReload }: Props) {
   });
 
   const activeLoanOptions = useMemo(() => loans.filter(l => l.status !== 'CLOSED'), [loans]);
+  const selectedWorkflowProduct = useMemo(
+    () => loanProducts.find(product => product.id === workflowForm.loanProductId) || null,
+    [loanProducts, workflowForm.loanProductId],
+  );
+
+  useEffect(() => {
+    const loadLoanProducts = async () => {
+      try {
+        const data = await loanService.getLoanProducts();
+        const nextProducts = Array.isArray(data) ? data : [];
+        setLoanProducts(nextProducts);
+        if (nextProducts.length > 0 && !nextProducts.some(product => product.id === workflowForm.loanProductId)) {
+          setWorkflowForm(current => ({ ...current, loanProductId: nextProducts[0].id }));
+        }
+      } catch {
+        setLoanProducts([]);
+      }
+    };
+
+    void loadLoanProducts();
+  }, [workflowForm.loanProductId]);
 
   const runProductConfig = async () => {
     await loanService.configureLoanProduct(productForm as any);
     await onReload();
-    alert('Loan product configuration saved.');
+    const nextProducts = await loanService.getLoanProducts().catch(() => loanProducts);
+    setLoanProducts(Array.isArray(nextProducts) ? nextProducts : loanProducts);
+    setStatusMessage('Loan product definition saved. Product parameters are now enforced in workflow and origination.');
   };
 
   const runWorkflow = async () => {
@@ -76,7 +95,7 @@ export default function LoanOperationsSuite({ loans, onReload }: Props) {
     await loanService.disburseLoan({ loanId: applied.id, clientReference: `WEB-DSB-${Date.now()}` });
     await onReload();
     setLoanId(applied.id);
-    alert(`Workflow complete for ${applied.id}`);
+    setStatusMessage(`Workflow complete for ${applied.id}. Product policy was enforced from ${workflowForm.loanProductId}.`);
   };
 
   const runCredit = async () => {
@@ -87,7 +106,7 @@ export default function LoanOperationsSuite({ loans, onReload }: Props) {
   const runRepayment = async () => {
     await loanService.repayLoanUnified({ ...repaymentForm, clientReference: `WEB-RPY-${Date.now()}` } as any);
     await onReload();
-    alert('Repayment posted');
+    setStatusMessage('Repayment posted.');
   };
 
   const loadDelinquency = async () => {
@@ -129,10 +148,12 @@ export default function LoanOperationsSuite({ loans, onReload }: Props) {
       </div>
 
       {error && <div className="text-red-600 text-sm">{error}</div>}
+      {statusMessage && <div className="text-sm text-blue-700 dark:text-blue-300">{statusMessage}</div>}
 
       {active === 'products' && (
         <div className="bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-lg p-4 space-y-3">
-          <h4 className="font-semibold">Loan Product Configuration</h4>
+          <h4 className="font-semibold">Loan Product Definition</h4>
+          <div className="text-xs text-slate-500 dark:text-slate-400">Pricing, tenor, repayment frequency, and interest method are edited here and enforced in every other loan workflow.</div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <input className="px-3 py-2 rounded border" value={productForm.id} onChange={e => setProductForm({ ...productForm, id: e.target.value })} placeholder="Product ID" />
             <input className="px-3 py-2 rounded border" value={productForm.code} onChange={e => setProductForm({ ...productForm, code: e.target.value })} placeholder="Code" />
@@ -157,10 +178,19 @@ export default function LoanOperationsSuite({ loans, onReload }: Props) {
           <h4 className="font-semibold">Application + Approval Workflow</h4>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             <input className="px-3 py-2 rounded border" value={workflowForm.customerId} onChange={e => setWorkflowForm({ ...workflowForm, customerId: e.target.value })} placeholder="Customer ID" />
-            <input className="px-3 py-2 rounded border" value={workflowForm.loanProductId} onChange={e => setWorkflowForm({ ...workflowForm, loanProductId: e.target.value })} placeholder="Loan Product ID" />
+            <select className="px-3 py-2 rounded border" value={workflowForm.loanProductId} onChange={e => setWorkflowForm({ ...workflowForm, loanProductId: e.target.value })}>
+              {loanProducts.map(product => <option key={product.id} value={product.id}>{product.name}</option>)}
+            </select>
             <input className="px-3 py-2 rounded border" type="number" value={workflowForm.principal} onChange={e => setWorkflowForm({ ...workflowForm, principal: Number(e.target.value) })} placeholder="Principal" />
           </div>
-          <button disabled={loading} onClick={runWorkflow} className="px-4 py-2 bg-blue-600 text-white rounded">Run Apply → Appraise → Approve → Disburse</button>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-3 text-sm">
+            <div className="p-2 border rounded"><div className="text-gray-500">Annual Rate</div><div className="font-semibold">{selectedWorkflowProduct?.annualInterestRate ?? 0}%</div></div>
+            <div className="p-2 border rounded"><div className="text-gray-500">Term</div><div className="font-semibold">{selectedWorkflowProduct?.termInPeriods ?? 0} periods</div></div>
+            <div className="p-2 border rounded"><div className="text-gray-500">Repayment</div><div className="font-semibold">{selectedWorkflowProduct?.repaymentFrequency ?? 'N/A'}</div></div>
+            <div className="p-2 border rounded"><div className="text-gray-500">Interest Method</div><div className="font-semibold">{selectedWorkflowProduct?.interestMethod ?? 'N/A'}</div></div>
+          </div>
+          <div className="text-xs text-slate-500 dark:text-slate-400">Product parameters are read-only here and managed only from the Product Definition tab.</div>
+          <button disabled={loading || !workflowForm.loanProductId} onClick={runWorkflow} className="px-4 py-2 bg-blue-600 text-white rounded">Run Apply {'->'} Appraise {'->'} Approve {'->'} Disburse</button>
           {loanId && <div className="text-sm">Latest Loan ID: <span className="font-mono">{loanId}</span></div>}
         </div>
       )}
@@ -225,7 +255,7 @@ export default function LoanOperationsSuite({ loans, onReload }: Props) {
           <div className="space-y-2">
             {postings.map((entry) => (
               <div key={entry.journalId} className="border rounded p-3 text-sm">
-                <div className="font-medium">{entry.journalId} • {entry.reference}</div>
+                <div className="font-medium">{entry.journalId} - {entry.reference}</div>
                 {(entry.lines || []).map((line: any, index: number) => (
                   <div key={index} className="text-gray-600 dark:text-slate-300">{line.accountCode} | Dr {line.debit} | Cr {line.credit}</div>
                 ))}

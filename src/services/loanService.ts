@@ -28,11 +28,23 @@ export interface DisburseLoanRequest {
     groupId?: string;
     productCode?: string;
     principal?: number;
-    rate?: number;
-    termMonths?: number;
     clientReference?: string;
     collateralType?: string;
     collateralValue?: number;
+}
+
+export interface LoanProductDefinition {
+    id: string;
+    code: string;
+    name: string;
+    productType: 'DigitalLoan30Days' | 'WeeklyGroupLoan' | 'MonthlyBusinessLoan' | 'MonthlyConsumerLoan';
+    interestMethod: 'Flat' | 'ReducingBalance';
+    repaymentFrequency: 'Weekly' | 'Monthly' | 'Bullet';
+    termInPeriods: number;
+    annualInterestRate: number;
+    minAmount: number;
+    maxAmount: number;
+    isActive: boolean;
 }
 
 export interface LoanRepayRequest {
@@ -59,11 +71,6 @@ export interface LoanApplyRequest {
     groupId?: string;
     loanProductId: string;
     principal: number;
-    annualInterestRate: number;
-    termInPeriods: number;
-    interestMethod: 'Flat' | 'ReducingBalance';
-    repaymentFrequency: 'Weekly' | 'Monthly' | 'Bullet';
-    scheduleType: 'Weekly' | 'Monthly' | 'Bullet';
     clientReference?: string;
 }
 
@@ -207,6 +214,10 @@ class LoanService {
 
     async getLoan(id: string): Promise<Loan> {
         return httpClient.get<Loan>(API_ENDPOINTS.loans.get(id));
+    }
+
+    async getLoanProducts(): Promise<LoanProductDefinition[]> {
+        return httpClient.get<LoanProductDefinition[]>(API_ENDPOINTS.loans.products);
     }
 
     async disburseLoan(data: DisburseLoanRequest): Promise<Loan> {
