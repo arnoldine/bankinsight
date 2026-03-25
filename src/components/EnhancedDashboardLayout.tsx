@@ -436,25 +436,32 @@ export default function EnhancedDashboardLayout({
   };
 
   const handlePostJournal = async (data: any) => {
-    try {
-      await postJournalEntry(data);
-      // Refresh journal entries
-      const entries = await getJournalEntries();
-      setJournalEntries(entries || []);
-    } catch (err) {
-      console.error('Failed to post journal:', err);
-    }
+    await postJournalEntry({
+      description: data.description,
+      reference: data.reference,
+      postedBy: user.name || user.email,
+      lines: (data.lines || []).map((line: any) => ({
+        accountCode: line.code,
+        debit: Number(line.debit || 0),
+        credit: Number(line.credit || 0),
+      })),
+    });
+
+    const [entries, accountsData] = await Promise.all([getJournalEntries(), getGlAccounts()]);
+    setJournalEntries(entries || []);
+    setGlAccounts(accountsData || []);
   };
 
   const handleCreateGlAccount = async (data: any) => {
-    try {
-      await createGlAccount(data);
-      // Refresh GL accounts
-      const accounts = await getGlAccounts();
-      setGlAccounts(accounts || []);
-    } catch (err) {
-      console.error('Failed to create GL account:', err);
-    }
+    await createGlAccount(data);
+    const accountsData = await getGlAccounts();
+    setGlAccounts(accountsData || []);
+  };
+
+  const refreshAccounting = async () => {
+    const [accountsData, entries] = await Promise.all([getGlAccounts(), getJournalEntries()]);
+    setGlAccounts(accountsData || []);
+    setJournalEntries(entries || []);
   };
 
   const handleCreateProduct = async (data: any) => {
@@ -1151,12 +1158,16 @@ export default function EnhancedDashboardLayout({
               onPostJournal={handlePostJournal} 
               onCreateAccount={handleCreateGlAccount}
               initialView="COA"
+              canPostJournal={hasPermission(Permissions.GeneralLedger.Post)}
+              canManageAccounts={hasPermission(Permissions.GeneralLedger.Post)}
+              onRefresh={refreshAccounting}
+              isLoading={isLoadingData}
             />
           </ProtectedRoute>
         );
       case 'accounting-je':
         return (
-          <ProtectedRoute requiredPermission={Permissions.GeneralLedger.View} userPermissions={userPermissions}>
+          <ProtectedRoute requiredPermission={Permissions.GeneralLedger.Post} userPermissions={userPermissions}>
             <AccountingEngine 
               key={activeTab}
               accounts={glAccounts} 
@@ -1164,6 +1175,10 @@ export default function EnhancedDashboardLayout({
               onPostJournal={handlePostJournal} 
               onCreateAccount={handleCreateGlAccount}
               initialView="JV"
+              canPostJournal={hasPermission(Permissions.GeneralLedger.Post)}
+              canManageAccounts={hasPermission(Permissions.GeneralLedger.Post)}
+              onRefresh={refreshAccounting}
+              isLoading={isLoadingData}
             />
           </ProtectedRoute>
         );
@@ -1177,6 +1192,10 @@ export default function EnhancedDashboardLayout({
               onPostJournal={handlePostJournal} 
               onCreateAccount={handleCreateGlAccount}
               initialView="LEDGER"
+              canPostJournal={hasPermission(Permissions.GeneralLedger.Post)}
+              canManageAccounts={hasPermission(Permissions.GeneralLedger.Post)}
+              onRefresh={refreshAccounting}
+              isLoading={isLoadingData}
             />
           </ProtectedRoute>
         );

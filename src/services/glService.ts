@@ -22,6 +22,7 @@ export interface JournalLine {
     id?: number;
     journalId?: string;
     accountCode: string;
+    accountName?: string;
     debit: number;
     credit: number;
 }
@@ -34,6 +35,9 @@ export interface JournalEntry {
     postedBy?: string;
     status: string;
     createdAt: string;
+    totalDebit?: number;
+    totalCredit?: number;
+    lines: JournalLine[];
 }
 
 export interface PostJournalEntryRequest {

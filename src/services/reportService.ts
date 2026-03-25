@@ -77,6 +77,34 @@ export interface IncomeStatementDTO {
   expenseItems: Array<{ lineItem: string; amount: number }>;
 }
 
+export interface CashFlowStatementDTO {
+  periodStart: string;
+  periodEnd: string;
+  generatedDate: string;
+  operatingActivities: Array<{ activity: string; amount: number; category: string }>;
+  investingActivities: Array<{ activity: string; amount: number; category: string }>;
+  financingActivities: Array<{ activity: string; amount: number; category: string }>;
+  netOperatingCashFlow: number;
+  netInvestingCashFlow: number;
+  netFinancingCashFlow: number;
+  netChangeInCash: number;
+}
+
+export interface TrialBalanceDTO {
+  asOfDate: string;
+  generatedDate: string;
+  accounts: Array<{
+    accountNumber: string;
+    accountName: string;
+    balance: number;
+    debitBalance: number;
+    creditBalance: number;
+  }>;
+  totalDebits: number;
+  totalCredits: number;
+  isBalanced: boolean;
+}
+
 export interface DailyPositionReportDTO {
   reportDate: string;
   generatedAt: string;
@@ -396,6 +424,18 @@ class ReportService {
   async getIncomeStatement(periodStart: string, periodEnd: string): Promise<IncomeStatementDTO> {
     return httpClient.get<IncomeStatementDTO>(
       `${API_ENDPOINTS.reports.incomeStatement}?periodStart=${periodStart}&periodEnd=${periodEnd}`
+    );
+  }
+
+  async getCashFlowStatement(periodStart: string, periodEnd: string): Promise<CashFlowStatementDTO> {
+    return httpClient.get<CashFlowStatementDTO>(
+      `${API_ENDPOINTS.reports.cashFlow}?periodStart=${periodStart}&periodEnd=${periodEnd}`
+    );
+  }
+
+  async getTrialBalance(asOfDate: string): Promise<TrialBalanceDTO> {
+    return httpClient.get<TrialBalanceDTO>(
+      `${API_ENDPOINTS.reports.trialBalance}?asOfDate=${asOfDate}`
     );
   }
 

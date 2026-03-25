@@ -41,3 +41,27 @@ public class PostJournalEntryRequest
     public string? PostedBy { get; set; }
     public List<JournalLineDto> Lines { get; set; } = new();
 }
+
+public class JournalEntryResponseDto
+{
+    public string Id { get; set; } = string.Empty;
+    public DateOnly Date { get; set; }
+    public string? Reference { get; set; }
+    public string? Description { get; set; }
+    public string? PostedBy { get; set; }
+    public string Status { get; set; } = string.Empty;
+    public DateTime CreatedAt { get; set; }
+    public decimal TotalDebit { get; set; }
+    public decimal TotalCredit { get; set; }
+    public List<JournalLineResponseDto> Lines { get; set; } = new();
+}
+
+public class JournalLineResponseDto
+{
+    public int Id { get; set; }
+    public string JournalId { get; set; } = string.Empty;
+    public string AccountCode { get; set; } = string.Empty;
+    public string AccountName { get; set; } = string.Empty;
+    public decimal Debit { get; set; }
+    public decimal Credit { get; set; }
+}
