@@ -49,16 +49,33 @@ const createDenominationLines = (): CashDenominationLineDto[] =>
   GHANA_DENOMINATIONS.map((denomination) => ({
     denomination,
     pieces: 0,
+    fitPieces: 0,
+    unfitPieces: 0,
+    suspectPieces: 0,
     totalValue: 0,
+    suspectValue: 0,
   }));
 
 const calculateDenominationTotal = (lines: CashDenominationLineDto[]) =>
-  lines.reduce((sum, line) => sum + (Number(line.totalValue) || 0), 0);
+  lines.reduce((sum, line) => {
+    const denominationValue = Number(line.denomination);
+    return sum + ((Number(line.fitPieces) || 0) + (Number(line.unfitPieces) || 0)) * denominationValue;
+  }, 0);
+
+const calculateSuspectTotal = (lines: CashDenominationLineDto[]) =>
+  lines.reduce((sum, line) => sum + ((Number(line.suspectPieces) || 0) * Number(line.denomination)), 0);
 
 const summarizeDenominations = (lines: CashDenominationLineDto[]) =>
   lines
-    .filter((line) => (line.pieces || 0) > 0)
-    .map((line) => `${line.denomination} x ${line.pieces}`)
+    .filter((line) => (line.fitPieces || 0) > 0 || (line.unfitPieces || 0) > 0 || (line.suspectPieces || 0) > 0)
+    .map((line) => {
+      const buckets = [
+        line.fitPieces ? `fit ${line.fitPieces}` : '',
+        line.unfitPieces ? `unfit ${line.unfitPieces}` : '',
+        line.suspectPieces ? `suspect ${line.suspectPieces}` : '',
+      ].filter(Boolean).join(', ');
+      return `${line.denomination} (${buckets})`;
+    })
     .join(', ');
 
 const money = (value: number) =>
@@ -165,6 +182,7 @@ export default function VaultManagementHub({ onOpenNotes }: { onOpenNotes?: () =
     openingBalance: 0,
     midDayCashLimit: 50000,
     notes: '',
+    witnessOfficer: '',
   });
   const [allocateForm, setAllocateForm] = useState<TillCashTransferRequest>({
     tellerId: '',
@@ -173,6 +191,9 @@ export default function VaultManagementHub({ onOpenNotes }: { onOpenNotes?: () =
     amount: 0,
     reference: '',
     narration: '',
+    controlReference: '',
+    witnessOfficer: '',
+    sealNumber: '',
     denominations: createDenominationLines(),
   });
   const [returnForm, setReturnForm] = useState<TillCashTransferRequest>({
@@ -182,6 +203,9 @@ export default function VaultManagementHub({ onOpenNotes }: { onOpenNotes?: () =
     amount: 0,
     reference: '',
     narration: '',
+    controlReference: '',
+    witnessOfficer: '',
+    sealNumber: '',
     denominations: createDenominationLines(),
   });
   const [closeForm, setCloseForm] = useState<CloseTillRequest>({
@@ -190,6 +214,9 @@ export default function VaultManagementHub({ onOpenNotes }: { onOpenNotes?: () =
     currency: CURRENCY,
     physicalCashCount: 0,
     notes: '',
+    controlReference: '',
+    witnessOfficer: '',
+    sealNumber: '',
     denominations: createDenominationLines(),
   });
   const [vaultTxForm, setVaultTxForm] = useState<VaultTransactionRequest>({
@@ -199,12 +226,19 @@ export default function VaultManagementHub({ onOpenNotes }: { onOpenNotes?: () =
     type: 'Deposit',
     reference: '',
     narration: '',
+    controlReference: '',
+    witnessOfficer: '',
+    sealNumber: '',
     denominations: createDenominationLines(),
   });
   const [vaultCountForm, setVaultCountForm] = useState<VaultCountRequest>({
     branchId: '',
     currency: CURRENCY,
     amount: 0,
+    controlReference: '',
+    countReason: '',
+    witnessOfficer: '',
+    sealNumber: '',
     denominations: createDenominationLines(),
   });
 
@@ -250,17 +284,29 @@ export default function VaultManagementHub({ onOpenNotes }: { onOpenNotes?: () =
   const updateDenominationLines = (
     lines: CashDenominationLineDto[] | undefined,
     denomination: string,
+    bucket: 'fitPieces' | 'unfitPieces' | 'suspectPieces',
     pieces: number,
   ) =>
-    (lines ?? []).map((line) =>
-      line.denomination === denomination
-        ? {
-            ...line,
-            pieces,
-            totalValue: Number((Number(line.denomination) * pieces).toFixed(2)),
-          }
-        : line,
-    );
+    (lines ?? []).map((line) => {
+      if (line.denomination !== denomination) {
+        return line;
+      }
+
+      const next = {
+        ...line,
+        [bucket]: pieces,
+      };
+      const fitPieces = Number(next.fitPieces) || 0;
+      const unfitPieces = Number(next.unfitPieces) || 0;
+      const suspectPieces = Number(next.suspectPieces) || 0;
+      const denominationValue = Number(next.denomination);
+      return {
+        ...next,
+        pieces: fitPieces + unfitPieces,
+        totalValue: Number((denominationValue * (fitPieces + unfitPieces)).toFixed(2)),
+        suspectValue: Number((denominationValue * suspectPieces).toFixed(2)),
+      };
+    });
 
   const syncTillTransferAmount = (payload: TillCashTransferRequest) => ({
     ...payload,
@@ -281,6 +327,16 @@ export default function VaultManagementHub({ onOpenNotes }: { onOpenNotes?: () =
     ...payload,
     amount: Number(calculateDenominationTotal(payload.denominations ?? []).toFixed(2)),
   });
+
+  const formatCountSummary = (lines: CashDenominationLineDto[]) => {
+    const accepted = calculateDenominationTotal(lines);
+    const suspect = calculateSuspectTotal(lines);
+    return {
+      accepted,
+      suspect,
+      summary: summarizeDenominations(lines),
+    };
+  };
 
   const branchOptions = useMemo(() => {
     const branchMap = new Map<string, { id: string; name: string; code: string }>();
@@ -538,6 +594,21 @@ export default function VaultManagementHub({ onOpenNotes }: { onOpenNotes?: () =
               {label}
             </button>
           ))}
+        </div>
+      </div>
+
+      <div className="rounded-3xl border border-amber-200 bg-amber-50/90 p-5 text-sm text-amber-900 shadow-sm dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-100">
+        <div className="flex items-start gap-3">
+          <AlertTriangle className="mt-0.5 h-5 w-5 flex-shrink-0" />
+          <div className="space-y-2">
+            <p className="font-semibold">Cash-count control guidance</p>
+            <p>
+              This workbench now separates fit notes, unfit notes, and suspect notes. Accepted cash is counted as fit plus unfit notes; suspect notes are logged separately and escalated for review instead of being posted as available cash.
+            </p>
+            <p>
+              Operators should record a control reference, witness officer, and seal or bag reference for vault counts and large till movements. That aligns with Bank of Ghana-style expectations around transaction records, suspicious cash escalation, and segregation of questionable notes.
+            </p>
+          </div>
         </div>
       </div>
 
@@ -1027,7 +1098,19 @@ export default function VaultManagementHub({ onOpenNotes }: { onOpenNotes?: () =
                         />
                       </div>
                     </div>
-                      <button
+                    <input
+                      type="text"
+                      value={openTillForm.witnessOfficer ?? ''}
+                      onChange={(event) =>
+                        setOpenTillForm((current) => ({
+                          ...current,
+                          witnessOfficer: event.target.value,
+                        }))
+                      }
+                      className={inputClass}
+                      placeholder="Witness officer"
+                    />
+                    <button
                       type="button"
                       disabled={submitting || !openTillForm.tellerId}
                       onClick={() =>
@@ -1095,20 +1178,31 @@ export default function VaultManagementHub({ onOpenNotes }: { onOpenNotes?: () =
                         placeholder="Amount"
                         readOnly
                       />
-                      <DenominationEditor
-                        lines={allocateForm.denominations ?? []}
-                        onChange={(denomination, pieces) =>
-                          setAllocateForm((current) =>
-                            syncTillTransferAmount({
-                              ...current,
-                              denominations: updateDenominationLines(current.denominations, denomination, pieces),
-                            }),
-                          )
-                        }
-                      />
-                      <div className="rounded-xl bg-slate-50 px-3 py-2 text-xs text-slate-500 dark:bg-slate-900/60 dark:text-slate-400">
-                        Count summary: {summarizeDenominations(allocateForm.denominations ?? []) || 'No notes entered'}.
-                      </div>
+                    <DenominationEditor
+                      lines={allocateForm.denominations ?? []}
+                      onChange={(denomination, bucket, pieces) =>
+                        setAllocateForm((current) =>
+                          syncTillTransferAmount({
+                            ...current,
+                            denominations: updateDenominationLines(current.denominations, denomination, bucket, pieces),
+                          }),
+                        )
+                      }
+                    />
+                    <div className="rounded-xl bg-slate-50 px-3 py-2 text-xs text-slate-500 dark:bg-slate-900/60 dark:text-slate-400">
+                      Count summary: {formatCountSummary(allocateForm.denominations ?? []).summary || 'No notes entered'}. Accepted cash {money(formatCountSummary(allocateForm.denominations ?? []).accepted)}. Suspect notes {money(formatCountSummary(allocateForm.denominations ?? []).suspect)}.
+                    </div>
+                    <ControlFields
+                      controlReference={allocateForm.controlReference}
+                      witnessOfficer={allocateForm.witnessOfficer}
+                      sealNumber={allocateForm.sealNumber}
+                      onChange={(field, value) =>
+                        setAllocateForm((current) => ({
+                          ...current,
+                          [field]: value,
+                        }))
+                      }
+                    />
                       {allocationRequiresApproval && selectedAllocationTill && (
                         <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-3 text-xs text-amber-800 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-200">
                           Projected till balance {money(allocationProjectedBalance)} exceeds the configured mid-day limit of {money(selectedAllocationTill.midDayCashLimit)}. This cash move will be routed to approval.
@@ -1199,20 +1293,31 @@ export default function VaultManagementHub({ onOpenNotes }: { onOpenNotes?: () =
                         placeholder="Amount"
                         readOnly
                       />
-                      <DenominationEditor
-                        lines={returnForm.denominations ?? []}
-                        onChange={(denomination, pieces) =>
-                          setReturnForm((current) =>
-                            syncTillTransferAmount({
-                              ...current,
-                              denominations: updateDenominationLines(current.denominations, denomination, pieces),
-                            }),
-                          )
-                        }
-                      />
-                      <div className="rounded-xl bg-slate-50 px-3 py-2 text-xs text-slate-500 dark:bg-slate-900/60 dark:text-slate-400">
-                        Count summary: {summarizeDenominations(returnForm.denominations ?? []) || 'No notes entered'}.
-                      </div>
+                    <DenominationEditor
+                      lines={returnForm.denominations ?? []}
+                      onChange={(denomination, bucket, pieces) =>
+                        setReturnForm((current) =>
+                          syncTillTransferAmount({
+                            ...current,
+                            denominations: updateDenominationLines(current.denominations, denomination, bucket, pieces),
+                          }),
+                        )
+                      }
+                    />
+                    <div className="rounded-xl bg-slate-50 px-3 py-2 text-xs text-slate-500 dark:bg-slate-900/60 dark:text-slate-400">
+                      Count summary: {formatCountSummary(returnForm.denominations ?? []).summary || 'No notes entered'}. Accepted cash {money(formatCountSummary(returnForm.denominations ?? []).accepted)}. Suspect notes {money(formatCountSummary(returnForm.denominations ?? []).suspect)}.
+                    </div>
+                    <ControlFields
+                      controlReference={returnForm.controlReference}
+                      witnessOfficer={returnForm.witnessOfficer}
+                      sealNumber={returnForm.sealNumber}
+                      onChange={(field, value) =>
+                        setReturnForm((current) => ({
+                          ...current,
+                          [field]: value,
+                        }))
+                      }
+                    />
                       <input
                         type="text"
                         value={returnForm.reference ?? ''}
@@ -1303,18 +1408,29 @@ export default function VaultManagementHub({ onOpenNotes }: { onOpenNotes?: () =
                     />
                     <DenominationEditor
                       lines={closeForm.denominations ?? []}
-                      onChange={(denomination, pieces) =>
+                      onChange={(denomination, bucket, pieces) =>
                         setCloseForm((current) =>
                           syncCloseTillAmount({
                             ...current,
-                            denominations: updateDenominationLines(current.denominations, denomination, pieces),
+                            denominations: updateDenominationLines(current.denominations, denomination, bucket, pieces),
                           }),
                         )
                       }
                     />
                     <div className="rounded-xl bg-slate-50 px-3 py-2 text-xs text-slate-500 dark:bg-slate-900/60 dark:text-slate-400">
-                      Close count summary: {summarizeDenominations(closeForm.denominations ?? []) || 'No notes entered'}.
+                      Close count summary: {formatCountSummary(closeForm.denominations ?? []).summary || 'No notes entered'}. Accepted cash {money(formatCountSummary(closeForm.denominations ?? []).accepted)}. Suspect notes {money(formatCountSummary(closeForm.denominations ?? []).suspect)}.
                     </div>
+                    <ControlFields
+                      controlReference={closeForm.controlReference}
+                      witnessOfficer={closeForm.witnessOfficer}
+                      sealNumber={closeForm.sealNumber}
+                      onChange={(field, value) =>
+                        setCloseForm((current) => ({
+                          ...current,
+                          [field]: value,
+                        }))
+                      }
+                    />
                       <button
                       type="button"
                       disabled={submitting || !closeForm.tellerId}
@@ -1390,18 +1506,29 @@ export default function VaultManagementHub({ onOpenNotes }: { onOpenNotes?: () =
                     />
                     <DenominationEditor
                       lines={vaultTxForm.denominations ?? []}
-                      onChange={(denomination, pieces) =>
+                      onChange={(denomination, bucket, pieces) =>
                         setVaultTxForm((current) =>
                           syncVaultMovementAmount({
                             ...current,
-                            denominations: updateDenominationLines(current.denominations, denomination, pieces),
+                            denominations: updateDenominationLines(current.denominations, denomination, bucket, pieces),
                           }),
                         )
                       }
                     />
                     <div className="rounded-xl bg-slate-50 px-3 py-2 text-xs text-slate-500 dark:bg-slate-900/60 dark:text-slate-400">
-                      Movement count summary: {summarizeDenominations(vaultTxForm.denominations ?? []) || 'No notes entered'}.
+                      Movement count summary: {formatCountSummary(vaultTxForm.denominations ?? []).summary || 'No notes entered'}. Accepted cash {money(formatCountSummary(vaultTxForm.denominations ?? []).accepted)}. Suspect notes {money(formatCountSummary(vaultTxForm.denominations ?? []).suspect)}.
                     </div>
+                    <ControlFields
+                      controlReference={vaultTxForm.controlReference}
+                      witnessOfficer={vaultTxForm.witnessOfficer}
+                      sealNumber={vaultTxForm.sealNumber}
+                      onChange={(field, value) =>
+                        setVaultTxForm((current) => ({
+                          ...current,
+                          [field]: value,
+                        }))
+                      }
+                    />
                     <input
                       type="text"
                       value={vaultTxForm.reference ?? ''}
@@ -1475,18 +1602,30 @@ export default function VaultManagementHub({ onOpenNotes }: { onOpenNotes?: () =
                     />
                     <DenominationEditor
                       lines={vaultCountForm.denominations ?? []}
-                      onChange={(denomination, pieces) =>
+                      onChange={(denomination, bucket, pieces) =>
                         setVaultCountForm((current) =>
                           syncVaultCountAmount({
                             ...current,
-                            denominations: updateDenominationLines(current.denominations, denomination, pieces),
+                            denominations: updateDenominationLines(current.denominations, denomination, bucket, pieces),
                           }),
                         )
                       }
                     />
                     <div className="rounded-xl bg-slate-50 px-3 py-2 text-xs text-slate-500 dark:bg-slate-900/60 dark:text-slate-400">
-                      Count summary: {summarizeDenominations(vaultCountForm.denominations ?? []) || 'No notes entered'}.
+                      Count summary: {formatCountSummary(vaultCountForm.denominations ?? []).summary || 'No notes entered'}. Accepted cash {money(formatCountSummary(vaultCountForm.denominations ?? []).accepted)}. Suspect notes {money(formatCountSummary(vaultCountForm.denominations ?? []).suspect)}.
                     </div>
+                    <ControlFields
+                      controlReference={vaultCountForm.controlReference}
+                      witnessOfficer={vaultCountForm.witnessOfficer}
+                      sealNumber={vaultCountForm.sealNumber}
+                      countReason={vaultCountForm.countReason}
+                      onChange={(field, value) =>
+                        setVaultCountForm((current) => ({
+                          ...current,
+                          [field]: value,
+                        }))
+                      }
+                    />
                     <button
                       type="button"
                       disabled={submitting || !vaultCountForm.branchId || vaultCountForm.amount < 0}
@@ -1580,31 +1719,122 @@ function DenominationEditor({
   onChange,
 }: {
   lines: CashDenominationLineDto[];
-  onChange: (denomination: string, pieces: number) => void;
+  onChange: (denomination: string, bucket: 'fitPieces' | 'unfitPieces' | 'suspectPieces', pieces: number) => void;
 }) {
+  const acceptedTotal = calculateDenominationTotal(lines);
+  const suspectTotal = calculateSuspectTotal(lines);
+
   return (
     <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-900/60">
-      <div className="mb-3 text-xs font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
-        Denomination count
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+        <div className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
+          Denomination count
+        </div>
+        <div className="flex flex-wrap gap-2 text-[11px] font-semibold uppercase tracking-[0.14em]">
+          <span className="rounded-full bg-emerald-100 px-3 py-1 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-200">Accepted {money(acceptedTotal)}</span>
+          <span className="rounded-full bg-amber-100 px-3 py-1 text-amber-700 dark:bg-amber-900/30 dark:text-amber-200">Suspect {money(suspectTotal)}</span>
+        </div>
       </div>
-      <div className="grid gap-3 sm:grid-cols-2">
+      <div className="mb-3 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-400">
+        Fit notes remain in circulation, unfit notes remain genuine but should be segregated for return, and suspect notes must be quarantined and investigated.
+      </div>
+      <div className="grid gap-3">
         {lines.map((line) => (
-          <label key={line.denomination} className="rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm dark:border-slate-700 dark:bg-slate-950">
-            <div className="flex items-center justify-between gap-2">
+          <div key={line.denomination} className="rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm dark:border-slate-700 dark:bg-slate-950">
+            <div className="mb-3 flex items-center justify-between gap-2">
               <span className="font-semibold text-slate-900 dark:text-white">GHS {line.denomination}</span>
-              <span className="text-xs text-slate-500 dark:text-slate-400">{money(line.totalValue)}</span>
+              <div className="text-right text-xs text-slate-500 dark:text-slate-400">
+                <div>Accepted {money(line.totalValue)}</div>
+                <div>Suspect {money(line.suspectValue || 0)}</div>
+              </div>
             </div>
-            <input
-              type="number"
-              min="0"
-              step="1"
-              value={line.pieces}
-              onChange={(event) => onChange(line.denomination, Number(event.target.value))}
-              className="mt-2 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-right font-mono text-sm text-slate-900 outline-none focus:border-slate-400 dark:border-slate-700 dark:bg-slate-900 dark:text-white"
-            />
-          </label>
+            <div className="grid gap-3 md:grid-cols-3">
+              <label className="text-xs font-medium text-slate-600 dark:text-slate-300">
+                Fit
+                <input
+                  type="number"
+                  min="0"
+                  step="1"
+                  value={line.fitPieces || 0}
+                  onChange={(event) => onChange(line.denomination, 'fitPieces', Number(event.target.value))}
+                  className="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-right font-mono text-sm text-slate-900 outline-none focus:border-slate-400 dark:border-slate-700 dark:bg-slate-900 dark:text-white"
+                />
+              </label>
+              <label className="text-xs font-medium text-slate-600 dark:text-slate-300">
+                Unfit
+                <input
+                  type="number"
+                  min="0"
+                  step="1"
+                  value={line.unfitPieces || 0}
+                  onChange={(event) => onChange(line.denomination, 'unfitPieces', Number(event.target.value))}
+                  className="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-right font-mono text-sm text-slate-900 outline-none focus:border-slate-400 dark:border-slate-700 dark:bg-slate-900 dark:text-white"
+                />
+              </label>
+              <label className="text-xs font-medium text-slate-600 dark:text-slate-300">
+                Suspect
+                <input
+                  type="number"
+                  min="0"
+                  step="1"
+                  value={line.suspectPieces || 0}
+                  onChange={(event) => onChange(line.denomination, 'suspectPieces', Number(event.target.value))}
+                  className="mt-1 w-full rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-right font-mono text-sm text-slate-900 outline-none focus:border-amber-400 dark:border-amber-800 dark:bg-amber-950/30 dark:text-white"
+                />
+              </label>
+            </div>
+          </div>
         ))}
       </div>
+    </div>
+  );
+}
+
+function ControlFields({
+  controlReference,
+  witnessOfficer,
+  sealNumber,
+  onChange,
+  countReason,
+}: {
+  controlReference?: string;
+  witnessOfficer?: string;
+  sealNumber?: string;
+  countReason?: string;
+  onChange: (field: 'controlReference' | 'witnessOfficer' | 'sealNumber' | 'countReason', value: string) => void;
+}) {
+  return (
+    <div className="grid gap-3 md:grid-cols-2">
+      <input
+        type="text"
+        value={controlReference ?? ''}
+        onChange={(event) => onChange('controlReference', event.target.value)}
+        className={inputClass}
+        placeholder="Control reference"
+      />
+      <input
+        type="text"
+        value={witnessOfficer ?? ''}
+        onChange={(event) => onChange('witnessOfficer', event.target.value)}
+        className={inputClass}
+        placeholder="Witness officer"
+      />
+      <input
+        type="text"
+        value={sealNumber ?? ''}
+        onChange={(event) => onChange('sealNumber', event.target.value)}
+        className={inputClass}
+        placeholder="Bag or seal number"
+      />
+      {countReason !== undefined && (
+        <input
+          type="text"
+          value={countReason ?? ''}
+          onChange={(event) => onChange('countReason', event.target.value)}
+          className={inputClass}
+          placeholder="Count reason"
+        />
+      )}
     </div>
   );
 }

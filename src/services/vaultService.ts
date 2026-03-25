@@ -43,13 +43,21 @@ export interface TellerTillSummaryDto {
 export interface CashDenominationLineDto {
   denomination: string;
   pieces: number;
+  fitPieces?: number;
+  unfitPieces?: number;
+  suspectPieces?: number;
   totalValue: number;
+  suspectValue?: number;
 }
 
 export interface VaultCountRequest {
   branchId: string;
   currency: string;
   amount: number;
+  controlReference?: string;
+  countReason?: string;
+  witnessOfficer?: string;
+  sealNumber?: string;
   denominations?: CashDenominationLineDto[];
 }
 
@@ -60,6 +68,9 @@ export interface VaultTransactionRequest {
   type: string;
   reference?: string;
   narration?: string;
+  controlReference?: string;
+  witnessOfficer?: string;
+  sealNumber?: string;
   denominations?: CashDenominationLineDto[];
 }
 
@@ -70,6 +81,7 @@ export interface OpenTillRequest {
   openingBalance: number;
   midDayCashLimit?: number;
   notes?: string;
+  witnessOfficer?: string;
 }
 
 export interface TillCashTransferRequest {
@@ -79,6 +91,9 @@ export interface TillCashTransferRequest {
   amount: number;
   reference?: string;
   narration?: string;
+  controlReference?: string;
+  witnessOfficer?: string;
+  sealNumber?: string;
   denominations?: CashDenominationLineDto[];
 }
 
@@ -88,6 +103,9 @@ export interface CloseTillRequest {
   currency: string;
   physicalCashCount: number;
   notes?: string;
+  controlReference?: string;
+  witnessOfficer?: string;
+  sealNumber?: string;
   denominations?: CashDenominationLineDto[];
 }
 

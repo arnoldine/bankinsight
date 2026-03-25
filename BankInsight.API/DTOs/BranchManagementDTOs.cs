@@ -56,6 +56,18 @@ public class VaultCountRequest
     [Range(0.01, 999999999.99, ErrorMessage = "Amount must be between 0.01 and 999999999.99")]
     public decimal Amount { get; set; }
 
+    [StringLength(100, ErrorMessage = "ControlReference must not exceed 100 characters")]
+    public string? ControlReference { get; set; }
+
+    [StringLength(100, ErrorMessage = "CountReason must not exceed 100 characters")]
+    public string? CountReason { get; set; }
+
+    [StringLength(100, ErrorMessage = "WitnessOfficer must not exceed 100 characters")]
+    public string? WitnessOfficer { get; set; }
+
+    [StringLength(100, ErrorMessage = "SealNumber must not exceed 100 characters")]
+    public string? SealNumber { get; set; }
+
     public List<CashDenominationLineDto> Denominations { get; set; } = new();
 }
 
@@ -80,6 +92,15 @@ public class VaultTransactionRequest
 
     [StringLength(500, ErrorMessage = "Narration must not exceed 500 characters")]
     public string? Narration { get; set; }
+
+    [StringLength(100, ErrorMessage = "ControlReference must not exceed 100 characters")]
+    public string? ControlReference { get; set; }
+
+    [StringLength(100, ErrorMessage = "WitnessOfficer must not exceed 100 characters")]
+    public string? WitnessOfficer { get; set; }
+
+    [StringLength(100, ErrorMessage = "SealNumber must not exceed 100 characters")]
+    public string? SealNumber { get; set; }
 
     public List<CashDenominationLineDto> Denominations { get; set; } = new();
 }
@@ -129,6 +150,9 @@ public class OpenTillRequest
 
     [StringLength(500, ErrorMessage = "Notes must not exceed 500 characters")]
     public string? Notes { get; set; }
+
+    [StringLength(100, ErrorMessage = "WitnessOfficer must not exceed 100 characters")]
+    public string? WitnessOfficer { get; set; }
 }
 
 public class TillCashTransferRequest
@@ -152,6 +176,15 @@ public class TillCashTransferRequest
     [StringLength(500, ErrorMessage = "Narration must not exceed 500 characters")]
     public string? Narration { get; set; }
 
+    [StringLength(100, ErrorMessage = "ControlReference must not exceed 100 characters")]
+    public string? ControlReference { get; set; }
+
+    [StringLength(100, ErrorMessage = "WitnessOfficer must not exceed 100 characters")]
+    public string? WitnessOfficer { get; set; }
+
+    [StringLength(100, ErrorMessage = "SealNumber must not exceed 100 characters")]
+    public string? SealNumber { get; set; }
+
     public List<CashDenominationLineDto> Denominations { get; set; } = new();
 }
 
@@ -172,6 +205,15 @@ public class CloseTillRequest
 
     [StringLength(500, ErrorMessage = "Notes must not exceed 500 characters")]
     public string? Notes { get; set; }
+
+    [StringLength(100, ErrorMessage = "ControlReference must not exceed 100 characters")]
+    public string? ControlReference { get; set; }
+
+    [StringLength(100, ErrorMessage = "WitnessOfficer must not exceed 100 characters")]
+    public string? WitnessOfficer { get; set; }
+
+    [StringLength(100, ErrorMessage = "SealNumber must not exceed 100 characters")]
+    public string? SealNumber { get; set; }
 
     public List<CashDenominationLineDto> Denominations { get; set; } = new();
 }
@@ -408,7 +450,11 @@ public class CashDenominationLineDto
 {
     public string Denomination { get; set; } = string.Empty;
     public int Pieces { get; set; }
+    public int FitPieces { get; set; }
+    public int UnfitPieces { get; set; }
+    public int SuspectPieces { get; set; }
     public decimal TotalValue { get; set; }
+    public decimal SuspectValue { get; set; }
 }
 
 public class CashTransitItemDto

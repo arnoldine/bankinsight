@@ -117,6 +117,14 @@ public class VaultManagementService : IVaultManagementService
         vault.UpdatedAt = DateTime.UtcNow;
 
         await _context.SaveChangesAsync();
+        await RaiseSuspectAndUnfitCashFlagsAsync(
+            request.BranchId,
+            "VAULT",
+            vault.Id,
+            currency,
+            request.Denominations,
+            request.ControlReference,
+            BuildCountComplianceNarration("VAULT_COUNT", request.CountReason, request.WitnessOfficer, request.SealNumber));
 
         if (Math.Abs(variance) > 0.009m)
         {
@@ -132,7 +140,18 @@ public class VaultManagementService : IVaultManagementService
                 countedBy);
         }
 
-        await LogCashOperationAsync("VAULT_COUNT_RECORDED", "BRANCH_VAULT", vault.Id, countedBy, new { request.BranchId, Currency = currency, request.Amount, Variance = variance });
+        await LogCashOperationAsync("VAULT_COUNT_RECORDED", "BRANCH_VAULT", vault.Id, countedBy, new
+        {
+            request.BranchId,
+            Currency = currency,
+            request.Amount,
+            Variance = variance,
+            request.ControlReference,
+            request.CountReason,
+            request.WitnessOfficer,
+            request.SealNumber,
+            DenominationSummary = BuildDenominationComplianceSummary(request.Denominations)
+        });
 
         return await GetVaultAsync(request.BranchId, currency) ?? throw new InvalidOperationException("Vault not found after update");
     }
@@ -142,6 +161,7 @@ public class VaultManagementService : IVaultManagementService
         var currency = NormalizeCurrency(request.Currency);
         var vault = await GetOrCreateVaultEntityAsync(request.BranchId, currency);
         ValidateDenominationTotal(request.Denominations, request.Amount, "vault transaction");
+        EnsureNoSuspectNotes(request.Denominations, "vault movement");
 
         if (request.Type.Equals("Withdrawal", StringComparison.OrdinalIgnoreCase))
         {
@@ -187,7 +207,27 @@ public class VaultManagementService : IVaultManagementService
 
         vault.UpdatedAt = DateTime.UtcNow;
         await _context.SaveChangesAsync();
-        await LogCashOperationAsync("VAULT_TRANSACTION_PROCESSED", "BRANCH_VAULT", vault.Id, processedBy, new { request.BranchId, Currency = currency, request.Amount, request.Type, request.Reference, DenominationLines = request.Denominations.Count });
+        await RaiseSuspectAndUnfitCashFlagsAsync(
+            request.BranchId,
+            "VAULT",
+            vault.Id,
+            currency,
+            request.Denominations,
+            request.ControlReference ?? request.Reference,
+            BuildCountComplianceNarration("VAULT_TRANSACTION", request.Narration, request.WitnessOfficer, request.SealNumber));
+
+        await LogCashOperationAsync("VAULT_TRANSACTION_PROCESSED", "BRANCH_VAULT", vault.Id, processedBy, new
+        {
+            request.BranchId,
+            Currency = currency,
+            request.Amount,
+            request.Type,
+            request.Reference,
+            request.ControlReference,
+            request.WitnessOfficer,
+            request.SealNumber,
+            DenominationSummary = BuildDenominationComplianceSummary(request.Denominations)
+        });
 
         return await GetVaultAsync(request.BranchId, currency) ?? throw new InvalidOperationException("Vault not found after update");
     }
@@ -269,7 +309,15 @@ public class VaultManagementService : IVaultManagementService
         });
 
         await _context.SaveChangesAsync();
-        await LogCashOperationAsync("TILL_OPENED", "TILL_SESSION", BuildTillKey(branchId, teller.Id, currency), processedBy, new { TellerId = teller.Id, BranchId = branchId, Currency = currency, request.OpeningBalance, request.MidDayCashLimit });
+        await LogCashOperationAsync("TILL_OPENED", "TILL_SESSION", BuildTillKey(branchId, teller.Id, currency), processedBy, new
+        {
+            TellerId = teller.Id,
+            BranchId = branchId,
+            Currency = currency,
+            request.OpeningBalance,
+            request.MidDayCashLimit,
+            request.WitnessOfficer
+        });
         return await BuildTillSummaryAsync(teller, branchId, currency);
     }
 
@@ -337,6 +385,14 @@ public class VaultManagementService : IVaultManagementService
         });
 
         await _context.SaveChangesAsync();
+        await RaiseSuspectAndUnfitCashFlagsAsync(
+            branchId,
+            "TILL",
+            BuildTillKey(branchId, teller.Id, currency),
+            currency,
+            request.Denominations,
+            request.ControlReference,
+            BuildCountComplianceNarration("CLOSE_TILL", request.Notes, request.WitnessOfficer, request.SealNumber));
 
         if (Math.Abs(variance) > 0.009m)
         {
@@ -352,7 +408,19 @@ public class VaultManagementService : IVaultManagementService
                 processedBy);
         }
 
-        await LogCashOperationAsync("TILL_CLOSED", "TILL_SESSION", BuildTillKey(branchId, teller.Id, currency), processedBy, new { TellerId = teller.Id, BranchId = branchId, Currency = currency, request.PhysicalCashCount, current.CurrentBalance, Variance = variance, DenominationLines = request.Denominations.Count });
+        await LogCashOperationAsync("TILL_CLOSED", "TILL_SESSION", BuildTillKey(branchId, teller.Id, currency), processedBy, new
+        {
+            TellerId = teller.Id,
+            BranchId = branchId,
+            Currency = currency,
+            request.PhysicalCashCount,
+            current.CurrentBalance,
+            Variance = variance,
+            request.ControlReference,
+            request.WitnessOfficer,
+            request.SealNumber,
+            DenominationSummary = BuildDenominationComplianceSummary(request.Denominations)
+        });
         return await BuildTillSummaryAsync(teller, branchId, currency);
     }
 
@@ -363,6 +431,7 @@ public class VaultManagementService : IVaultManagementService
         var currency = NormalizeCurrency(request.Currency);
         var current = await BuildTillSummaryAsync(teller, branchId, currency);
         ValidateDenominationTotal(request.Denominations, request.Amount, isAllocation ? "till allocation" : "till return");
+        EnsureNoSuspectNotes(request.Denominations, isAllocation ? "till allocation" : "till return");
 
         if (!current.IsOpen)
         {
@@ -416,7 +485,28 @@ public class VaultManagementService : IVaultManagementService
         });
 
         await _context.SaveChangesAsync();
-        await LogCashOperationAsync("TILL_CASH_MOVEMENT", "TILL_CASH", BuildTillKey(branchId, teller.Id, currency), processedBy, new { TellerId = teller.Id, BranchId = branchId, Currency = currency, request.Amount, request.Reference, Direction = isAllocation ? "VAULT_TO_TILL" : "TILL_TO_VAULT", DenominationLines = request.Denominations.Count });
+        await RaiseSuspectAndUnfitCashFlagsAsync(
+            branchId,
+            "TILL",
+            BuildTillKey(branchId, teller.Id, currency),
+            currency,
+            request.Denominations,
+            request.ControlReference ?? request.Reference,
+            BuildCountComplianceNarration(isAllocation ? "ALLOCATE_TILL_CASH" : "RETURN_TILL_CASH", request.Narration, request.WitnessOfficer, request.SealNumber));
+
+        await LogCashOperationAsync("TILL_CASH_MOVEMENT", "TILL_CASH", BuildTillKey(branchId, teller.Id, currency), processedBy, new
+        {
+            TellerId = teller.Id,
+            BranchId = branchId,
+            Currency = currency,
+            request.Amount,
+            request.Reference,
+            request.ControlReference,
+            request.WitnessOfficer,
+            request.SealNumber,
+            Direction = isAllocation ? "VAULT_TO_TILL" : "TILL_TO_VAULT",
+            DenominationSummary = BuildDenominationComplianceSummary(request.Denominations)
+        });
         return await BuildTillSummaryAsync(teller, branchId, currency);
     }
 
@@ -710,8 +800,8 @@ public class VaultManagementService : IVaultManagementService
             return;
         }
 
-        var lines = denominations
-            .Where(item => item.Pieces > 0)
+        var lines = NormalizeDenominationLines(denominations)
+            .Where(item => item.Pieces > 0 || item.SuspectPieces > 0)
             .ToList();
 
         if (lines.Count == 0)
@@ -733,15 +823,131 @@ public class VaultManagementService : IVaultManagementService
             return;
         }
 
-        foreach (var line in denominations.Where(item => item.Pieces > 0))
+        foreach (var line in NormalizeDenominationLines(denominations).Where(item => item.Pieces + item.SuspectPieces > 0))
         {
             ledger.Denominations.Add(new VaultTransactionDenomination
             {
                 LedgerId = ledger.LedgerId,
                 Denomination = ParseDenomination(line.Denomination),
-                Pieces = line.Pieces,
+                Pieces = line.Pieces + line.SuspectPieces,
             });
         }
+    }
+
+    private async Task RaiseSuspectAndUnfitCashFlagsAsync(
+        string branchId,
+        string storeType,
+        string storeId,
+        string currency,
+        IEnumerable<CashDenominationLineDto>? denominations,
+        string? reference,
+        string? narration)
+    {
+        var normalized = NormalizeDenominationLines(denominations).ToList();
+        if (normalized.Count == 0)
+        {
+            return;
+        }
+
+        var suspectValue = normalized.Sum(item => ParseDenominationValue(item.Denomination) * item.SuspectPieces);
+        var unfitValue = normalized.Sum(item => ParseDenominationValue(item.Denomination) * item.UnfitPieces);
+
+        if (suspectValue > 0)
+        {
+            await _cashIncidentService.ReportSystemIncidentAsync(
+                branchId,
+                storeType,
+                storeId,
+                "COUNTERFEIT_SUSPECTED",
+                currency,
+                suspectValue,
+                reference,
+                $"Suspect notes segregated for review. {narration}",
+                null);
+        }
+
+        if (unfitValue > 0)
+        {
+            await LogCashOperationAsync(
+                "UNFIT_NOTES_RECORDED",
+                storeType,
+                storeId,
+                string.Empty,
+                new
+                {
+                    BranchId = branchId,
+                    Currency = currency,
+                    UnfitValue = unfitValue,
+                    Reference = reference,
+                    Narration = narration,
+                    DenominationSummary = BuildDenominationComplianceSummary(normalized)
+                });
+        }
+    }
+
+    private static void EnsureNoSuspectNotes(IEnumerable<CashDenominationLineDto>? denominations, string operationName)
+    {
+        var suspectValue = NormalizeDenominationLines(denominations)
+            .Sum(item => ParseDenominationValue(item.Denomination) * item.SuspectPieces);
+
+        if (suspectValue > 0)
+        {
+            throw new InvalidOperationException($"Suspect notes cannot be posted as available cash during {operationName}. Record them during vault count or till close and escalate for review.");
+        }
+    }
+
+    private static IEnumerable<CashDenominationLineDto> NormalizeDenominationLines(IEnumerable<CashDenominationLineDto>? denominations)
+    {
+        if (denominations == null)
+        {
+            return Enumerable.Empty<CashDenominationLineDto>();
+        }
+
+        return denominations.Select(line =>
+        {
+            var fitPieces = line.FitPieces;
+            var unfitPieces = line.UnfitPieces;
+            var suspectPieces = line.SuspectPieces;
+
+            if (fitPieces == 0 && unfitPieces == 0 && suspectPieces == 0 && line.Pieces > 0)
+            {
+                fitPieces = line.Pieces;
+            }
+
+            return new CashDenominationLineDto
+            {
+                Denomination = line.Denomination,
+                FitPieces = fitPieces,
+                UnfitPieces = unfitPieces,
+                SuspectPieces = suspectPieces,
+                Pieces = fitPieces + unfitPieces,
+                TotalValue = line.TotalValue,
+                SuspectValue = line.SuspectValue,
+            };
+        });
+    }
+
+    private static object BuildDenominationComplianceSummary(IEnumerable<CashDenominationLineDto>? denominations)
+    {
+        var normalized = NormalizeDenominationLines(denominations).ToList();
+        return new
+        {
+            FitValue = normalized.Sum(item => ParseDenominationValue(item.Denomination) * item.FitPieces),
+            UnfitValue = normalized.Sum(item => ParseDenominationValue(item.Denomination) * item.UnfitPieces),
+            SuspectValue = normalized.Sum(item => ParseDenominationValue(item.Denomination) * item.SuspectPieces),
+            Lines = normalized.Select(item => new
+            {
+                item.Denomination,
+                item.FitPieces,
+                item.UnfitPieces,
+                item.SuspectPieces
+            }).ToList()
+        };
+    }
+
+    private static string BuildCountComplianceNarration(string action, string? baseNarration, string? witnessOfficer, string? sealNumber)
+    {
+        return $"{action}|WITNESS:{witnessOfficer ?? "N/A"}|SEAL:{sealNumber ?? "N/A"}|{baseNarration ?? string.Empty}";
     }
 
     private static DenominationUnit ParseDenomination(string denomination)
