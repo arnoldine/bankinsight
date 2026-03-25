@@ -1,127 +1,156 @@
-
-import React, { useState, useMemo, useEffect } from 'react';
-import { Customer, Account, Loan, Transaction, ClientNote, ClientDocument, Product } from '../types';
-import { 
-    Search, UserPlus, Eye, Smartphone, MapPin, CreditCard, Shield, 
-    MoreHorizontal, User, AlertTriangle, CheckCircle2, Briefcase, 
-    History, ArrowRightLeft, FileText, StickyNote, Plus, Filter, 
-    Save, X, Upload, CheckCircle, Clock, XCircle, Printer, Download, Calendar, ArrowUpRight, ArrowDownRight, Wallet, PieChart, File,
-    ChevronRight, ChevronLeft, Award, Building2
+import React, { useEffect, useMemo, useState } from 'react';
+import {
+  AlertCircle,
+  CheckCircle2,
+  CreditCard,
+  FileText,
+  Filter,
+  Loader2,
+  Search,
+  StickyNote,
+  Upload,
+  User,
+  UserPlus,
+  Wallet,
+  X,
 } from 'lucide-react';
-import ClientTransactionHistory from './ClientTransactionHistory';
-import { Can } from './Can';
-import { Permissions } from '../lib/Permissions';
-import { customerService } from '../src/services/customerService';
+import { Account, ClientDocument, ClientNote, Customer, Loan, Product, Transaction } from '../types';
+import { customerService, CustomerKycStatus } from '../src/services/customerService';
 
 interface ClientManagerProps {
   customers: Customer[];
   accounts: Account[];
   loans: Loan[];
   transactions: Transaction[];
-  products?: Product[]; // Make it optional for now to avoid breaking but logic will depend on it
-  onCreateCustomer: (data: any) => void;
-  onUpdateCustomer: (id: string, data: Partial<Customer>) => void;
-  onCreateAccount: (cif: string, product: string, type: any) => void;
+  products?: Product[];
+  onCreateCustomer: (data: Partial<Customer>) => Promise<unknown> | unknown;
+  onUpdateCustomer: (id: string, data: Partial<Customer>) => Promise<unknown> | unknown;
+  onCreateAccount: (cif: string, product: string, type: Account['type']) => Promise<unknown> | unknown;
   initialView?: 'LIST' | 'CREATE' | 'DETAILS';
   initialDetailTab?: 'OVERVIEW' | 'ACCOUNTS' | 'LOANS' | 'TRANSACTIONS' | 'DOCS' | 'NOTES';
 }
 
-const ClientManager: React.FC<ClientManagerProps> = ({ customers, accounts, loans, transactions, products = [], onCreateCustomer, onUpdateCustomer, onCreateAccount, initialView = 'LIST', initialDetailTab = 'OVERVIEW' }) => {
-  const [view, setView] = useState<'LIST' | 'CREATE' | 'DETAILS'>(initialView);
+type ClientView = 'LIST' | 'CREATE' | 'DETAILS';
+type DetailTab = 'OVERVIEW' | 'ACCOUNTS' | 'LOANS' | 'TRANSACTIONS' | 'DOCS' | 'NOTES';
+
+const emptyKyc: CustomerKycStatus = {
+  customerId: '',
+  kycLevel: 'TIER1',
+  transactionLimit: 0,
+  dailyLimit: 0,
+  remainingDailyLimit: 0,
+  isUnlimited: false,
+  ghanaCardMatchesProfile: false,
+  todayPostedTotal: 0,
+};
+
+const newClientTemplate = (): Partial<Customer> => ({
+  type: 'INDIVIDUAL',
+  name: '',
+  phone: '',
+  email: '',
+  ghanaCard: '',
+  digitalAddress: '',
+  kycLevel: 'Tier 1',
+  riskRating: 'Low',
+  businessRegistrationNo: '',
+  tin: '',
+});
+
+const money = new Intl.NumberFormat('en-GH', { style: 'currency', currency: 'GHS', minimumFractionDigits: 2 });
+
+const badgeTone = (value?: string) => {
+  const normalized = String(value || '').toUpperCase();
+  if (['ACTIVE', 'LOW', 'VERIFIED'].includes(normalized)) return 'bg-emerald-50 text-emerald-700 border-emerald-200';
+  if (['PENDING', 'MEDIUM', 'DORMANT'].includes(normalized)) return 'bg-amber-50 text-amber-700 border-amber-200';
+  if (['HIGH', 'FROZEN', 'REJECTED', 'WRITTEN_OFF'].includes(normalized)) return 'bg-red-50 text-red-700 border-red-200';
+  return 'bg-slate-50 text-slate-700 border-slate-200';
+};
+
+export default function ClientManager({
+  customers,
+  accounts,
+  loans,
+  transactions,
+  products = [],
+  onCreateCustomer,
+  onUpdateCustomer,
+  onCreateAccount,
+  initialView = 'LIST',
+  initialDetailTab = 'OVERVIEW',
+}: ClientManagerProps) {
+  const [view, setView] = useState<ClientView>(initialView);
+  const [detailTab, setDetailTab] = useState<DetailTab>(initialDetailTab);
+  const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
   const [selectedClient, setSelectedClient] = useState<Customer | null>(null);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [filterTier, setFilterTier] = useState<string>('ALL');
-  const [error, setError] = useState<string | null>(null);
-  
-  // Details View State
-  const [detailTab, setDetailTab] = useState<'OVERVIEW' | 'ACCOUNTS' | 'LOANS' | 'TRANSACTIONS' | 'DOCS' | 'NOTES'>(initialDetailTab);
-  const [isEditing, setIsEditing] = useState(false);
-  const [editFormData, setEditFormData] = useState<Partial<Customer>>({});
-  const [showAccountModal, setShowAccountModal] = useState(false);
-  const [showUploadModal, setShowUploadModal] = useState(false); // New Upload Modal
-  
-  // Statement Modal State
-  const [showStatementModal, setShowStatementModal] = useState(false);
-  const [selectedAccountForStatement, setSelectedAccountForStatement] = useState<Account | null>(null);
-  const [isProfileLoading, setIsProfileLoading] = useState(false);
-
-  // Account Wizard State
-  const [wizardStep, setWizardStep] = useState(1);
-  const [newAccountProduct, setNewAccountProduct] = useState('');
-  const [newAccountCurrency, setNewAccountCurrency] = useState<'GHS' | 'USD'>('GHS');
-  const [createdAccountId, setCreatedAccountId] = useState<string | null>(null);
-
-  // Document Upload State
-  const [newDoc, setNewDoc] = useState({ type: 'ID Card', name: '' });
-
-  // Filter available products for account creation (exclude loans)
-  const depositProducts = useMemo(() => products.filter(p => (p.type === 'SAVINGS' || p.type === 'CURRENT' || p.type === 'FIXED_DEPOSIT') && p.status === 'ACTIVE'), [products]);
-
+  const [kycStatus, setKycStatus] = useState<CustomerKycStatus>(emptyKyc);
   const [notes, setNotes] = useState<ClientNote[]>([]);
   const [documents, setDocuments] = useState<ClientDocument[]>([]);
+  const [isProfileLoading, setIsProfileLoading] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [showAccountModal, setShowAccountModal] = useState(false);
+  const [showDocumentModal, setShowDocumentModal] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filterTier, setFilterTier] = useState('ALL');
+  const [feedback, setFeedback] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [newClient, setNewClient] = useState<Partial<Customer>>(newClientTemplate());
+  const [editFormData, setEditFormData] = useState<Partial<Customer>>({});
   const [noteInput, setNoteInput] = useState('');
+  const [newDoc, setNewDoc] = useState({ type: 'ID Card', name: '' });
+  const [newAccountProduct, setNewAccountProduct] = useState('');
 
-  // Form State
-  const [newClient, setNewClient] = useState<Partial<Customer>>({
-      type: 'INDIVIDUAL',
-      name: '', phone: '', email: '', 
-      ghanaCard: '', digitalAddress: '', kycLevel: 'Tier 1', riskRating: 'Low',
-      dateOfBirth: '', gender: 'Male',
-      nationality: 'GHANAIAN', maritalStatus: 'Single', spouseName: '', ssnitNo: '',
-      businessRegistrationNo: '', tin: '', sector: 'COMMERCE'
-  });
+  useEffect(() => setView(initialView), [initialView]);
+  useEffect(() => setDetailTab(initialDetailTab), [initialDetailTab]);
 
-  React.useEffect(() => {
-    setView(initialView);
-  }, [initialView]);
-
-  React.useEffect(() => {
-    setDetailTab(initialDetailTab);
-  }, [initialDetailTab]);
-
-  // --- DERIVED DATA ---
   const filteredClients = useMemo(() => {
-    return customers.filter(c => {
-        const matchesSearch = c.name.toLowerCase().includes(searchTerm.toLowerCase()) || c.id.toLowerCase().includes(searchTerm.toLowerCase());
-        const matchesTier = filterTier === 'ALL' || c.kycLevel === filterTier;
-        return matchesSearch && matchesTier;
+    const query = searchTerm.trim().toLowerCase();
+    return customers.filter((client) => {
+      const matchesSearch =
+        !query ||
+        client.name.toLowerCase().includes(query) ||
+        client.id.toLowerCase().includes(query) ||
+        client.phone.toLowerCase().includes(query) ||
+        client.ghanaCard.toLowerCase().includes(query);
+      return matchesSearch && (filterTier === 'ALL' || client.kycLevel === filterTier);
     });
-  }, [customers, searchTerm, filterTier]);
+  }, [customers, filterTier, searchTerm]);
 
-  const clientAccounts = useMemo(() => selectedClient ? accounts.filter(a => a.cif === selectedClient.id) : [], [accounts, selectedClient]);
-  const clientLoans = useMemo(() => selectedClient ? loans.filter(l => l.cif === selectedClient.id) : [], [loans, selectedClient]);
+  const clientAccounts = useMemo(
+    () => (selectedClient ? accounts.filter((account) => account.cif === selectedClient.id) : []),
+    [accounts, selectedClient],
+  );
+  const clientLoans = useMemo(
+    () => (selectedClient ? loans.filter((loan) => loan.cif === selectedClient.id) : []),
+    [loans, selectedClient],
+  );
   const clientTransactions = useMemo(() => {
     if (!selectedClient) return [];
-    const accIds = clientAccounts.map(a => a.id);
-    return transactions.filter(t => accIds.includes(t.accountId)).sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-  }, [transactions, clientAccounts, selectedClient]);
+    const accountIds = new Set(clientAccounts.map((account) => account.id));
+    return transactions.filter((transaction) => accountIds.has(transaction.accountId));
+  }, [clientAccounts, selectedClient, transactions]);
+  const depositProducts = useMemo(
+    () => products.filter((product) => ['SAVINGS', 'CURRENT', 'FIXED_DEPOSIT'].includes(product.type) && product.status === 'ACTIVE'),
+    [products],
+  );
 
-  // --- EFFECTS ---
   useEffect(() => {
-    if (!selectedClient) return;
+    if (!selectedClientId) {
+      setSelectedClient(null);
+      setKycStatus(emptyKyc);
+      setNotes([]);
+      setDocuments([]);
+      return;
+    }
 
-    setEditFormData({
-      name: selectedClient.name,
-      phone: selectedClient.phone,
-      email: selectedClient.email,
-      digitalAddress: selectedClient.digitalAddress,
-      ghanaCard: selectedClient.ghanaCard,
-      employer: selectedClient.employer,
-      maritalStatus: selectedClient.maritalStatus,
-      spouseName: selectedClient.spouseName,
-      riskRating: selectedClient.riskRating,
-    });
-    setNotes(selectedClient.notes || []);
-    setDocuments(selectedClient.documents || []);
-    setDetailTab('OVERVIEW');
-    setIsEditing(false);
-
-    let isActive = true;
+    let active = true;
     setIsProfileLoading(true);
-    customerService.getCustomerProfile(selectedClient.id)
-      .then((profile) => {
-        if (!isActive) return;
+    Promise.all([customerService.getCustomerProfile(selectedClientId), customerService.getCustomerKyc(selectedClientId)])
+      .then(([profile, kyc]) => {
+        if (!active) return;
         setSelectedClient(profile);
+        setKycStatus(kyc);
         setNotes(profile.notes || []);
         setDocuments(profile.documents || []);
         setEditFormData({
@@ -129,922 +158,583 @@ const ClientManager: React.FC<ClientManagerProps> = ({ customers, accounts, loan
           phone: profile.phone,
           email: profile.email,
           digitalAddress: profile.digitalAddress,
-          ghanaCard: profile.ghanaCard,
-          employer: profile.employer,
-          maritalStatus: profile.maritalStatus,
-          spouseName: profile.spouseName,
           riskRating: profile.riskRating,
         });
       })
-      .catch((err) => {
-        if (isActive) {
-          console.error('Failed to load customer profile:', err);
-        }
-      })
-      .finally(() => {
-        if (isActive) {
-          setIsProfileLoading(false);
-        }
-      });
+      .catch((err) => active && setError(err instanceof Error ? err.message : 'Unable to load the client profile.'))
+      .finally(() => active && setIsProfileLoading(false));
 
     return () => {
-      isActive = false;
+      active = false;
     };
-  }, [selectedClient?.id]);
+  }, [selectedClientId]);
 
-  // Reset wizard when modal opens
-  useEffect(() => {
-      if (showAccountModal) {
-          setWizardStep(1);
-          setCreatedAccountId(null);
-          setNewAccountProduct('');
-          setNewAccountCurrency('GHS');
-      }
-  }, [showAccountModal]);
-
-  // --- HANDLERS ---
-  const handleCreateSubmit = async () => {
-      // Basic validation logic
-      if(!newClient.name || !newClient.phone) {
-          setError("Please fill all mandatory fields (*)");
-          return;
-      }
-      if (newClient.type === 'INDIVIDUAL' && !newClient.ghanaCard) {
-          setError("Ghana Card is required for Individuals");
-          return;
-      }
-      if (newClient.type === 'CORPORATE' && (!newClient.businessRegistrationNo || !newClient.tin)) {
-          setError("Registration No and TIN are required for Corporates");
-          return;
-      }
-
-      try {
-        await onCreateCustomer(newClient);
-        setView('LIST');
-        setNewClient({ type: 'INDIVIDUAL', name: '', phone: '', email: '', ghanaCard: '', digitalAddress: '', kycLevel: 'Tier 1', riskRating: 'Low' });
-      } catch (e: any) {
-        setError(e.message);
-      }
+  const openClient = (id: string) => {
+    setSelectedClientId(id);
+    setView('DETAILS');
+    setDetailTab('OVERVIEW');
+    setError(null);
+    setFeedback(null);
   };
 
-  const handleUpdateProfile = async () => {
-      if(!selectedClient) return;
-      await onUpdateCustomer(selectedClient.id, editFormData);
-      setSelectedClient(prev => prev ? ({ ...prev, ...editFormData }) : null);
+  const validateDraft = (draft: Partial<Customer>) => {
+    if (!draft.name?.trim()) return 'Client name is required.';
+    if (!draft.phone?.trim()) return 'Mobile number is required.';
+    if (draft.type === 'INDIVIDUAL' && !draft.ghanaCard?.trim()) return 'Ghana Card number is required for individual clients.';
+    if (draft.type === 'CORPORATE' && !draft.businessRegistrationNo?.trim()) return 'Business registration number is required for corporate clients.';
+    return null;
+  };
+
+  const saveClient = async () => {
+    const validationError = validateDraft(newClient);
+    if (validationError) {
+      setError(validationError);
+      return;
+    }
+
+    setIsSaving(true);
+    setError(null);
+    try {
+      await Promise.resolve(onCreateCustomer(newClient));
+      setFeedback('Client profile created successfully.');
+      setNewClient(newClientTemplate());
+      setView('LIST');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Unable to create the client profile.');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const updateProfile = async () => {
+    if (!selectedClient || !editFormData.name?.trim()) {
+      setError('Client name is required before saving changes.');
+      return;
+    }
+
+    setIsSaving(true);
+    setError(null);
+    try {
+      await Promise.resolve(onUpdateCustomer(selectedClient.id, editFormData));
+      setSelectedClient((current) => (current ? { ...current, ...editFormData } : current));
+      setFeedback('Client profile updated successfully.');
       setIsEditing(false);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Unable to update the client profile.');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
-  const handleCreateAccount = async () => {
-      if(!selectedClient || !newAccountProduct) return;
-      try {
-          const product = depositProducts.find(p => p.id === newAccountProduct);
-          if(product) {
-              const accId = await onCreateAccount(selectedClient.id, product.id, newAccountCurrency);
-              setCreatedAccountId(typeof accId === 'string' ? accId : 'PENDING');
-              setWizardStep(4);
-          }
-      } catch (e) {
-          console.error(e);
-      }
-  };
-
-  const handleFinishWizard = () => {
-      setShowAccountModal(false);
-      setDetailTab('ACCOUNTS');
-  };
-
-  const handleAddNote = async () => {
-      if(!selectedClient || !noteInput.trim()) return;
-      const createdNote = await customerService.addCustomerNote(selectedClient.id, noteInput, 'GENERAL');
-      setNotes([createdNote, ...notes]);
-      setSelectedClient(prev => prev ? ({ ...prev, notes: [createdNote, ...(prev.notes || [])] }) : prev);
+  const addNote = async () => {
+    if (!selectedClient || !noteInput.trim()) return;
+    setIsSaving(true);
+    try {
+      const created = await customerService.addCustomerNote(selectedClient.id, noteInput.trim(), 'GENERAL');
+      setNotes((current) => [created, ...current]);
       setNoteInput('');
+      setFeedback('Client note saved.');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Unable to save the client note.');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
-  const handleUploadDocument = async () => {
-      if (!selectedClient || !newDoc.name) return;
-      const createdDocument = await customerService.addCustomerDocument(selectedClient.id, newDoc.type, newDoc.name);
-      setDocuments([createdDocument, ...documents]);
-      setSelectedClient(prev => prev ? ({ ...prev, documents: [createdDocument, ...(prev.documents || [])] }) : prev);
-      setShowUploadModal(false);
+  const addDocument = async () => {
+    if (!selectedClient || !newDoc.name.trim()) return;
+    setIsSaving(true);
+    try {
+      const created = await customerService.addCustomerDocument(selectedClient.id, newDoc.type, newDoc.name.trim());
+      setDocuments((current) => [created, ...current]);
       setNewDoc({ type: 'ID Card', name: '' });
+      setShowDocumentModal(false);
+      setFeedback('Document record added successfully.');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Unable to save the document record.');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
-  const openStatement = (account: Account) => {
-      setSelectedAccountForStatement(account);
-      setShowStatementModal(true);
+  const submitAccountOpening = async () => {
+    if (!selectedClient || !newAccountProduct) {
+      setError('Select a product before opening the account.');
+      return;
+    }
+    const selectedProduct = depositProducts.find((product) => product.id === newAccountProduct);
+    if (!selectedProduct) {
+      setError('The selected product is no longer available.');
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      await Promise.resolve(onCreateAccount(selectedClient.id, selectedProduct.id, selectedProduct.type as Account['type']));
+      setShowAccountModal(false);
+      setNewAccountProduct('');
+      setFeedback(`Account opening submitted using ${selectedProduct.name}.`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Unable to open the account.');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
-  const renderStatusBadge = (status: string) => {
-      const styles = {
-          'ACTIVE': 'bg-green-100 text-green-700',
-          'DORMANT': 'bg-orange-100 text-orange-700',
-          'FROZEN': 'bg-red-100 text-red-700',
-          'VERIFIED': 'bg-green-100 text-green-700',
-          'PENDING': 'bg-yellow-100 text-yellow-700',
-          'REJECTED': 'bg-red-100 text-red-700'
-      };
-      return <span className={`px-2 py-0.5 rounded text-xs font-bold ${styles[status as keyof typeof styles] || 'bg-gray-100'}`}>{status}</span>;
-  };
-
-  // Helper component for the Statement
-  const AccountStatementModal = () => {
-      // ... existing implementation ...
-      if (!selectedAccountForStatement || !selectedClient) return null;
-
-      // Filter transactions for this account
-      const accountTxns = transactions
-        .filter(t => t.accountId === selectedAccountForStatement.id)
-        .sort((a,b) => new Date(a.date).getTime() - new Date(b.date).getTime()); // Ascending order for running balance
-
-      let runningBalance = 0;
-      const statementLines = accountTxns.map(tx => {
-          const isCredit = tx.type === 'DEPOSIT' || tx.type === 'LOAN_REPAYMENT'; 
-          const amount = tx.amount;
-          if (isCredit) runningBalance += amount;
-          else runningBalance -= amount;
-
-          return { ...tx, runningBalance };
-      });
-      
-      const displayLines = [...statementLines].reverse();
-
-      return (
-          <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4 backdrop-blur-sm">
-              <div className="bg-white rounded-lg shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden">
-                  <div className="p-4 border-b border-gray-200 flex justify-between items-center bg-gray-50">
-                      <h3 className="font-bold text-gray-800 flex items-center gap-2">
-                          <FileText className="text-blue-600" size={20} /> Account Statement
-                      </h3>
-                      <button onClick={() => setShowStatementModal(false)}><X size={20} className="text-gray-400 hover:text-gray-600"/></button>
-                  </div>
-                  
-                  <div className="flex-1 overflow-y-auto p-8 bg-gray-50/50">
-                      {/* Paper Layout */}
-                      <div className="bg-white border border-gray-200 shadow-sm p-8 min-h-[600px] text-sm">
-                          {/* Header */}
-                          <div className="flex justify-between items-start mb-8 border-b pb-6">
-                              <div>
-                                  <h1 className="text-2xl font-bold text-blue-900 mb-1">OpenInsight Bank</h1>
-                                  <p className="text-gray-500">Head Office Branch</p>
-                                  <p className="text-gray-500">Accra, Ghana</p>
-                              </div>
-                              <div className="text-right">
-                                  <h2 className="text-xl font-bold text-gray-800">Statement of Account</h2>
-                                  <p className="text-gray-500">Date: {new Date().toLocaleDateString()}</p>
-                              </div>
-                          </div>
-
-                          {/* Account Info */}
-                          <div className="grid grid-cols-2 gap-8 mb-8">
-                              <div>
-                                  <h4 className="text-xs font-bold text-gray-400 uppercase mb-1">Account Holder</h4>
-                                  <p className="font-bold text-gray-900 text-lg">{selectedClient.name}</p>
-                                  <p className="text-gray-600">{selectedClient.digitalAddress}</p>
-                                  <p className="text-gray-600">CIF: {selectedClient.id}</p>
-                              </div>
-                              <div className="bg-gray-50 p-4 rounded border border-gray-100">
-                                  <div className="flex justify-between mb-2">
-                                      <span className="text-gray-500">Account Number</span>
-                                      <span className="font-mono font-bold text-gray-900">{selectedAccountForStatement.id}</span>
-                                  </div>
-                                  <div className="flex justify-between mb-2">
-                                      <span className="text-gray-500">Product</span>
-                                      <span className="font-medium text-gray-900">{selectedAccountForStatement.type} ({selectedAccountForStatement.productCode})</span>
-                                  </div>
-                                  <div className="flex justify-between mb-2">
-                                      <span className="text-gray-500">Currency</span>
-                                      <span className="font-medium text-gray-900">{selectedAccountForStatement.currency}</span>
-                                  </div>
-                                  <div className="flex justify-between border-t pt-2 mt-2">
-                                      <span className="text-gray-500 font-bold">Available Balance</span>
-                                      <span className="font-mono font-bold text-blue-700 text-lg">
-                                          {selectedAccountForStatement.balance.toLocaleString(undefined, {minimumFractionDigits: 2})}
-                                      </span>
-                                  </div>
-                              </div>
-                          </div>
-
-                          {/* Transaction Table */}
-                          <table className="w-full text-left">
-                              <thead className="bg-gray-100 text-gray-600 text-xs uppercase font-bold border-y border-gray-200">
-                                  <tr>
-                                      <th className="py-3 px-2">Date</th>
-                                      <th className="py-3 px-2">Reference</th>
-                                      <th className="py-3 px-2 w-1/3">Narration</th>
-                                      <th className="py-3 px-2 text-right">Debit</th>
-                                      <th className="py-3 px-2 text-right">Credit</th>
-                                      <th className="py-3 px-2 text-right">Balance</th>
-                                  </tr>
-                              </thead>
-                              <tbody className="divide-y divide-gray-100 font-mono text-xs">
-                                  {displayLines.map((tx) => (
-                                      <tr key={tx.id}>
-                                          <td className="py-3 px-2 text-gray-600">{new Date(tx.date).toLocaleDateString()}</td>
-                                          <td className="py-3 px-2 text-blue-600">{tx.id.split('-').pop()}</td>
-                                          <td className="py-3 px-2 text-gray-800">{tx.narration}</td>
-                                          <td className="py-3 px-2 text-right text-gray-600">
-                                              {tx.type !== 'DEPOSIT' && tx.type !== 'LOAN_REPAYMENT' ? tx.amount.toLocaleString(undefined, {minimumFractionDigits: 2}) : '-'}
-                                          </td>
-                                          <td className="py-3 px-2 text-right text-gray-600">
-                                              {tx.type === 'DEPOSIT' || tx.type === 'LOAN_REPAYMENT' ? tx.amount.toLocaleString(undefined, {minimumFractionDigits: 2}) : '-'}
-                                          </td>
-                                          <td className="py-3 px-2 text-right font-bold text-gray-800">
-                                              {tx.runningBalance.toLocaleString(undefined, {minimumFractionDigits: 2})}
-                                          </td>
-                                      </tr>
-                                  ))}
-                                  {displayLines.length === 0 && (
-                                      <tr><td colSpan={6} className="py-8 text-center text-gray-400">No transactions in selected period.</td></tr>
-                                  )}
-                              </tbody>
-                          </table>
-                      </div>
-                  </div>
-
-                  <div className="p-4 border-t border-gray-200 bg-gray-50 flex justify-end gap-3">
-                      <button className="px-4 py-2 bg-white border border-gray-300 text-gray-700 font-medium rounded hover:bg-gray-100 flex items-center gap-2">
-                          <Download size={16} /> Export PDF
-                      </button>
-                      <button className="px-4 py-2 bg-blue-600 text-white font-medium rounded hover:bg-blue-700 flex items-center gap-2">
-                          <Printer size={16} /> Print Statement
-                      </button>
-                  </div>
-              </div>
-          </div>
-      );
-  };
+  const overviewCards = selectedClient ? [
+    { label: 'Mobile Number', value: selectedClient.phone || 'Not recorded' },
+    { label: 'Email Address', value: selectedClient.email || 'Not recorded' },
+    { label: 'Digital Address', value: selectedClient.digitalAddress || 'Not recorded' },
+    { label: 'Identity', value: selectedClient.ghanaCard || selectedClient.businessRegistrationNo || 'Not recorded' },
+  ] : [];
 
   return (
-    <div className="flex flex-col h-full bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden relative">
-        
-        {/* ... (Account Wizard and Upload Modal remain similar, just ensuring they use selectedClient) ... */}
-        {showAccountModal && selectedClient && (
-            <div className="absolute inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
-               {/* ... (Account Wizard Content - reused) ... */}
-               <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-                    <div className="bg-gray-50 p-6 border-b border-gray-200 flex justify-between items-center">
-                        <div>
-                            <h3 className="text-xl font-bold text-gray-900">Open New Account</h3>
-                            <p className="text-sm text-gray-500">Account Opening Wizard for <span className="font-semibold text-blue-700">{selectedClient.name}</span></p>
-                        </div>
-                        <button onClick={() => setShowAccountModal(false)}><X size={24} className="text-gray-400 hover:text-gray-600"/></button>
-                    </div>
-                    {/* ... Wizard Steps reused (simplified here) ... */}
-                    <div className="p-8 flex-1 overflow-y-auto">
-                        {wizardStep === 1 && (
-                            <div className="space-y-6">
-                                <div className="bg-blue-50 border border-blue-100 rounded-lg p-4 flex items-start gap-4">
-                                    <div className="bg-blue-100 p-2 rounded-full text-blue-600">
-                                        <User size={24} />
-                                    </div>
-                                    <div>
-                                        <h4 className="font-bold text-blue-900 text-lg">{selectedClient.name}</h4>
-                                        <p className="text-sm text-blue-700">CIF: {selectedClient.id}</p>
-                                        <div className="flex gap-2 mt-2">
-                                            <span className="bg-white border border-blue-200 text-blue-700 px-2 py-1 rounded text-xs font-bold">
-                                                {selectedClient.kycLevel}
-                                            </span>
-                                        </div>
-                                    </div>
-                                </div>
-                                <button onClick={() => setWizardStep(2)} className="w-full bg-blue-600 text-white py-2 rounded font-bold">Proceed to Product Selection</button>
-                            </div>
-                        )}
-                        {/* ... Other steps same logic as before ... */}
-                        {wizardStep === 2 && (
-                             <div className="space-y-4">
-                                <h4 className="font-bold text-gray-800">Select Banking Product</h4>
-                                <div className="grid grid-cols-2 gap-4">
-                                    {depositProducts.map(product => (
-                                        <div 
-                                            key={product.id}
-                                            onClick={() => { setNewAccountProduct(product.id); setWizardStep(3); }}
-                                            className="cursor-pointer border rounded-xl p-4 hover:border-blue-500 hover:bg-blue-50"
-                                        >
-                                            <h5 className="font-bold text-gray-900 mb-1">{product.name}</h5>
-                                            <span className="text-xs bg-gray-100 px-2 py-1 rounded">{product.currency}</span>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
-                        {wizardStep === 3 && (
-                             <div className="space-y-6">
-                                <p>Confirm account creation for {newAccountProduct}?</p>
-                                <button onClick={handleCreateAccount} className="w-full bg-green-600 text-white py-2 rounded font-bold">Confirm & Create</button>
-                            </div>
-                        )}
-                        {wizardStep === 4 && (
-                            <div className="text-center p-8">
-                                <h3 className="text-2xl font-bold text-green-600 mb-2">Success!</h3>
-                                <p>Account {createdAccountId} created.</p>
-                                <button onClick={handleFinishWizard} className="mt-4 bg-gray-200 px-4 py-2 rounded">Close</button>
-                            </div>
-                        )}
-                    </div>
-               </div>
-            </div>
-        )}
-
-        {/* --- UPLOAD DOCUMENT MODAL --- */}
-        {showUploadModal && selectedClient && (
-            <div className="absolute inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
-                <div className="bg-white rounded-lg shadow-xl w-full max-w-sm p-6 animate-in fade-in zoom-in-95 duration-200">
-                    <div className="flex justify-between items-center mb-4">
-                        <h3 className="text-lg font-bold text-gray-800">Upload Document</h3>
-                        <button onClick={() => setShowUploadModal(false)}><X size={20} className="text-gray-400 hover:text-gray-600"/></button>
-                    </div>
-                    <div className="space-y-4">
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Document Type</label>
-                            <select 
-                                className="w-full border border-gray-300 rounded p-2 text-sm bg-white"
-                                value={newDoc.type}
-                                onChange={(e) => setNewDoc({...newDoc, type: e.target.value})}
-                            >
-                                <option value="ID Card">ID Card (Ghana Card)</option>
-                                <option value="Proof of Address">Proof of Address (Utility Bill)</option>
-                                <option value="Business Registration">Business Registration</option>
-                                <option value="Tax Clearance">Tax Clearance Cert</option>
-                                <option value="Form">Application Form</option>
-                                <option value="Other">Other</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">File Name</label>
-                            <input 
-                                type="text" 
-                                className="w-full border border-gray-300 rounded p-2 text-sm"
-                                placeholder="e.g. Scanned_Doc.jpg"
-                                value={newDoc.name}
-                                onChange={(e) => setNewDoc({...newDoc, name: e.target.value})}
-                            />
-                        </div>
-                        <button 
-                            onClick={handleUploadDocument}
-                            disabled={!newDoc.name}
-                            className="w-full bg-blue-600 text-white py-2 rounded font-bold hover:bg-blue-700 flex items-center justify-center gap-2 disabled:opacity-50"
-                        >
-                            <Upload size={16} /> Upload Now
-                        </button>
-                    </div>
-                </div>
-            </div>
-        )}
-
-        {/* --- STATEMENT MODAL --- */}
-        {showStatementModal && <AccountStatementModal />}
-
-        {/* --- HEADER --- */}
-        <div className="p-4 border-b border-gray-200 flex justify-between items-center bg-gray-50">
-            <h2 className="text-lg font-bold text-gray-800 flex items-center gap-2">
-                <User className="text-blue-600" size={20} /> Client Management
-            </h2>
-            <div className="flex gap-2">
-                {view === 'LIST' && (
-                    <Can permission={Permissions.Customers.Create}>
-                        <button onClick={() => setView('CREATE')} className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 flex items-center gap-2">
-                            <UserPlus size={16} /> Onboard New Client
-                        </button>
-                    </Can>
-                )}
-                {view !== 'LIST' && (
-                    <button onClick={() => setView('LIST')} className="text-gray-600 hover:text-blue-600 text-sm font-medium px-3 py-2 border rounded bg-white">
-                        &larr; Back to List
-                    </button>
-                )}
-            </div>
+    <div className="min-h-full space-y-6 p-4 sm:p-6">
+      {error && (
+        <div className="flex items-start gap-3 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">
+          <AlertCircle className="mt-0.5 h-5 w-5 flex-shrink-0" />
+          <p>{error}</p>
         </div>
-
-        <div className="flex-1 overflow-hidden flex flex-col">
-            
-            {/* --- VIEW: LIST --- */}
-            {view === 'LIST' && (
-                <div className="flex-1 flex flex-col">
-                    {/* Toolbar */}
-                    <div className="p-4 border-b border-gray-100 flex gap-4 items-center">
-                        <div className="relative flex-1 max-w-md">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
-                            <input 
-                                type="text" 
-                                placeholder="Search by Name or CIF..." 
-                                value={searchTerm}
-                                onChange={e => setSearchTerm(e.target.value)}
-                                className="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none"
-                            />
-                        </div>
-                        <div className="flex items-center gap-2">
-                            <Filter size={16} className="text-gray-400" />
-                            <select 
-                                className="border border-gray-300 rounded-lg p-2 text-sm bg-white"
-                                value={filterTier}
-                                onChange={e => setFilterTier(e.target.value)}
-                            >
-                                <option value="ALL">All Tiers</option>
-                                <option value="Tier 1">Tier 1</option>
-                                <option value="Tier 2">Tier 2</option>
-                                <option value="Tier 3">Tier 3</option>
-                            </select>
-                        </div>
-                    </div>
-
-                    {/* Table */}
-                    <div className="flex-1 overflow-y-auto">
-                        <table className="w-full text-sm text-left">
-                            <thead className="bg-gray-50 text-gray-600 font-semibold sticky top-0 z-10 border-b border-gray-200">
-                                <tr>
-                                    <th className="p-4">CIF Number</th>
-                                    <th className="p-4">Entity Name</th>
-                                    <th className="p-4">Type</th>
-                                    <th className="p-4">Phone</th>
-                                    <th className="p-4">KYC Tier</th>
-                                    <th className="p-4">Risk Rating</th>
-                                    <th className="p-4 text-center">Action</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-gray-100">
-                                {filteredClients.map(client => (
-                                    <tr key={client.id} className="hover:bg-blue-50 group transition-colors">
-                                        <td className="p-4 font-mono text-blue-600 font-medium">{client.id}</td>
-                                        <td className="p-4 font-medium text-gray-800">
-                                            <div className="flex items-center gap-2">
-                                                <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${client.type === 'CORPORATE' ? 'bg-purple-100 text-purple-600' : 'bg-blue-100 text-blue-600'}`}>
-                                                    {client.type === 'CORPORATE' ? <Building2 size={12}/> : <User size={12}/>}
-                                                </div>
-                                                {client.name}
-                                            </div>
-                                        </td>
-                                        <td className="p-4 text-xs font-bold text-gray-500">{client.type}</td>
-                                        <td className="p-4 text-gray-600">{client.phone}</td>
-                                        <td className="p-4">
-                                            <span className={`px-2 py-0.5 rounded text-xs font-bold border ${client.kycLevel === 'Tier 3' ? 'bg-green-100 text-green-700 border-green-200' : 'bg-gray-100 text-gray-600 border-gray-200'}`}>
-                                                {client.kycLevel}
-                                            </span>
-                                        </td>
-                                        <td className="p-4">
-                                            <span className={`px-2 py-0.5 rounded text-xs font-bold ${client.riskRating === 'High' ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-600'}`}>
-                                                {client.riskRating}
-                                            </span>
-                                        </td>
-                                        <td className="p-4 text-center">
-                                            <button 
-                                                onClick={() => { setSelectedClient(client); setView('DETAILS'); }}
-                                                className="text-gray-400 hover:text-blue-600 p-2 hover:bg-blue-100 rounded-full transition-colors"
-                                            >
-                                                <Eye size={18} />
-                                            </button>
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            )}
-
-            {/* --- VIEW: CREATE --- */}
-            {view === 'CREATE' && (
-                <div className="flex-1 overflow-y-auto p-8">
-                    <div className="max-w-3xl mx-auto bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
-                        <div className="bg-blue-50 p-6 border-b border-blue-100">
-                            <h3 className="text-xl font-bold text-blue-900 flex items-center gap-2">
-                                <UserPlus size={24}/> Client Onboarding
-                            </h3>
-                            <p className="text-blue-600 text-sm mt-1">Bank of Ghana Mandated KYC Process</p>
-                        </div>
-                        
-                        <div className="p-8 space-y-6">
-                            {error && (
-                                <div className="p-4 bg-red-50 text-red-700 border border-red-200 rounded flex items-center gap-2 text-sm">
-                                    <AlertTriangle size={18} /> {error}
-                                </div>
-                            )}
-
-                            {/* Client Type Selector */}
-                            <div className="flex gap-4 mb-4">
-                                <button 
-                                    className={`flex-1 py-3 border rounded-lg font-bold ${newClient.type === 'INDIVIDUAL' ? 'bg-blue-600 text-white border-blue-600' : 'text-gray-600 hover:bg-gray-50'}`}
-                                    onClick={() => setNewClient({...newClient, type: 'INDIVIDUAL'})}
-                                >
-                                    Individual
-                                </button>
-                                <button 
-                                    className={`flex-1 py-3 border rounded-lg font-bold ${newClient.type === 'CORPORATE' ? 'bg-blue-600 text-white border-blue-600' : 'text-gray-600 hover:bg-gray-50'}`}
-                                    onClick={() => setNewClient({...newClient, type: 'CORPORATE'})}
-                                >
-                                    Corporate / SME
-                                </button>
-                            </div>
-
-                            <div className="grid grid-cols-2 gap-6">
-                                <div className="col-span-2">
-                                    <label className="block text-sm font-bold text-gray-700 mb-1">{newClient.type === 'INDIVIDUAL' ? 'Full Name' : 'Company Name'} <span className="text-red-500">*</span></label>
-                                    <input type="text" className="w-full border border-gray-300 rounded p-2.5 focus:ring-2 focus:ring-blue-500 outline-none"
-                                        value={newClient.name} onChange={e => setNewClient({...newClient, name: e.target.value})} />
-                                </div>
-                                
-                                {newClient.type === 'INDIVIDUAL' && (
-                                    <>
-                                        <div>
-                                            <label className="block text-sm font-bold text-gray-700 mb-1">Ghana Card (NIA) <span className="text-red-500">*</span></label>
-                                            <input type="text" className="w-full border border-gray-300 rounded p-2.5 uppercase font-mono focus:ring-2 focus:ring-blue-500 outline-none"
-                                                placeholder="GHA-000000000-0"
-                                                value={newClient.ghanaCard} onChange={e => setNewClient({...newClient, ghanaCard: e.target.value.toUpperCase()})} />
-                                        </div>
-                                        <div>
-                                            <label className="block text-sm font-bold text-gray-700 mb-1">Date of Birth</label>
-                                            <input type="date" className="w-full border border-gray-300 rounded p-2.5 focus:ring-2 focus:ring-blue-500 outline-none"
-                                                value={newClient.dateOfBirth} onChange={e => setNewClient({...newClient, dateOfBirth: e.target.value})} />
-                                        </div>
-                                        <div>
-                                            <label className="block text-sm font-bold text-gray-700 mb-1">Gender</label>
-                                            <select className="w-full border border-gray-300 rounded p-2.5 bg-white" 
-                                                value={newClient.gender} onChange={e => setNewClient({...newClient, gender: e.target.value as any})}>
-                                                <option value="M">Male</option>
-                                                <option value="F">Female</option>
-                                            </select>
-                                        </div>
-                                        <div>
-                                            <label className="block text-sm font-bold text-gray-700 mb-1">Marital Status</label>
-                                            <select className="w-full border border-gray-300 rounded p-2.5 bg-white" 
-                                                value={newClient.maritalStatus} onChange={e => setNewClient({...newClient, maritalStatus: e.target.value as any})}>
-                                                <option value="SINGLE">Single</option>
-                                                <option value="MARRIED">Married</option>
-                                                <option value="DIVORCED">Divorced</option>
-                                                <option value="WIDOWED">Widowed</option>
-                                            </select>
-                                        </div>
-                                        <div>
-                                            <label className="block text-sm font-bold text-gray-700 mb-1">Spouse Name</label>
-                                            <input type="text" className="w-full border border-gray-300 rounded p-2.5 focus:ring-2 focus:ring-blue-500 outline-none"
-                                                value={newClient.spouseName} onChange={e => setNewClient({...newClient, spouseName: e.target.value})} />
-                                        </div>
-                                        <div>
-                                            <label className="block text-sm font-bold text-gray-700 mb-1">SSNIT No.</label>
-                                            <input type="text" className="w-full border border-gray-300 rounded p-2.5 focus:ring-2 focus:ring-blue-500 outline-none"
-                                                value={newClient.ssnitNo} onChange={e => setNewClient({...newClient, ssnitNo: e.target.value})} />
-                                        </div>
-                                        <div>
-                                            <label className="block text-sm font-bold text-gray-700 mb-1">Nationality</label>
-                                            <input type="text" className="w-full border border-gray-300 rounded p-2.5 focus:ring-2 focus:ring-blue-500 outline-none"
-                                                value={newClient.nationality} onChange={e => setNewClient({...newClient, nationality: e.target.value})} />
-                                        </div>
-                                    </>
-                                )}
-
-                                {newClient.type === 'CORPORATE' && (
-                                    <>
-                                        <div>
-                                            <label className="block text-sm font-bold text-gray-700 mb-1">Registration No. <span className="text-red-500">*</span></label>
-                                            <input type="text" className="w-full border border-gray-300 rounded p-2.5 uppercase focus:ring-2 focus:ring-blue-500 outline-none"
-                                                value={newClient.businessRegistrationNo} onChange={e => setNewClient({...newClient, businessRegistrationNo: e.target.value})} />
-                                        </div>
-                                        <div>
-                                            <label className="block text-sm font-bold text-gray-700 mb-1">Tax ID (TIN) <span className="text-red-500">*</span></label>
-                                            <input type="text" className="w-full border border-gray-300 rounded p-2.5 uppercase focus:ring-2 focus:ring-blue-500 outline-none"
-                                                value={newClient.tin} onChange={e => setNewClient({...newClient, tin: e.target.value})} />
-                                        </div>
-                                        <div>
-                                            <label className="block text-sm font-bold text-gray-700 mb-1">Sector</label>
-                                            <select className="w-full border border-gray-300 rounded p-2.5 bg-white" 
-                                                value={newClient.sector} onChange={e => setNewClient({...newClient, sector: e.target.value})}>
-                                                <option value="COMMERCE">Commerce/Trading</option>
-                                                <option value="AGRICULTURE">Agriculture</option>
-                                                <option value="SERVICES">Services</option>
-                                                <option value="MANUFACTURING">Manufacturing</option>
-                                            </select>
-                                        </div>
-                                    </>
-                                )}
-                                
-                                <div>
-                                    <label className="block text-sm font-bold text-gray-700 mb-1">Phone Number <span className="text-red-500">*</span></label>
-                                    <input type="text" className="w-full border border-gray-300 rounded p-2.5 focus:ring-2 focus:ring-blue-500 outline-none"
-                                        placeholder="020xxxxxxx"
-                                        value={newClient.phone} onChange={e => setNewClient({...newClient, phone: e.target.value})} />
-                                </div>
-
-                                <div>
-                                    <label className="block text-sm font-bold text-gray-700 mb-1">Email Address</label>
-                                    <input type="email" className="w-full border border-gray-300 rounded p-2.5 focus:ring-2 focus:ring-blue-500 outline-none"
-                                        value={newClient.email} onChange={e => setNewClient({...newClient, email: e.target.value})} />
-                                </div>
-
-                                <div>
-                                    <label className="block text-sm font-bold text-gray-700 mb-1">Digital Address (GPS)</label>
-                                    <input type="text" className="w-full border border-gray-300 rounded p-2.5 uppercase focus:ring-2 focus:ring-blue-500 outline-none"
-                                        placeholder="XX-000-0000"
-                                        value={newClient.digitalAddress} onChange={e => setNewClient({...newClient, digitalAddress: e.target.value.toUpperCase()})} />
-                                </div>
-
-                                <div>
-                                    <label className="block text-sm font-bold text-gray-700 mb-1">KYC Tier</label>
-                                    <select className="w-full border border-gray-300 rounded p-2.5 bg-white" 
-                                        value={newClient.kycLevel} onChange={e => setNewClient({...newClient, kycLevel: e.target.value as any})}>
-                                        <option value="Tier 1">Tier 1 (Low Limits)</option>
-                                        <option value="Tier 2">Tier 2 (Medium Limits)</option>
-                                        <option value="Tier 3">Tier 3 (Full Access)</option>
-                                    </select>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div className="bg-gray-50 p-6 border-t border-gray-200 flex justify-end gap-3">
-                            <button onClick={() => setView('LIST')} className="px-6 py-2 text-gray-600 font-medium hover:bg-gray-200 rounded">Cancel</button>
-                            <button onClick={handleCreateSubmit} className="px-6 py-2 bg-blue-600 text-white font-bold rounded shadow-sm hover:bg-blue-700 flex items-center gap-2">
-                                <CheckCircle2 size={18} /> Complete Registration
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {/* --- VIEW: DETAILS (360) --- */}
-            {view === 'DETAILS' && selectedClient && (
-                <div className="flex h-full">
-                    {/* SIDEBAR / HEADER COMBINED FOR 360 VIEW */}
-                    <div className="w-64 bg-gray-50 border-r border-gray-200 flex flex-col overflow-y-auto">
-                        <div className="p-6 text-center border-b border-gray-200 bg-white">
-                            <div className={`w-20 h-20 rounded-full flex items-center justify-center text-3xl font-bold mx-auto mb-4 ${selectedClient.type === 'CORPORATE' ? 'bg-purple-100 text-purple-600' : 'bg-blue-100 text-blue-600'}`}>
-                                {selectedClient.type === 'CORPORATE' ? <Building2 size={32}/> : selectedClient.name.charAt(0)}
-                            </div>
-                            <h2 className="font-bold text-gray-900 leading-tight">{selectedClient.name}</h2>
-                            <p className="text-xs font-mono text-gray-500 mt-1">{selectedClient.id}</p>
-                            <span className="text-[10px] text-gray-400 block mt-1">{selectedClient.type}</span>
-                            <div className="flex justify-center gap-2 mt-3">
-                                {renderStatusBadge('ACTIVE')}
-                                {renderStatusBadge(selectedClient.riskRating)}
-                            </div>
-                        </div>
-                        
-                        <nav className="p-4 space-y-1">
-                            {[
-                                { id: 'OVERVIEW', icon: User, label: 'Overview' },
-                                { id: 'ACCOUNTS', icon: CreditCard, label: 'Accounts', count: clientAccounts.length },
-                                { id: 'LOANS', icon: Briefcase, label: 'Loans', count: clientLoans.length },
-                                { id: 'TRANSACTIONS', icon: ArrowRightLeft, label: 'Transactions', count: clientTransactions.length },
-                                { id: 'DOCS', icon: FileText, label: 'Documents', count: documents.length },
-                                { id: 'NOTES', icon: StickyNote, label: 'CRM Notes', count: notes.length },
-                            ].map(item => (
-                                <button 
-                                    key={item.id}
-                                    onClick={() => setDetailTab(item.id as any)}
-                                    className={`w-full flex items-center justify-between px-3 py-2 text-sm font-medium rounded-lg transition-colors ${
-                                        detailTab === item.id ? 'bg-blue-100 text-blue-700' : 'text-gray-600 hover:bg-gray-100'
-                                    }`}
-                                >
-                                    <div className="flex items-center gap-3">
-                                        <item.icon size={16} /> {item.label}
-                                    </div>
-                                    {item.count !== undefined && item.id !== 'TRANSACTIONS' && (
-                                        <span className="bg-gray-200 text-gray-600 text-[10px] px-1.5 py-0.5 rounded-full">{item.count}</span>
-                                    )}
-                                </button>
-                            ))}
-                        </nav>
-
-                        <div className="mt-auto p-4 border-t border-gray-200">
-                             <button className="w-full py-2 border border-gray-300 bg-white rounded text-xs font-bold text-gray-600 hover:bg-gray-50 mb-2">
-                                 Reset Password / PIN
-                             </button>
-                             <button className="w-full py-2 border border-red-200 bg-red-50 rounded text-xs font-bold text-red-600 hover:bg-red-100">
-                                 Block Client
-                             </button>
-                        </div>
-                    </div>
-
-                    {/* MAIN CONTENT AREA */}
-                    <div className="flex-1 bg-gray-50/50 p-8 overflow-y-auto">
-                        {/* TAB: OVERVIEW */}
-                        {detailTab === 'OVERVIEW' && (
-                            <div className="max-w-4xl space-y-6 animate-in fade-in slide-in-from-right-2 duration-300">
-                                {/* ... (Stats Widgets) ... */}
-                                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                                    <div className="grid grid-cols-2 gap-y-6 gap-x-12">
-                                        <div>
-                                            <label className="text-xs font-bold text-gray-400 uppercase">Mobile Number</label>
-                                            <div className="flex items-center gap-2 mt-1 text-gray-800 font-medium">
-                                                <Smartphone size={16} className="text-gray-400"/> {selectedClient.phone}
-                                            </div>
-                                        </div>
-                                        <div>
-                                            <label className="text-xs font-bold text-gray-400 uppercase">Email Address</label>
-                                            <div className="flex items-center gap-2 mt-1 text-gray-800 font-medium">
-                                                <User size={16} className="text-gray-400"/> {selectedClient.email || 'N/A'}
-                                            </div>
-                                        </div>
-                                        <div>
-                                            <label className="text-xs font-bold text-gray-400 uppercase">Address</label>
-                                            <div className="flex items-center gap-2 mt-1 text-gray-800 font-medium">
-                                                <MapPin size={16} className="text-gray-400"/> {selectedClient.digitalAddress}
-                                            </div>
-                                        </div>
-                                        {selectedClient.type === 'INDIVIDUAL' ? (
-                                            <>
-                                                <div>
-                                                    <label className="text-xs font-bold text-gray-400 uppercase">National ID</label>
-                                                    <div className="flex items-center gap-2 mt-1 text-gray-800 font-medium">
-                                                        <Shield size={16} className="text-gray-400"/> {selectedClient.ghanaCard}
-                                                    </div>
-                                                </div>
-                                                <div>
-                                                    <label className="text-xs font-bold text-gray-400 uppercase">Date of Birth</label>
-                                                    <div className="flex items-center gap-2 mt-1 text-gray-800 font-medium">
-                                                        <Calendar size={16} className="text-gray-400"/> {selectedClient.dateOfBirth}
-                                                    </div>
-                                                </div>
-                                                <div>
-                                                    <label className="text-xs font-bold text-gray-400 uppercase">Marital Status</label>
-                                                    <div className="flex items-center gap-2 mt-1 text-gray-800 font-medium">
-                                                        <User size={16} className="text-gray-400"/> {selectedClient.maritalStatus || 'N/A'}
-                                                    </div>
-                                                </div>
-                                                <div>
-                                                    <label className="text-xs font-bold text-gray-400 uppercase">Nationality</label>
-                                                    <div className="flex items-center gap-2 mt-1 text-gray-800 font-medium">
-                                                        <Award size={16} className="text-gray-400"/> {selectedClient.nationality || 'N/A'}
-                                                    </div>
-                                                </div>
-                                            </>
-                                        ) : (
-                                            <>
-                                                <div>
-                                                    <label className="text-xs font-bold text-gray-400 uppercase">Reg Number</label>
-                                                    <div className="flex items-center gap-2 mt-1 text-gray-800 font-medium">
-                                                        <Shield size={16} className="text-gray-400"/> {selectedClient.businessRegistrationNo}
-                                                    </div>
-                                                </div>
-                                                <div>
-                                                    <label className="text-xs font-bold text-gray-400 uppercase">TIN</label>
-                                                    <div className="flex items-center gap-2 mt-1 text-gray-800 font-medium">
-                                                        <FileText size={16} className="text-gray-400"/> {selectedClient.tin}
-                                                    </div>
-                                                </div>
-                                            </>
-                                        )}
-                                    </div>
-                                </div>
-                                {/* ... (Transactions Preview) ... */}
-                            </div>
-                        )}
-                        {/* ... (Other Tabs remain the same but handle data contextually) ... */}
-                        {detailTab === 'ACCOUNTS' && (
-                            /* Reusing existing logic */
-                            <div className="space-y-6">
-                                <div className="flex justify-between items-center">
-                                    <h3 className="text-lg font-bold text-gray-800">Financial Accounts</h3>
-                                    <button onClick={() => setShowAccountModal(true)} className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2">
-                                        <Plus size={16}/> Open New Account
-                                    </button>
-                                </div>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    {clientAccounts.map(acc => (
-                                        <div key={acc.id} onClick={() => openStatement(acc)} className="bg-white p-5 rounded-lg border border-gray-200 shadow-sm cursor-pointer hover:border-blue-300">
-                                            <div className="flex justify-between items-start mb-4">
-                                                <div>
-                                                    <h4 className="font-bold text-gray-800">{acc.type}</h4>
-                                                    <p className="text-xs text-gray-500 font-mono">{acc.id}</p>
-                                                </div>
-                                                {renderStatusBadge(acc.status)}
-                                            </div>
-                                            <div className="text-2xl font-bold text-gray-900 mb-1">
-                                                {acc.balance.toLocaleString('en-US', { style: 'currency', currency: 'GHS' })}
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
-                        {detailTab === 'LOANS' && (
-                            <div className="space-y-6">
-                                <h3 className="text-lg font-bold text-gray-800">Credit Facilities</h3>
-                                <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-                                     <table className="w-full text-sm text-left">
-                                        <thead className="bg-gray-50 text-gray-500 border-b border-gray-200">
-                                            <tr>
-                                                <th className="p-4">Loan ID</th>
-                                                <th className="p-4">Product</th>
-                                                <th className="p-4 text-right">Outstanding</th>
-                                                <th className="p-4 text-center">Arrears</th>
-                                                <th className="p-4 text-center">Status</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody className="divide-y divide-gray-100">
-                                            {clientLoans.map(loan => (
-                                                <tr key={loan.id}>
-                                                    <td className="p-4 font-mono text-blue-600">{loan.id}</td>
-                                                    <td className="p-4">{loan.productName}</td>
-                                                    <td className="p-4 text-right font-bold">{loan.outstandingBalance.toLocaleString()}</td>
-                                                    <td className="p-4 text-center">{loan.parBucket}</td>
-                                                    <td className="p-4 text-center">{renderStatusBadge(loan.status)}</td>
-                                                </tr>
-                                            ))}
-                                        </tbody>
-                                     </table>
-                                </div>
-                            </div>
-                        )}
-                        {detailTab === 'TRANSACTIONS' && (
-                            <div className="space-y-6">
-                                <h3 className="text-lg font-bold text-gray-800">Recent Transactions</h3>
-                                <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-                                    {clientTransactions.length === 0 ? (
-                                        <div className="p-8 text-sm text-gray-500">No transaction history is available for this customer yet.</div>
-                                    ) : (
-                                        <ClientTransactionHistory transactions={clientTransactions} />
-                                    )}
-                                </div>
-                            </div>
-                        )}
-                        {detailTab === 'DOCS' && (
-                            <div className="space-y-6">
-                                <div className="flex justify-between items-center">
-                                    <h3 className="text-lg font-bold text-gray-800">Customer Documents</h3>
-                                    <button onClick={() => setShowUploadModal(true)} className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2">
-                                        <Upload size={16}/> Add Document Record
-                                    </button>
-                                </div>
-                                <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-                                    {documents.length === 0 ? (
-                                        <div className="p-8 text-sm text-gray-500">No document records have been saved for this customer yet.</div>
-                                    ) : (
-                                        <table className="w-full text-sm text-left">
-                                            <thead className="bg-gray-50 text-gray-500 border-b border-gray-200">
-                                                <tr>
-                                                    <th className="p-4">Type</th>
-                                                    <th className="p-4">Name</th>
-                                                    <th className="p-4">Uploaded</th>
-                                                    <th className="p-4 text-center">Status</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody className="divide-y divide-gray-100">
-                                                {documents.map((document) => (
-                                                    <tr key={document.id}>
-                                                        <td className="p-4 font-medium text-gray-800">{document.type}</td>
-                                                        <td className="p-4 text-gray-600">{document.name}</td>
-                                                        <td className="p-4 text-gray-600">{document.uploadDate}</td>
-                                                        <td className="p-4 text-center">{renderStatusBadge(document.status)}</td>
-                                                    </tr>
-                                                ))}
-                                            </tbody>
-                                        </table>
-                                    )}
-                                </div>
-                            </div>
-                        )}
-                        {detailTab === 'NOTES' && (
-                            <div className="space-y-6">
-                                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-5">
-                                    <h3 className="text-lg font-bold text-gray-800 mb-4">CRM Notes</h3>
-                                    <div className="flex gap-3">
-                                        <input
-                                            type="text"
-                                            value={noteInput}
-                                            onChange={(e) => setNoteInput(e.target.value)}
-                                            placeholder="Add a client note"
-                                            className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
-                                        />
-                                        <button onClick={handleAddNote} className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2">
-                                            <Save size={16}/> Save Note
-                                        </button>
-                                    </div>
-                                </div>
-                                <div className="space-y-3">
-                                    {notes.length === 0 ? (
-                                        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8 text-sm text-gray-500">No CRM notes have been recorded for this customer yet.</div>
-                                    ) : notes.map((note) => (
-                                        <div key={note.id} className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-                                            <div className="flex items-center justify-between gap-4 mb-2">
-                                                <div>
-                                                    <p className="font-semibold text-gray-800">{note.author}</p>
-                                                    <p className="text-xs text-gray-500">{new Date(note.date).toLocaleString()}</p>
-                                                </div>
-                                                <span className="rounded-full bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-600">{note.category}</span>
-                                            </div>
-                                            <p className="text-sm text-gray-700">{note.text}</p>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
-                    </div>
-                </div>
-            )}
+      )}
+      {feedback && (
+        <div className="flex items-start gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800">
+          <CheckCircle2 className="mt-0.5 h-5 w-5 flex-shrink-0" />
+          <p>{feedback}</p>
         </div>
+      )}
+
+      {view === 'LIST' && (
+        <>
+          <div className="dashboard-sheen rounded-2xl border border-slate-200 p-6 text-slate-900 shadow-soft">
+            <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+              <div>
+                <p className="mb-1 text-[11px] font-accent uppercase tracking-[0.24em] text-slate-500">Client Operations</p>
+                <h1 className="text-3xl font-heading font-semibold tracking-[-0.04em] text-slate-900">Client Workbench</h1>
+                <p className="mt-2 max-w-3xl text-sm text-slate-600">Manage onboarding, KYC posture, document records, and product-ready client servicing from one governed workspace.</p>
+              </div>
+              <button type="button" onClick={() => setView('CREATE')} className="inline-flex items-center gap-2 rounded-full bg-brand-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-brand-700">
+                <UserPlus size={16} />
+                New client onboarding
+              </button>
+            </div>
+          </div>
+
+          <div className="glass-card rounded-[28px] border border-white/70 p-6">
+            <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+              <div className="flex flex-1 items-center gap-3 rounded-[22px] border border-slate-200 bg-white px-4 py-3">
+                <Search className="h-4 w-4 text-slate-400" />
+                <input value={searchTerm} onChange={(event) => setSearchTerm(event.target.value)} placeholder="Search by client name, CIF, mobile number, or Ghana Card" className="w-full bg-transparent text-sm text-slate-700 outline-none placeholder:text-slate-400" />
+              </div>
+              <div className="inline-flex items-center gap-3 rounded-[22px] border border-slate-200 bg-white px-4 py-3">
+                <Filter className="h-4 w-4 text-slate-400" />
+                <select value={filterTier} onChange={(event) => setFilterTier(event.target.value)} className="bg-transparent text-sm text-slate-700 outline-none">
+                  <option value="ALL">All KYC tiers</option>
+                  <option value="Tier 1">Tier 1</option>
+                  <option value="Tier 2">Tier 2</option>
+                  <option value="Tier 3">Tier 3</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="mt-6 overflow-hidden rounded-[24px] border border-slate-200">
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-slate-200 text-sm">
+                  <thead className="bg-slate-50">
+                    <tr>
+                      <th className="px-4 py-3 text-left font-semibold text-slate-700">Client</th>
+                      <th className="px-4 py-3 text-left font-semibold text-slate-700">Identity</th>
+                      <th className="px-4 py-3 text-left font-semibold text-slate-700">Contact</th>
+                      <th className="px-4 py-3 text-left font-semibold text-slate-700">KYC / Risk</th>
+                      <th className="px-4 py-3 text-right font-semibold text-slate-700">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 bg-white">
+                    {filteredClients.map((client) => (
+                      <tr key={client.id}>
+                        <td className="px-4 py-4">
+                          <p className="font-semibold text-slate-900">{client.name}</p>
+                          <p className="text-xs text-slate-500">{client.id}</p>
+                        </td>
+                        <td className="px-4 py-4 text-slate-600">
+                          <p>{client.type || 'INDIVIDUAL'}</p>
+                          <p className="text-xs text-slate-500">{client.ghanaCard || client.businessRegistrationNo || 'Identity pending'}</p>
+                        </td>
+                        <td className="px-4 py-4 text-slate-600">
+                          <p>{client.phone || 'No mobile number'}</p>
+                          <p className="text-xs text-slate-500">{client.email || 'No email recorded'}</p>
+                        </td>
+                        <td className="px-4 py-4">
+                          <div className="flex flex-wrap gap-2">
+                            <span className={`rounded-full border px-2.5 py-1 text-xs font-semibold ${badgeTone(client.kycLevel)}`}>{client.kycLevel}</span>
+                            <span className={`rounded-full border px-2.5 py-1 text-xs font-semibold ${badgeTone(client.riskRating)}`}>{client.riskRating}</span>
+                          </div>
+                        </td>
+                        <td className="px-4 py-4 text-right">
+                          <button type="button" onClick={() => openClient(client.id)} className="rounded-full border border-slate-300 bg-white px-3.5 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-50">Open profile</button>
+                        </td>
+                      </tr>
+                    ))}
+                    {filteredClients.length === 0 && (
+                      <tr>
+                        <td colSpan={5} className="px-4 py-8 text-center text-sm text-slate-500">No client profiles match the current filters.</td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+
+      {view === 'CREATE' && (
+        <div className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
+          <div className="glass-card rounded-[28px] border border-white/70 p-6">
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <p className="text-[11px] font-accent uppercase tracking-[0.22em] text-slate-500">Client Onboarding</p>
+                <h2 className="mt-1 text-2xl font-heading font-bold text-slate-900">Create Client Profile</h2>
+              </div>
+              <button type="button" onClick={() => setView('LIST')} className="rounded-full border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50">Back to list</button>
+            </div>
+
+            <div className="mt-6 grid gap-5 md:grid-cols-2">
+              <select value={newClient.type} onChange={(event) => setNewClient((current) => ({ ...current, type: event.target.value as Customer['type'] }))} className="rounded-2xl border border-slate-300 px-4 py-3 text-sm outline-none focus:border-brand-500">
+                <option value="INDIVIDUAL">Individual</option>
+                <option value="CORPORATE">Corporate</option>
+              </select>
+              <input value={newClient.name || ''} onChange={(event) => setNewClient((current) => ({ ...current, name: event.target.value }))} placeholder="Full legal name" className="rounded-2xl border border-slate-300 px-4 py-3 text-sm outline-none focus:border-brand-500" />
+              <input value={newClient.phone || ''} onChange={(event) => setNewClient((current) => ({ ...current, phone: event.target.value }))} placeholder="Mobile number" className="rounded-2xl border border-slate-300 px-4 py-3 text-sm outline-none focus:border-brand-500" />
+              <input value={newClient.email || ''} onChange={(event) => setNewClient((current) => ({ ...current, email: event.target.value }))} placeholder="Email address" className="rounded-2xl border border-slate-300 px-4 py-3 text-sm outline-none focus:border-brand-500" />
+              <input value={newClient.type === 'CORPORATE' ? (newClient.businessRegistrationNo || '') : (newClient.ghanaCard || '')} onChange={(event) => setNewClient((current) => current.type === 'CORPORATE' ? { ...current, businessRegistrationNo: event.target.value } : { ...current, ghanaCard: event.target.value })} placeholder={newClient.type === 'CORPORATE' ? 'Business registration number' : 'Ghana Card number'} className="rounded-2xl border border-slate-300 px-4 py-3 text-sm outline-none focus:border-brand-500" />
+              <input value={newClient.type === 'CORPORATE' ? (newClient.tin || '') : (newClient.digitalAddress || '')} onChange={(event) => setNewClient((current) => current.type === 'CORPORATE' ? { ...current, tin: event.target.value } : { ...current, digitalAddress: event.target.value })} placeholder={newClient.type === 'CORPORATE' ? 'TIN' : 'Digital address'} className="rounded-2xl border border-slate-300 px-4 py-3 text-sm outline-none focus:border-brand-500" />
+              <select value={newClient.kycLevel} onChange={(event) => setNewClient((current) => ({ ...current, kycLevel: event.target.value as Customer['kycLevel'] }))} className="rounded-2xl border border-slate-300 px-4 py-3 text-sm outline-none focus:border-brand-500">
+                <option value="Tier 1">Tier 1</option>
+                <option value="Tier 2">Tier 2</option>
+                <option value="Tier 3">Tier 3</option>
+              </select>
+            </div>
+
+            <div className="mt-6 flex justify-end gap-3">
+              <button type="button" onClick={() => setNewClient(newClientTemplate())} className="rounded-full border border-slate-300 px-5 py-3 text-sm font-medium text-slate-700 transition hover:bg-slate-50">Reset</button>
+              <button type="button" onClick={saveClient} disabled={isSaving} className="inline-flex items-center gap-2 rounded-full bg-brand-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-brand-700 disabled:bg-slate-300">
+                {isSaving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
+                Save client profile
+              </button>
+            </div>
+          </div>
+
+          <div className="glass-card rounded-[28px] border border-white/70 p-6">
+            <p className="text-[11px] font-accent uppercase tracking-[0.22em] text-slate-500">Onboarding Guidance</p>
+            <h3 className="mt-1 text-xl font-heading font-bold text-slate-900">Production Controls</h3>
+            <div className="mt-4 space-y-3 text-sm text-slate-600">
+              <p>Capture a complete legal name and mobile number before saving the client profile.</p>
+              <p>For individual clients, Ghana Card information should be captured before account opening and transaction servicing.</p>
+              <p>Corporate profiles should include registration and TIN details before moving to product opening or loan origination.</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {view === 'DETAILS' && (
+        <div className="grid gap-6 xl:grid-cols-[300px_1fr]">
+          <div className="glass-card rounded-[28px] border border-white/70 p-5">
+            <button type="button" onClick={() => setView('LIST')} className="mb-4 rounded-full border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50">Back to list</button>
+            <div className="rounded-[24px] bg-slate-950 px-5 py-6 text-white">
+              <p className="text-xs uppercase tracking-[0.18em] text-white/60">{selectedClient?.id || 'No client selected'}</p>
+              <h2 className="mt-2 text-2xl font-heading font-bold">{selectedClient?.name || 'Client Profile'}</h2>
+              <div className="mt-4 flex flex-wrap gap-2">
+                <span className="rounded-full bg-white/10 px-2.5 py-1 text-xs font-semibold">{selectedClient?.kycLevel || 'Tier 1'}</span>
+                <span className="rounded-full bg-white/10 px-2.5 py-1 text-xs font-semibold">{selectedClient?.riskRating || 'Low'}</span>
+              </div>
+            </div>
+            <div className="mt-4 grid gap-3">
+              <div className="rounded-[20px] border border-slate-200 bg-white px-4 py-3">
+                <p className="text-[11px] uppercase tracking-[0.18em] text-slate-500">Daily Limit Remaining</p>
+                <p className="mt-1 text-lg font-semibold text-slate-900">{kycStatus.isUnlimited ? 'Unlimited' : money.format(kycStatus.remainingDailyLimit)}</p>
+              </div>
+              <div className="rounded-[20px] border border-slate-200 bg-white px-4 py-3">
+                <p className="text-[11px] uppercase tracking-[0.18em] text-slate-500">Today Posted Total</p>
+                <p className="mt-1 text-lg font-semibold text-slate-900">{money.format(kycStatus.todayPostedTotal)}</p>
+              </div>
+            </div>
+            <div className="mt-5 space-y-1">
+              {[
+                { id: 'OVERVIEW', label: 'Overview', icon: User },
+                { id: 'ACCOUNTS', label: 'Accounts', icon: CreditCard },
+                { id: 'LOANS', label: 'Loans', icon: Wallet },
+                { id: 'TRANSACTIONS', label: 'Transactions', icon: Filter },
+                { id: 'DOCS', label: 'Documents', icon: FileText },
+                { id: 'NOTES', label: 'Notes', icon: StickyNote },
+              ].map((item) => (
+                <button key={item.id} type="button" onClick={() => setDetailTab(item.id as DetailTab)} className={`flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-sm font-medium transition ${detailTab === item.id ? 'bg-brand-600 text-white' : 'text-slate-700 hover:bg-slate-100'}`}>
+                  <item.icon size={16} />
+                  {item.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="glass-card rounded-[28px] border border-white/70 p-6">
+            {isProfileLoading ? (
+              <div className="flex min-h-[300px] items-center justify-center"><Loader2 className="h-6 w-6 animate-spin text-brand-600" /></div>
+            ) : !selectedClient ? (
+              <div className="rounded-[24px] border border-slate-200 bg-slate-50 p-6 text-sm text-slate-500">Select a client profile from the list to continue.</div>
+            ) : (
+              <>
+                {detailTab === 'OVERVIEW' && (
+                  <div className="space-y-6">
+                    <div className="flex items-center justify-between gap-4">
+                      <div>
+                        <h3 className="text-xl font-heading font-bold text-slate-900">Client Profile Overview</h3>
+                        <p className="mt-1 text-sm text-slate-500">Identity, contact, and KYC posture for production servicing.</p>
+                      </div>
+                      <button type="button" onClick={() => setIsEditing((current) => !current)} className="rounded-full border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50">{isEditing ? 'Cancel edit' : 'Edit profile'}</button>
+                    </div>
+
+                    <div className="grid gap-4 md:grid-cols-2">
+                      {overviewCards.map((item) => (
+                        <div key={item.label} className="rounded-[22px] border border-slate-200 bg-white p-4">
+                          <p className="text-xs uppercase tracking-[0.18em] text-slate-500">{item.label}</p>
+                          <p className="mt-3 text-sm font-semibold text-slate-900">{item.value}</p>
+                        </div>
+                      ))}
+                    </div>
+
+                    {isEditing && (
+                      <div className="rounded-[24px] border border-slate-200 bg-slate-50 p-5">
+                        <div className="grid gap-4 md:grid-cols-2">
+                          <input value={editFormData.name || ''} onChange={(event) => setEditFormData((current) => ({ ...current, name: event.target.value }))} placeholder="Client name" className="rounded-2xl border border-slate-300 px-4 py-3 text-sm outline-none focus:border-brand-500" />
+                          <input value={editFormData.phone || ''} onChange={(event) => setEditFormData((current) => ({ ...current, phone: event.target.value }))} placeholder="Mobile number" className="rounded-2xl border border-slate-300 px-4 py-3 text-sm outline-none focus:border-brand-500" />
+                          <input value={editFormData.email || ''} onChange={(event) => setEditFormData((current) => ({ ...current, email: event.target.value }))} placeholder="Email address" className="rounded-2xl border border-slate-300 px-4 py-3 text-sm outline-none focus:border-brand-500" />
+                          <input value={editFormData.digitalAddress || ''} onChange={(event) => setEditFormData((current) => ({ ...current, digitalAddress: event.target.value }))} placeholder="Digital address" className="rounded-2xl border border-slate-300 px-4 py-3 text-sm outline-none focus:border-brand-500" />
+                        </div>
+                        <div className="mt-4 flex justify-end">
+                          <button type="button" onClick={updateProfile} disabled={isSaving} className="inline-flex items-center gap-2 rounded-full bg-brand-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-brand-700 disabled:bg-slate-300">
+                            {isSaving ? <Loader2 size={16} className="animate-spin" /> : <User size={16} />}
+                            Save changes
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {detailTab === 'ACCOUNTS' && (
+                  <div className="space-y-6">
+                    <div className="flex items-center justify-between gap-4">
+                      <div>
+                        <h3 className="text-xl font-heading font-bold text-slate-900">Client Accounts</h3>
+                        <p className="mt-1 text-sm text-slate-500">Accounts linked to this client profile and product-ready account opening.</p>
+                      </div>
+                      <button type="button" onClick={() => setShowAccountModal(true)} className="inline-flex items-center gap-2 rounded-full bg-brand-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-brand-700">
+                        <Plus size={16} />
+                        Open account
+                      </button>
+                    </div>
+                    <div className="grid gap-4 md:grid-cols-2">
+                      {clientAccounts.map((account) => (
+                        <div key={account.id} className="rounded-[24px] border border-slate-200 bg-white p-5">
+                          <div className="flex items-start justify-between gap-4">
+                            <div>
+                              <p className="text-sm font-semibold text-slate-900">{account.type}</p>
+                              <p className="text-xs text-slate-500">{account.id}</p>
+                            </div>
+                            <span className={`rounded-full border px-2.5 py-1 text-xs font-semibold ${badgeTone(account.status)}`}>{account.status}</span>
+                          </div>
+                          <p className="mt-4 text-2xl font-bold text-slate-900">{money.format(account.balance)}</p>
+                        </div>
+                      ))}
+                      {clientAccounts.length === 0 && <div className="rounded-[24px] border border-slate-200 bg-slate-50 p-6 text-sm text-slate-500">No accounts are linked to this client yet.</div>}
+                    </div>
+                  </div>
+                )}
+
+                {detailTab === 'LOANS' && (
+                  <div className="space-y-4">
+                    <h3 className="text-xl font-heading font-bold text-slate-900">Loan Facilities</h3>
+                    <div className="overflow-hidden rounded-[24px] border border-slate-200">
+                      <table className="min-w-full divide-y divide-slate-200 text-sm">
+                        <thead className="bg-slate-50">
+                          <tr>
+                            <th className="px-4 py-3 text-left font-semibold text-slate-700">Loan</th>
+                            <th className="px-4 py-3 text-left font-semibold text-slate-700">Product</th>
+                            <th className="px-4 py-3 text-right font-semibold text-slate-700">Outstanding</th>
+                            <th className="px-4 py-3 text-left font-semibold text-slate-700">Status</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100 bg-white">
+                          {clientLoans.map((loan) => (
+                            <tr key={loan.id}>
+                              <td className="px-4 py-3 font-medium text-slate-900">{loan.id}</td>
+                              <td className="px-4 py-3 text-slate-600">{loan.productName}</td>
+                              <td className="px-4 py-3 text-right font-semibold text-slate-900">{money.format(loan.outstandingBalance)}</td>
+                              <td className="px-4 py-3"><span className={`rounded-full border px-2.5 py-1 text-xs font-semibold ${badgeTone(loan.status)}`}>{loan.status}</span></td>
+                            </tr>
+                          ))}
+                          {clientLoans.length === 0 && <tr><td colSpan={4} className="px-4 py-8 text-center text-sm text-slate-500">No loan facilities are linked to this client.</td></tr>}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+
+                {detailTab === 'TRANSACTIONS' && (
+                  <div className="space-y-4">
+                    <h3 className="text-xl font-heading font-bold text-slate-900">Recent Transactions</h3>
+                    <div className="overflow-hidden rounded-[24px] border border-slate-200">
+                      <table className="min-w-full divide-y divide-slate-200 text-sm">
+                        <thead className="bg-slate-50">
+                          <tr>
+                            <th className="px-4 py-3 text-left font-semibold text-slate-700">Type</th>
+                            <th className="px-4 py-3 text-left font-semibold text-slate-700">Account</th>
+                            <th className="px-4 py-3 text-right font-semibold text-slate-700">Amount</th>
+                            <th className="px-4 py-3 text-left font-semibold text-slate-700">Status</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100 bg-white">
+                          {clientTransactions.map((transaction) => (
+                            <tr key={transaction.id}>
+                              <td className="px-4 py-3 text-slate-900">{transaction.type}</td>
+                              <td className="px-4 py-3 text-slate-600">{transaction.accountId}</td>
+                              <td className="px-4 py-3 text-right font-semibold text-slate-900">{money.format(transaction.amount)}</td>
+                              <td className="px-4 py-3"><span className={`rounded-full border px-2.5 py-1 text-xs font-semibold ${badgeTone(transaction.status)}`}>{transaction.status}</span></td>
+                            </tr>
+                          ))}
+                          {clientTransactions.length === 0 && <tr><td colSpan={4} className="px-4 py-8 text-center text-sm text-slate-500">No transactions are available for this client.</td></tr>}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+
+                {detailTab === 'DOCS' && (
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between gap-4">
+                      <div>
+                        <h3 className="text-xl font-heading font-bold text-slate-900">Document Register</h3>
+                        <p className="mt-1 text-sm text-slate-500">Track document records and verification status for the client profile.</p>
+                      </div>
+                      <button type="button" onClick={() => setShowDocumentModal(true)} className="inline-flex items-center gap-2 rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50">
+                        <Upload size={16} />
+                        Add document
+                      </button>
+                    </div>
+                    <div className="overflow-hidden rounded-[24px] border border-slate-200">
+                      <table className="min-w-full divide-y divide-slate-200 text-sm">
+                        <thead className="bg-slate-50">
+                          <tr>
+                            <th className="px-4 py-3 text-left font-semibold text-slate-700">Type</th>
+                            <th className="px-4 py-3 text-left font-semibold text-slate-700">Name</th>
+                            <th className="px-4 py-3 text-left font-semibold text-slate-700">Uploaded</th>
+                            <th className="px-4 py-3 text-left font-semibold text-slate-700">Status</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100 bg-white">
+                          {documents.map((document) => (
+                            <tr key={document.id}>
+                              <td className="px-4 py-3 text-slate-900">{document.type}</td>
+                              <td className="px-4 py-3 text-slate-600">{document.name}</td>
+                              <td className="px-4 py-3 text-slate-600">{document.uploadDate}</td>
+                              <td className="px-4 py-3"><span className={`rounded-full border px-2.5 py-1 text-xs font-semibold ${badgeTone(document.status)}`}>{document.status}</span></td>
+                            </tr>
+                          ))}
+                          {documents.length === 0 && <tr><td colSpan={4} className="px-4 py-8 text-center text-sm text-slate-500">No document records have been captured yet.</td></tr>}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+
+                {detailTab === 'NOTES' && (
+                  <div className="space-y-4">
+                    <h3 className="text-xl font-heading font-bold text-slate-900">Client Notes</h3>
+                    <div className="rounded-[24px] border border-slate-200 bg-slate-50 p-4">
+                      <div className="flex flex-col gap-3 md:flex-row">
+                        <input value={noteInput} onChange={(event) => setNoteInput(event.target.value)} placeholder="Add a servicing or relationship note" className="flex-1 rounded-2xl border border-slate-300 px-4 py-3 text-sm outline-none focus:border-brand-500" />
+                        <button type="button" onClick={addNote} disabled={isSaving || !noteInput.trim()} className="inline-flex items-center justify-center gap-2 rounded-full bg-brand-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-brand-700 disabled:bg-slate-300">
+                          {isSaving ? <Loader2 size={16} className="animate-spin" /> : <StickyNote size={16} />}
+                          Save note
+                        </button>
+                      </div>
+                    </div>
+                    <div className="space-y-3">
+                      {notes.map((note) => (
+                        <div key={note.id} className="rounded-[24px] border border-slate-200 bg-white p-4">
+                          <div className="flex items-center justify-between gap-4">
+                            <p className="font-semibold text-slate-900">{note.author}</p>
+                            <span className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-semibold text-slate-600">{note.category}</span>
+                          </div>
+                          <p className="mt-3 text-sm text-slate-700">{note.text}</p>
+                        </div>
+                      ))}
+                      {notes.length === 0 && <div className="rounded-[24px] border border-slate-200 bg-slate-50 p-6 text-sm text-slate-500">No client notes have been recorded yet.</div>}
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
+      {showAccountModal && selectedClient && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-lg rounded-[28px] bg-white p-6 shadow-2xl">
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <h3 className="text-xl font-heading font-bold text-slate-900">Open Account</h3>
+                <p className="mt-1 text-sm text-slate-500">Use governed product definitions to open a client account.</p>
+              </div>
+              <button type="button" onClick={() => setShowAccountModal(false)}><X className="h-5 w-5 text-slate-400" /></button>
+            </div>
+            <div className="mt-5 space-y-4">
+              <div className="rounded-[20px] border border-slate-200 bg-slate-50 p-4">
+                <p className="text-xs uppercase tracking-[0.18em] text-slate-500">Client</p>
+                <p className="mt-1 text-sm font-semibold text-slate-900">{selectedClient.name}</p>
+              </div>
+              <select value={newAccountProduct} onChange={(event) => setNewAccountProduct(event.target.value)} className="w-full rounded-2xl border border-slate-300 px-4 py-3 text-sm outline-none focus:border-brand-500">
+                <option value="">Select a deposit product</option>
+                {depositProducts.map((product) => (
+                  <option key={product.id} value={product.id}>{product.name} • {product.type}</option>
+                ))}
+              </select>
+            </div>
+            <div className="mt-6 flex justify-end gap-3">
+              <button type="button" onClick={() => setShowAccountModal(false)} className="rounded-full border border-slate-300 px-5 py-3 text-sm font-medium text-slate-700 transition hover:bg-slate-50">Cancel</button>
+              <button type="button" onClick={submitAccountOpening} disabled={isSaving} className="inline-flex items-center gap-2 rounded-full bg-brand-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-brand-700 disabled:bg-slate-300">
+                {isSaving ? <Loader2 size={16} className="animate-spin" /> : <Wallet size={16} />}
+                Submit account opening
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showDocumentModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-lg rounded-[28px] bg-white p-6 shadow-2xl">
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <h3 className="text-xl font-heading font-bold text-slate-900">Add Document Record</h3>
+                <p className="mt-1 text-sm text-slate-500">Register a document record against the client profile.</p>
+              </div>
+              <button type="button" onClick={() => setShowDocumentModal(false)}><X className="h-5 w-5 text-slate-400" /></button>
+            </div>
+            <div className="mt-5 space-y-4">
+              <input value={newDoc.type} onChange={(event) => setNewDoc((current) => ({ ...current, type: event.target.value }))} className="w-full rounded-2xl border border-slate-300 px-4 py-3 text-sm outline-none focus:border-brand-500" placeholder="Document type" />
+              <input value={newDoc.name} onChange={(event) => setNewDoc((current) => ({ ...current, name: event.target.value }))} className="w-full rounded-2xl border border-slate-300 px-4 py-3 text-sm outline-none focus:border-brand-500" placeholder="Document name" />
+            </div>
+            <div className="mt-6 flex justify-end gap-3">
+              <button type="button" onClick={() => setShowDocumentModal(false)} className="rounded-full border border-slate-300 px-5 py-3 text-sm font-medium text-slate-700 transition hover:bg-slate-50">Cancel</button>
+              <button type="button" onClick={addDocument} disabled={isSaving} className="inline-flex items-center gap-2 rounded-full bg-brand-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-brand-700 disabled:bg-slate-300">
+                {isSaving ? <Loader2 size={16} className="animate-spin" /> : <Upload size={16} />}
+                Save document
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
-};
-
-export default ClientManager;
-
-
-
-
-
-
-
-
-
-
-
+}
