@@ -101,8 +101,13 @@ class HttpClient {
       }
     }
 
+    const defaultHeaders = { ...API_CONFIG.headers } as Record<string, string>;
+    if (options.body instanceof FormData) {
+      delete defaultHeaders['Content-Type'];
+    }
+
     const headers: HeadersInit = {
-      ...API_CONFIG.headers,
+      ...defaultHeaders,
       ...options.headers,
     };
 
@@ -160,6 +165,13 @@ class HttpClient {
     return this.request<T>(endpoint, {
       method: 'POST',
       body: data ? JSON.stringify(data) : undefined,
+    });
+  }
+
+  async postForm<T>(endpoint: string, data: FormData): Promise<T> {
+    return this.request<T>(endpoint, {
+      method: 'POST',
+      body: data,
     });
   }
 

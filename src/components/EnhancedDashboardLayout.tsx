@@ -37,6 +37,7 @@ import {
   Zap,
   TrendingDown,
   Activity,
+  UploadCloud,
 } from 'lucide-react';
 import { Permissions } from '../../lib/Permissions';
 import { ProtectedRoute } from './ProtectedRoute';
@@ -69,6 +70,7 @@ import ProductDesigner from '../../components/ProductDesigner';
 import EodConsole from '../../components/EodConsole';
 import AuditTrail from '../../components/AuditTrail';
 import SecurityOperationsHub from './SecurityOperationsHub';
+import MigrationHub from './MigrationHub';
 import GroupLendingHub from './group-lending/GroupLendingHub';
 import ClientManager from '../../components/ClientManager';
 import FeePanel from '../../components/FeePanel';
@@ -821,6 +823,12 @@ export default function EnhancedDashboardLayout({
           permission: Permissions.Audit.View,
         },
         {
+          id: 'migration',
+          label: 'Migration',
+          icon: <UploadCloud size={18} />,
+          permission: Permissions.Migration.Manage,
+        },
+        {
           id: 'extensibility',
           label: 'Platform Tools',
           icon: <Zap size={18} />,
@@ -1407,6 +1415,12 @@ export default function EnhancedDashboardLayout({
         return (
           <ProtectedRoute requiredPermission={Permissions.Audit.View} userPermissions={userPermissions}>
             <SecurityOperationsHub userPermissions={userPermissions} />
+          </ProtectedRoute>
+        );
+      case 'migration':
+        return (
+          <ProtectedRoute requiredPermission={Permissions.Migration.Manage} userPermissions={userPermissions}>
+            <MigrationHub />
           </ProtectedRoute>
         );
       case 'extensibility':

@@ -1,8 +1,12 @@
+using BankInsight.API.Security;
 using BankInsight.API.Services;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace BankInsight.API.Controllers;
 
+[Authorize]
+[HasPermission(AppPermissions.Users.Manage)]
 [ApiController]
 [Route("api/migration")]
 public class DataMigrationController : ControllerBase

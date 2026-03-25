@@ -80,6 +80,9 @@ export const Permissions = {
     View: "permissions.view",
     Manage: "permissions.manage"
   },
+  Migration: {
+    Manage: "users.manage"
+  },
   Audit: {
     View: "audit.view"
   },

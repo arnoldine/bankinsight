@@ -77,6 +77,11 @@ export const API_ENDPOINTS = {
     update: '/config',
   },
 
+  migration: {
+    datasets: '/migration/datasets',
+    import: (dataset: string) => `/migration/import/${encodeURIComponent(dataset)}`,
+  },
+
   orass: {
     profile: '/orass/profile',
     readiness: '/orass/readiness',
