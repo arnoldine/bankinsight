@@ -391,12 +391,17 @@ export default function EnhancedDashboardLayout({
     return updatedCustomer;
   };
 
-  const handleCreateAccount = async (customerId: string, productCode: string, currency: string) => {
+  const handleCreateAccount = async (customerId: string, productCode: string) => {
+    const selectedProduct = products.find((product) => product.id === productCode);
+    if (!selectedProduct) {
+      throw new Error('The selected product is no longer available for account opening.');
+    }
+
     const createdAccount = await accountService.createAccount({
       customerId,
       branchId: '001',
-      type: 'SAVINGS',
-      currency,
+      type: selectedProduct.type,
+      currency: selectedProduct.currency,
       productCode,
     });
     await loadRetailAccounts();

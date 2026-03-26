@@ -27,7 +27,7 @@ interface ClientManagerProps {
   products?: Product[];
   onCreateCustomer: (data: Partial<Customer>) => Promise<unknown> | unknown;
   onUpdateCustomer: (id: string, data: Partial<Customer>) => Promise<unknown> | unknown;
-  onCreateAccount: (cif: string, product: string, type: Account['type']) => Promise<unknown> | unknown;
+  onCreateAccount: (cif: string, productCode: string) => Promise<unknown> | unknown;
   initialView?: 'LIST' | 'CREATE' | 'DETAILS';
   initialDetailTab?: 'OVERVIEW' | 'ACCOUNTS' | 'LOANS' | 'TRANSACTIONS' | 'DOCS' | 'NOTES';
 }
@@ -272,7 +272,7 @@ export default function ClientManager({
 
     setIsSaving(true);
     try {
-      await Promise.resolve(onCreateAccount(selectedClient.id, selectedProduct.id, selectedProduct.type as Account['type']));
+      await Promise.resolve(onCreateAccount(selectedClient.id, selectedProduct.id));
       setShowAccountModal(false);
       setNewAccountProduct('');
       setFeedback(`Account opening submitted using ${selectedProduct.name}.`);
