@@ -12,7 +12,7 @@ public class CreateCustomerRequest
     [StringLength(50, ErrorMessage = "Type must not exceed 50 characters")]
     public string Type { get; set; } = "INDIVIDUAL";
 
-    [RegularExpression(@"^[A-Z]{2}\d{8,}$", ErrorMessage = "Invalid GhanaCard format")]
+    [RegularExpression(@"^[A-Z0-9-]{6,30}$", ErrorMessage = "Invalid Ghana Card format")]
     public string? GhanaCard { get; set; }
 
     [StringLength(50, ErrorMessage = "DigitalAddress must not exceed 50 characters")]
