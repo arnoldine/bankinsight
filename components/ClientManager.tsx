@@ -6,6 +6,7 @@ import {
   FileText,
   Filter,
   Loader2,
+  Plus,
   Search,
   Save,
   StickyNote,
