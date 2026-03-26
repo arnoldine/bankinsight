@@ -1,0 +1,46 @@
+@page "/audit"
+@layout CoreBanker.Layouts.MainLayout
+
+@inject CoreBanker.Services.AuditService AuditService
+
+<MudText Typo="Typo.h4" Class="mb-4">Audit Trail Viewer</MudText>
+
+<MudPaper Class="pa-4 mb-4">
+	<MudGrid>
+		<MudItem xs="12" sm="6">
+			<MudTextField @bind-Value="searchTerm" Label="Search by action or user" Variant="Variant.Outlined" />
+		</MudItem>
+	</MudGrid>
+</MudPaper>
+
+<MudTable Items="@FilteredAuditLogs" Hover="true" Dense="true">
+	<HeaderContent>
+		<MudTh>Audit ID</MudTh>
+		<MudTh>Action</MudTh>
+		<MudTh>User</MudTh>
+		<MudTh>Date</MudTh>
+		<MudTh>Details</MudTh>
+	</HeaderContent>
+	<RowTemplate>
+		<MudTd DataLabel="Audit ID">@context.Id</MudTd>
+		<MudTd DataLabel="Action">@context.Action</MudTd>
+		<MudTd DataLabel="User">@context.User</MudTd>
+		<MudTd DataLabel="Date">@context.Date.ToString("g")</MudTd>
+		<MudTd DataLabel="Details">@context.Details</MudTd>
+	</RowTemplate>
+</MudTable>
+
+@code {
+	private List<CoreBanker.Services.AuditLogDto> AuditLogs = new();
+	private string searchTerm = string.Empty;
+
+	protected override async Task OnInitializedAsync()
+	{
+		AuditLogs = await AuditService.GetAuditLogsAsync();
+	}
+
+	private IEnumerable<CoreBanker.Services.AuditLogDto> FilteredAuditLogs =>
+		AuditLogs.Where(a => string.IsNullOrWhiteSpace(searchTerm)
+			|| a.Action.Contains(searchTerm, StringComparison.OrdinalIgnoreCase)
+			|| a.User.Contains(searchTerm, StringComparison.OrdinalIgnoreCase));
+}

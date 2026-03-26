@@ -1,0 +1,118 @@
+@page "/migration"
+@layout CoreBanker.Layouts.MainLayout
+
+<MudText Typo="Typo.h4">Migration Workbench</MudText>
+
+<MudPaper Class="pa-4">
+    <MudSelect T="string" @bind-Value="_selectedDatasetId" Label="Select Dataset" Required="true">
+        @foreach (var ds in _datasets)
+        {
+            <MudSelectItem Value="@ds.Id">@ds.Name</MudSelectItem>
+        }
+    </MudSelect>
+    <MudText Typo="Typo.subtitle2">@_selectedDataset?.Description</MudText>
+    <MudDivider Class="my-2" />
+    <MudText Typo="Typo.h6">Upload CSV File</MudText>
+    <MudFileUpload T="IBrowserFile" OnFilesChanged="OnFilesChanged" Accept=".csv" />
+    <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="PreviewCsv" Disabled="_fileBytes == null">Preview</MudButton>
+    <MudButton Variant="Variant.Filled" Color="Color.Secondary" OnClick="ImportCsv" Disabled="_fileBytes == null">Import</MudButton>
+    <MudDivider Class="my-2" />
+    @if (_preview != null)
+    {
+        <MudText Typo="Typo.h6">Preview</MudText>
+        <MudTable T="List<string>" Items="_preview.Rows ?? new List<List<string>>()" Hover="true" Dense="true">
+            <HeaderContent>
+                @foreach (var h in _preview.Headers ?? new List<string>())
+                {
+                    <MudTh>@h</MudTh>
+                }
+            </HeaderContent>
+            <RowTemplate>
+                @foreach (var cell in context)
+                {
+                    <MudTd>@cell</MudTd>
+                }
+            </RowTemplate>
+        </MudTable>
+    }
+    @if (_importResult != null)
+    {
+        <MudAlert Severity="@(_importResult.Success ? Severity.Success : Severity.Error)">@_importResult.Message</MudAlert>
+        @if (_importResult.Errors != null && _importResult.Errors.Count > 0)
+        {
+            <MudExpansionPanels>
+                <MudExpansionPanel Text="Error Log">
+                    <MudList T="string">
+                        @foreach (var err in _importResult.Errors)
+                        {
+                            <MudListItem T="string">@err</MudListItem>
+                        }
+                    </MudList>
+                </MudExpansionPanel>
+            </MudExpansionPanels>
+        }
+    }
+</MudPaper>
+
+@code {
+    [Inject] private CoreBanker.Services.MigrationService? MigrationService { get; set; }
+    [Inject] private ISnackbar? Snackbar { get; set; }
+
+    private List<CoreBanker.Services.MigrationDatasetDto> _datasets = new();
+    private string? _selectedDatasetId;
+    private CoreBanker.Services.MigrationDatasetDto? _selectedDataset;
+    private byte[]? _fileBytes;
+    private CoreBanker.Services.MigrationPreviewDto? _preview;
+    private CoreBanker.Services.MigrationResultDto? _importResult;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (MigrationService != null)
+        {
+            _datasets = await MigrationService.GetDatasetsAsync();
+        }
+    }
+
+    private async Task OnFilesChanged(InputFileChangeEventArgs e)
+    {
+        var file = e.File;
+        if (file != null)
+        {
+            using var ms = new MemoryStream();
+            await file.OpenReadStream().CopyToAsync(ms);
+            _fileBytes = ms.ToArray();
+        }
+    }
+
+    private async Task PreviewCsv()
+    {
+        if (MigrationService != null && _selectedDatasetId != null && _fileBytes != null)
+        {
+            _preview = await MigrationService.PreviewCsvAsync(_selectedDatasetId, _fileBytes);
+            StateHasChanged();
+        }
+    }
+
+    private async Task ImportCsv()
+    {
+        if (MigrationService != null && _selectedDatasetId != null && _fileBytes != null)
+        {
+            _importResult = await MigrationService.ImportAsync(_selectedDatasetId, _fileBytes);
+            if (Snackbar != null && _importResult != null)
+            {
+                Snackbar.Add(_importResult.Message ?? (_importResult.Success ? "Import successful." : "Import failed."), _importResult.Success ? Severity.Success : Severity.Error);
+            }
+            StateHasChanged();
+        }
+    }
+
+    private CoreBanker.Services.MigrationDatasetDto? GetSelectedDataset() =>
+        _datasets.FirstOrDefault(d => d.Id == _selectedDatasetId);
+
+    private void OnDatasetChanged(string? id)
+    {
+        _selectedDatasetId = id;
+        _selectedDataset = GetSelectedDataset();
+        StateHasChanged();
+    }
+}

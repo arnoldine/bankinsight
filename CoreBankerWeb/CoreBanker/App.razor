@@ -1,0 +1,69 @@
+@inject CoreBanker.Auth.IAuthStateProvider AuthStateProvider
+@inject CoreBanker.Auth.AuthService AuthService
+@inject NavigationManager Navigation
+
+@if (AuthStateProvider.IsInitializing)
+{
+    <MudThemeProvider>
+        <MudContainer MaxWidth="MaxWidth.Small" Class="mt-16">
+            <MudPaper Class="pa-6 text-center" Elevation="4">
+                <MudProgressCircular Indeterminate="true" Color="Color.Primary" Size="Size.Large" />
+                <MudText Typo="Typo.h6" Class="mt-4">Restoring your session</MudText>
+                <MudText Typo="Typo.body2" Color="Color.Secondary">Checking saved credentials and loading the CoreBanker workspace.</MudText>
+            </MudPaper>
+        </MudContainer>
+    </MudThemeProvider>
+}
+else
+{
+    <Router AppAssembly="@typeof(App).Assembly" NotFoundPage="typeof(Pages.NotFound)">
+        <Found Context="routeData">
+            @if (IsProtectedRoute(routeData.PageType) && !AuthStateProvider.IsAuthenticated)
+            {
+                Navigation.NavigateTo("/login", true);
+            }
+            else
+            {
+                <RouteView RouteData="@routeData" DefaultLayout="@typeof(Layouts.MainLayout)"/>
+                <FocusOnNavigate RouteData="@routeData" Selector="h1" />
+            }
+        </Found>
+    </Router>
+}
+
+@code {
+    protected override async Task OnInitializedAsync()
+    {
+        await AuthService.InitializeAsync();
+    }
+
+    private static readonly HashSet<Type> ProtectedPages = new()
+    {
+        typeof(Pages.Dashboard),
+        typeof(Pages.Clients),
+        typeof(Pages.Accounts),
+        typeof(Pages.Teller),
+        typeof(Pages.Transactions),
+        typeof(Pages.LoanManagement),
+        typeof(Pages.Approvals),
+        typeof(Pages.Accounting),
+        typeof(Pages.Reporting),
+        typeof(Pages.Audit),
+        typeof(Pages.SecurityOps),
+        typeof(Pages.MigrationWorkbench),
+        typeof(Pages.BankingOSControl),
+        typeof(Pages.GroupLending),
+        typeof(Pages.Treasury),
+        typeof(Pages.Vault),
+        typeof(Pages.OperationsRisk),
+        typeof(Pages.Products),
+        typeof(Pages.Settings),
+        typeof(Pages.Statements),
+        typeof(Pages.WorkspaceViews),
+        typeof(Pages.Extensibility),
+        typeof(Pages.EndOfDay)
+    };
+
+    private bool IsProtectedRoute(Type pageType)
+        => ProtectedPages.Contains(pageType);
+}

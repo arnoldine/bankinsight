@@ -1,0 +1,74 @@
+@page "/group-lending"
+@layout CoreBanker.Layouts.MainLayout
+
+@inject CoreBanker.Services.GroupLendingService GroupLendingService
+
+<MudText Typo="Typo.h4">Group Lending</MudText>
+
+<MudPaper Class="pa-4 mb-4">
+	<MudText Typo="Typo.h6">Groups</MudText>
+	<MudTable Items="@Groups" Hover="true" Dense="true" @bind-SelectedItem="SelectedGroup">
+		<HeaderContent>
+			<MudTh>Name</MudTh>
+			<MudTh>Officer</MudTh>
+			<MudTh>Status</MudTh>
+			<MudTh>Formation Date</MudTh>
+		</HeaderContent>
+		<RowTemplate>
+			<MudTd DataLabel="Name">@DisplayValue(context.Name)</MudTd>
+			<MudTd DataLabel="Officer">@DisplayValue(context.Officer)</MudTd>
+			<MudTd DataLabel="Status">@DisplayValue(context.Status)</MudTd>
+			<MudTd DataLabel="Formation Date">@DisplayValue(context.FormationDate)</MudTd>
+		</RowTemplate>
+	</MudTable>
+</MudPaper>
+
+@if (SelectedGroup != null)
+{
+	<MudPaper Class="pa-4 mb-4">
+		<MudText Typo="Typo.h6">Meetings for @DisplayValue(SelectedGroup.Name)</MudText>
+		<MudTable Items="@Meetings" Hover="true" Dense="true">
+			<HeaderContent>
+				<MudTh>Date</MudTh>
+				<MudTh>Status</MudTh>
+				<MudTh>Members Present</MudTh>
+			</HeaderContent>
+			<RowTemplate>
+				<MudTd DataLabel="Date">@context.Date</MudTd>
+				<MudTd DataLabel="Status">@context.Status</MudTd>
+				<MudTd DataLabel="Members Present">@string.Join(", ", context.MembersPresent ?? new List<string>())</MudTd>
+			</RowTemplate>
+		</MudTable>
+	</MudPaper>
+}
+
+@code {
+	private List<CoreBanker.Services.GroupDto> Groups = new();
+	private CoreBanker.Services.GroupDto? SelectedGroup;
+	private List<CoreBanker.Services.GroupMeetingDto> Meetings = new();
+
+	protected override async Task OnInitializedAsync()
+	{
+		Groups = await GroupLendingService.GetGroupsAsync();
+	}
+
+	protected override async Task OnParametersSetAsync()
+	{
+		if (SelectedGroup != null)
+		{
+			Meetings = await GroupLendingService.GetMeetingsAsync(SelectedGroup.Id ?? string.Empty);
+		}
+	}
+
+	private async Task OnGroupSelected(CoreBanker.Services.GroupDto group)
+	{
+		SelectedGroup = group;
+		Meetings = await GroupLendingService.GetMeetingsAsync(group.Id ?? string.Empty);
+		StateHasChanged();
+	}
+
+	private static string DisplayValue(string? value)
+	{
+		return string.IsNullOrWhiteSpace(value) ? "Not available" : value;
+	}
+}

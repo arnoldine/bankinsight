@@ -1,0 +1,121 @@
+@page "/clients/onboard"
+@layout CoreBanker.Layouts.MainLayout
+
+@inject CoreBanker.Services.ClientService ClientService
+@inject NavigationManager Navigation
+
+<MudStack Spacing="3">
+    <div>
+        <MudText Typo="Typo.h4">Client Onboarding</MudText>
+        <MudText Typo="Typo.body2" Class="mud-text-secondary">Capture the minimum KYC profile needed to open the customer record in the live BankInsight API.</MudText>
+    </div>
+
+    <MudPaper Class="pa-4">
+        <MudForm @ref="_form" OnValidSubmit="CreateClientAsync">
+            <MudGrid>
+                <MudItem xs="12" md="6">
+                    <MudTextField @bind-Value="_request.Name" Label="Full name" Required="true" Variant="Variant.Outlined" />
+                </MudItem>
+                <MudItem xs="12" md="6">
+                    <MudSelect @bind-Value="_request.Type" Label="Customer type" Required="true" Variant="Variant.Outlined">
+                        <MudSelectItem Value="@("INDIVIDUAL")">Individual</MudSelectItem>
+                        <MudSelectItem Value="@("CORPORATE")">Corporate</MudSelectItem>
+                    </MudSelect>
+                </MudItem>
+                <MudItem xs="12" md="6">
+                    <MudTextField @bind-Value="_request.Phone" Label="Phone" Variant="Variant.Outlined" />
+                </MudItem>
+                <MudItem xs="12" md="6">
+                    <MudTextField @bind-Value="_request.Email" Label="Email" Variant="Variant.Outlined" />
+                </MudItem>
+                <MudItem xs="12" md="6">
+                    <MudTextField @bind-Value="_request.GhanaCard" Label="Ghana Card" Variant="Variant.Outlined" HelperText="Example: GHA-123456789-0" />
+                </MudItem>
+                <MudItem xs="12" md="6">
+                    <MudTextField @bind-Value="_request.DigitalAddress" Label="Digital address" Variant="Variant.Outlined" />
+                </MudItem>
+                <MudItem xs="12" md="6">
+                    <MudSelect @bind-Value="_request.KycLevel" Label="KYC level" Variant="Variant.Outlined">
+                        <MudSelectItem Value="@("Tier 1")">Tier 1</MudSelectItem>
+                        <MudSelectItem Value="@("Tier 2")">Tier 2</MudSelectItem>
+                        <MudSelectItem Value="@("Tier 3")">Tier 3</MudSelectItem>
+                    </MudSelect>
+                </MudItem>
+                <MudItem xs="12" md="6">
+                    <MudSelect @bind-Value="_request.RiskRating" Label="Risk rating" Variant="Variant.Outlined">
+                        <MudSelectItem Value="@("Low")">Low</MudSelectItem>
+                        <MudSelectItem Value="@("Medium")">Medium</MudSelectItem>
+                        <MudSelectItem Value="@("High")">High</MudSelectItem>
+                    </MudSelect>
+                </MudItem>
+            </MudGrid>
+
+            <MudStack Row="true" Spacing="2" Class="mt-4">
+                <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary" Disabled="_isSubmitting">Create customer</MudButton>
+                <MudButton Variant="Variant.Outlined" Color="Color.Secondary" OnClick="@(() => Navigation.NavigateTo("/clients"))">Back to clients</MudButton>
+            </MudStack>
+        </MudForm>
+
+        @if (!string.IsNullOrWhiteSpace(_message))
+        {
+            <MudAlert Severity="@(_isSuccess ? Severity.Success : Severity.Error)" Class="mt-4">@_message</MudAlert>
+        }
+    </MudPaper>
+</MudStack>
+
+@code {
+    private MudForm? _form;
+    private CoreBanker.Services.CreateClientRequest _request = new()
+    {
+        Type = "INDIVIDUAL",
+        KycLevel = "Tier 1",
+        RiskRating = "Low"
+    };
+    private bool _isSubmitting;
+    private bool _isSuccess;
+    private string _message = string.Empty;
+
+    private async Task CreateClientAsync()
+    {
+        if (_form is null)
+        {
+            return;
+        }
+
+        await _form.ValidateAsync();
+        if (!_form.IsValid)
+        {
+            return;
+        }
+
+        _isSubmitting = true;
+        _message = string.Empty;
+
+        try
+        {
+            var created = await ClientService.CreateClientAsync(_request);
+            _isSuccess = true;
+            _message = created is null
+                ? "Customer was created."
+                : $"Customer {created.Id} created successfully.";
+
+            _request = new CoreBanker.Services.CreateClientRequest
+            {
+                Type = "INDIVIDUAL",
+                KycLevel = "Tier 1",
+                RiskRating = "Low"
+            };
+
+            await _form.ResetAsync();
+        }
+        catch (CoreBanker.Services.ApiClientException ex)
+        {
+            _isSuccess = false;
+            _message = ex.Message;
+        }
+        finally
+        {
+            _isSubmitting = false;
+        }
+    }
+}

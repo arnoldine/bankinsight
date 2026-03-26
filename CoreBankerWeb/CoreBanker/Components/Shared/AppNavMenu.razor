@@ -1,0 +1,20 @@
+@inject CoreBanker.Auth.IAuthStateProvider AuthStateProvider
+
+<MudNavMenu Class="pa-2">
+    @foreach (var menuSection in MenuSections)
+    {
+        <MudNavGroup Title="@menuSection.Key" Expanded="true" Icon="@menuSection.First().Icon">
+            @foreach (var item in menuSection)
+            {
+                <MudNavLink Href="@item.Route" Icon="@item.Icon" Match="NavLinkMatch.Prefix">
+                    @item.Title
+                </MudNavLink>
+            }
+        </MudNavGroup>
+    }
+</MudNavMenu>
+
+@code {
+    private IEnumerable<IGrouping<string, CoreBanker.Navigation.AppRouteDefinition>> MenuSections =>
+        CoreBanker.Navigation.AppRouteRegistry.GetMenuSections(AuthStateProvider.Permissions);
+}

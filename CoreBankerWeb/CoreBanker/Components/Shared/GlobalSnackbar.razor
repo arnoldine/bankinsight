@@ -1,0 +1,7 @@
+<MudSnackbarProvider MaxDisplayedSnackbars="3" Position="SnackbarPosition.TopRight">
+    @ChildContent
+</MudSnackbarProvider>
+
+@code {
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+}

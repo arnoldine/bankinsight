@@ -1,0 +1,53 @@
+@page "/approvals"
+@layout CoreBanker.Layouts.MainLayout
+
+@inject CoreBanker.Services.ApprovalService ApprovalService
+
+<MudText Typo="Typo.h4" Class="mb-4">Approval Inbox</MudText>
+
+<MudPaper Class="pa-4 mb-4">
+	<MudGrid>
+		<MudItem xs="12" sm="6">
+			<MudTextField @bind-Value="searchTerm" Label="Search by type or reference" Variant="Variant.Outlined" />
+		</MudItem>
+		<MudItem xs="12" sm="3">
+			<MudSelect @bind-Value="statusFilter" Label="Status" Variant="Variant.Outlined">
+				<MudSelectItem Value="@string.Empty">All</MudSelectItem>
+				<MudSelectItem Value="@("Pending")">Pending</MudSelectItem>
+				<MudSelectItem Value="@("Approved")">Approved</MudSelectItem>
+			</MudSelect>
+		</MudItem>
+	</MudGrid>
+</MudPaper>
+
+<MudTable Items="@FilteredApprovals" Hover="true" Dense="true">
+	<HeaderContent>
+		<MudTh>Approval ID</MudTh>
+		<MudTh>Type</MudTh>
+		<MudTh>Reference</MudTh>
+		<MudTh>Status</MudTh>
+		<MudTh>Requested By</MudTh>
+	</HeaderContent>
+	<RowTemplate>
+		<MudTd DataLabel="Approval ID">@context.Id</MudTd>
+		<MudTd DataLabel="Type">@context.Type</MudTd>
+		<MudTd DataLabel="Reference">@context.Reference</MudTd>
+		<MudTd DataLabel="Status">@context.Status</MudTd>
+		<MudTd DataLabel="Requested By">@context.RequestedBy</MudTd>
+	</RowTemplate>
+</MudTable>
+
+@code {
+	private List<CoreBanker.Services.ApprovalDto> approvalItems = new();
+	private string searchTerm = string.Empty;
+	private string statusFilter = string.Empty;
+
+	protected override async Task OnInitializedAsync()
+	{
+		approvalItems = await ApprovalService.GetApprovalsAsync();
+	}
+
+	private IEnumerable<CoreBanker.Services.ApprovalDto> FilteredApprovals =>
+		approvalItems.Where(a => (string.IsNullOrWhiteSpace(searchTerm) || a.Type.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) || a.Reference.Contains(searchTerm, StringComparison.OrdinalIgnoreCase))
+			&& (string.IsNullOrWhiteSpace(statusFilter) || a.Status == statusFilter));
+}

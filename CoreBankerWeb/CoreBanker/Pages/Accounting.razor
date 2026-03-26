@@ -1,0 +1,156 @@
+@page "/accounting"
+@layout CoreBanker.Layouts.MainLayout
+
+<MudText Typo="Typo.h4">Accounting</MudText>
+
+<MudTabs>
+	<MudTabPanel Text="Journal Entries">
+		<MudPaper Class="pa-4">
+			<MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="@ReloadJournalEntries">Reload</MudButton>
+			<MudTable Items="_journalEntries" Hover="true" Dense="true">
+				<HeaderContent>
+					<MudTh>Reference</MudTh>
+					<MudTh>Description</MudTh>
+					<MudTh>Amount</MudTh>
+					<MudTh>Account</MudTh>
+					<MudTh>Date</MudTh>
+					<MudTh>Status</MudTh>
+				</HeaderContent>
+				<RowTemplate>
+					<MudTd DataLabel="Reference">@context.Reference</MudTd>
+					<MudTd DataLabel="Description">@context.Description</MudTd>
+					<MudTd DataLabel="Amount">@context.Amount.ToString("C")</MudTd>
+					<MudTd DataLabel="Account">@context.AccountCode</MudTd>
+					<MudTd DataLabel="Date">@context.Date</MudTd>
+					<MudTd DataLabel="Status">
+						<MudChip T="string" Color="@(context.Status == "Posted" ? Color.Success : Color.Default)">@context.Status</MudChip>
+					</MudTd>
+				</RowTemplate>
+			</MudTable>
+			<MudDivider Class="my-4" />
+			<MudText Typo="Typo.h6">Post New Journal Entry</MudText>
+			<MudForm @ref="_journalForm" OnValidSubmit="PostJournalEntry">
+				<MudTextField @bind-Value="_newEntry.Reference" Label="Reference" Required="true" />
+				<MudTextField @bind-Value="_newEntry.Description" Label="Description" Required="true" />
+				<MudNumericField @bind-Value="_newEntry.Amount" Label="Amount" Required="true" />
+				<MudSelect T="string" @bind-Value="_newEntry.AccountCode" Label="Account" Required="true">
+					@foreach (var acc in _glAccounts)
+					{
+						<MudSelectItem Value="@acc.Code">@acc.Code - @acc.Name</MudSelectItem>
+					}
+				</MudSelect>
+				<MudButton Type="Submit" Variant="Variant.Filled" Color="Color.Primary">Post Entry</MudButton>
+			</MudForm>
+			<MudSnackbarProvider />
+		</MudPaper>
+	</MudTabPanel>
+	<MudTabPanel Text="GL Accounts">
+		<MudPaper Class="pa-4">
+			<MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="@ReloadGLAccounts">Reload</MudButton>
+			<MudTable Items="_glAccounts" Hover="true" Dense="true">
+				<HeaderContent>
+					<MudTh>Code</MudTh>
+					<MudTh>Name</MudTh>
+					<MudTh>Type</MudTh>
+					<MudTh>Balance</MudTh>
+				</HeaderContent>
+				<RowTemplate>
+					<MudTd DataLabel="Code">@context.Code</MudTd>
+					<MudTd DataLabel="Name">@context.Name</MudTd>
+					<MudTd DataLabel="Type">@context.Type</MudTd>
+					<MudTd DataLabel="Balance">@context.Balance.ToString("C")</MudTd>
+				</RowTemplate>
+			</MudTable>
+			<MudDivider Class="my-4" />
+			<MudText Typo="Typo.h6">Create New GL Account</MudText>
+			<MudForm @ref="_glForm" OnValidSubmit="CreateGLAccount">
+				<MudTextField @bind-Value="_newAccount.Code" Label="Code" Required="true" />
+				<MudTextField @bind-Value="_newAccount.Name" Label="Name" Required="true" />
+				<MudTextField @bind-Value="_newAccount.Type" Label="Type" Required="true" />
+				<MudNumericField @bind-Value="_newAccount.Balance" Label="Opening Balance" />
+				<MudButton Type="Submit" Variant="Variant.Filled" Color="Color.Primary">Create Account</MudButton>
+			</MudForm>
+			<MudSnackbarProvider />
+		</MudPaper>
+	</MudTabPanel>
+</MudTabs>
+
+@code {
+	[Inject] private CoreBanker.Services.AccountingService? AccountingService { get; set; }
+	[Inject] private ISnackbar? Snackbar { get; set; }
+
+	private List<CoreBanker.Services.JournalEntryDto> _journalEntries = new();
+	private List<CoreBanker.Services.GLAccountDto> _glAccounts = new();
+	private CoreBanker.Services.JournalEntryDto _newEntry = new();
+	private CoreBanker.Services.GLAccountDto _newAccount = new();
+	private MudForm? _journalForm;
+	private MudForm? _glForm;
+
+	protected override async Task OnInitializedAsync()
+	{
+		await ReloadJournalEntries();
+		await ReloadGLAccounts();
+	}
+
+	private async Task ReloadJournalEntries()
+	{
+		if (AccountingService != null)
+		{
+			_journalEntries = await AccountingService.GetJournalEntriesAsync();
+			StateHasChanged();
+		}
+	}
+
+	private async Task ReloadGLAccounts()
+	{
+		if (AccountingService != null)
+		{
+			_glAccounts = await AccountingService.GetGLAccountsAsync();
+			StateHasChanged();
+		}
+	}
+
+	private async Task PostJournalEntry()
+	{
+		if (_journalForm != null)
+		{
+			await _journalForm.ValidateAsync();
+			if (_journalForm.IsValid && AccountingService != null)
+			{
+				var success = await AccountingService.PostJournalEntryAsync(_newEntry);
+				if (success && Snackbar != null)
+				{
+					Snackbar.Add("Journal entry posted.", Severity.Success);
+					_newEntry = new();
+					await ReloadJournalEntries();
+				}
+				else if (Snackbar != null)
+				{
+					Snackbar.Add("Failed to post journal entry.", Severity.Error);
+				}
+			}
+		}
+	}
+
+	private async Task CreateGLAccount()
+	{
+		if (_glForm != null)
+		{
+			await _glForm.ValidateAsync();
+			if (_glForm.IsValid && AccountingService != null)
+			{
+				var success = await AccountingService.CreateGLAccountAsync(_newAccount);
+				if (success && Snackbar != null)
+				{
+					Snackbar.Add("GL account created.", Severity.Success);
+					_newAccount = new();
+					await ReloadGLAccounts();
+				}
+				else if (Snackbar != null)
+				{
+					Snackbar.Add("Failed to create GL account.", Severity.Error);
+				}
+			}
+		}
+	}
+}

@@ -1,0 +1,8 @@
+@if (!string.IsNullOrEmpty(ErrorMessage))
+{
+    <MudAlert Severity="Severity.Error" Dense="true">@ErrorMessage</MudAlert>
+}
+
+@code {
+    [Parameter] public string? ErrorMessage { get; set; }
+}

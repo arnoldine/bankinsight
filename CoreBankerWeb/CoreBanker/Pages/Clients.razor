@@ -1,0 +1,371 @@
+@page "/clients"
+@layout CoreBanker.Layouts.MainLayout
+
+@inject CoreBanker.Services.ClientService ClientService
+@inject NavigationManager Navigation
+
+<MudGrid>
+    <MudItem xs="12" lg="7">
+        <MudStack Spacing="3">
+            <MudPaper Class="pa-4">
+                <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+                    <div>
+                        <MudText Typo="Typo.h4">Client Portfolio</MudText>
+                        <MudText Typo="Typo.body2" Class="mud-text-secondary">Browse customers, open onboarding, and drill into KYC and profile data.</MudText>
+                    </div>
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="@(() => Navigation.NavigateTo("/clients/onboard"))">Onboard Client</MudButton>
+                </MudStack>
+            </MudPaper>
+
+            <MudPaper Class="pa-4">
+                <MudGrid>
+                    <MudItem xs="12" md="8">
+                        <MudTextField @bind-Value="_searchTerm" Label="Search by customer, email, phone, or CIF" Variant="Variant.Outlined" Immediate="true" />
+                    </MudItem>
+                    <MudItem xs="12" md="4">
+                        <MudSelect @bind-Value="_statusFilter" Label="Status" Variant="Variant.Outlined">
+                            <MudSelectItem Value="@string.Empty">All</MudSelectItem>
+                            <MudSelectItem Value="@("Active")">Active</MudSelectItem>
+                            <MudSelectItem Value="@("Inactive")">Inactive</MudSelectItem>
+                        </MudSelect>
+                    </MudItem>
+                </MudGrid>
+            </MudPaper>
+
+            @if (!string.IsNullOrWhiteSpace(_loadError))
+            {
+                <MudAlert Severity="Severity.Error">@_loadError</MudAlert>
+            }
+
+            <MudTable Items="@FilteredClients" Hover="true" Dense="true" Loading="@_isLoadingClients">
+                <HeaderContent>
+                    <MudTh>CIF</MudTh>
+                    <MudTh>Name</MudTh>
+                    <MudTh>Contact</MudTh>
+                    <MudTh>KYC</MudTh>
+                    <MudTh>Status</MudTh>
+                    <MudTh></MudTh>
+                </HeaderContent>
+                <RowTemplate>
+                    <MudTd DataLabel="CIF">@context.Id</MudTd>
+                    <MudTd DataLabel="Name">
+                        <MudText Typo="Typo.body2">@context.Name</MudText>
+                        <MudText Typo="Typo.caption" Class="mud-text-secondary">@context.Type</MudText>
+                    </MudTd>
+                    <MudTd DataLabel="Contact">
+                        <MudText Typo="Typo.body2">@(string.IsNullOrWhiteSpace(context.Phone) ? context.Email : context.Phone)</MudText>
+                        <MudText Typo="Typo.caption" Class="mud-text-secondary">@context.Email</MudText>
+                    </MudTd>
+                    <MudTd DataLabel="KYC">@context.KycLevel</MudTd>
+                    <MudTd DataLabel="Status">@context.Status</MudTd>
+                    <MudTd DataLabel="Actions">
+                        <MudButton Variant="Variant.Text" Color="Color.Primary" OnClick="@(() => LoadClientWorkspaceAsync(context.Id))">View</MudButton>
+                    </MudTd>
+                </RowTemplate>
+            </MudTable>
+        </MudStack>
+    </MudItem>
+
+    <MudItem xs="12" lg="5">
+        <MudStack Spacing="3">
+            <MudPaper Class="pa-4">
+                <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+                    <div>
+                        <MudText Typo="Typo.h5">Client Workspace</MudText>
+                        <MudText Typo="Typo.body2" Class="mud-text-secondary">Profile, KYC usage, notes, and document log for the selected customer.</MudText>
+                    </div>
+                    @if (!string.IsNullOrWhiteSpace(_selectedClientId))
+                    {
+                        <MudButton Variant="Variant.Outlined" Color="Color.Secondary" OnClick="RefreshSelectedClientAsync">Refresh</MudButton>
+                    }
+                </MudStack>
+            </MudPaper>
+
+            @if (_isLoadingProfile)
+            {
+                <MudProgressLinear Indeterminate="true" />
+            }
+            else if (_selectedProfile is null)
+            {
+                <MudPaper Class="pa-6">
+                    <MudText Typo="Typo.body1">Select a client to load profile and KYC data.</MudText>
+                </MudPaper>
+            }
+            else
+            {
+                <MudPaper Class="pa-4">
+                    <MudText Typo="Typo.h6">@_selectedProfile.Name</MudText>
+                    <MudText Typo="Typo.body2" Class="mud-text-secondary">@_selectedProfile.Id • @_selectedProfile.Type</MudText>
+
+                    <MudGrid Class="mt-4">
+                        <MudItem xs="12" sm="6">
+                            <MudPaper Class="pa-3">
+                                <MudText Typo="Typo.caption" Class="mud-text-secondary">KYC Level</MudText>
+                                <MudText Typo="Typo.h6">@(_selectedKyc?.KycLevel ?? _selectedProfile.KycLevel)</MudText>
+                            </MudPaper>
+                        </MudItem>
+                        <MudItem xs="12" sm="6">
+                            <MudPaper Class="pa-3">
+                                <MudText Typo="Typo.caption" Class="mud-text-secondary">Risk Rating</MudText>
+                                <MudText Typo="Typo.h6">@_selectedProfile.RiskRating</MudText>
+                            </MudPaper>
+                        </MudItem>
+                        <MudItem xs="12" sm="6">
+                            <MudPaper Class="pa-3">
+                                <MudText Typo="Typo.caption" Class="mud-text-secondary">Daily Limit Remaining</MudText>
+                                <MudText Typo="Typo.h6">@FormatAmount(_selectedKyc?.RemainingDailyLimit ?? 0m)</MudText>
+                            </MudPaper>
+                        </MudItem>
+                        <MudItem xs="12" sm="6">
+                            <MudPaper Class="pa-3">
+                                <MudText Typo="Typo.caption" Class="mud-text-secondary">Posted Today</MudText>
+                                <MudText Typo="Typo.h6">@FormatAmount(_selectedKyc?.TodayPostedTotal ?? 0m)</MudText>
+                            </MudPaper>
+                        </MudItem>
+                    </MudGrid>
+
+                    <MudDivider Class="my-4" />
+
+                    <MudText Typo="Typo.subtitle2">Contact & Identity</MudText>
+                    <MudText Typo="Typo.body2">Phone: @DisplayValue(_selectedProfile.Phone)</MudText>
+                    <MudText Typo="Typo.body2">Email: @DisplayValue(_selectedProfile.Email)</MudText>
+                    <MudText Typo="Typo.body2">Ghana Card: @DisplayValue(_selectedProfile.GhanaCard)</MudText>
+                    <MudText Typo="Typo.body2">Digital Address: @DisplayValue(_selectedProfile.DigitalAddress)</MudText>
+                    <MudText Typo="Typo.body2">Nationality: @DisplayValue(_selectedProfile.Nationality)</MudText>
+                </MudPaper>
+
+                <MudPaper Class="pa-4">
+                    <MudText Typo="Typo.subtitle1">Add Relationship Note</MudText>
+                    <MudTextField @bind-Value="_newNoteText" Label="Note" Variant="Variant.Outlined" Lines="3" />
+                    <MudTextField @bind-Value="_newNoteCategory" Label="Category" Variant="Variant.Outlined" Class="mt-3" />
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="mt-3" Disabled="@_isAddingNote" OnClick="AddNoteAsync">Save Note</MudButton>
+                </MudPaper>
+
+                <MudPaper Class="pa-4">
+                    <MudText Typo="Typo.subtitle1">Register Document</MudText>
+                    <MudTextField @bind-Value="_newDocumentType" Label="Document type" Variant="Variant.Outlined" />
+                    <MudTextField @bind-Value="_newDocumentName" Label="Document name" Variant="Variant.Outlined" Class="mt-3" />
+                    <MudButton Variant="Variant.Filled" Color="Color.Secondary" Class="mt-3" Disabled="@_isAddingDocument" OnClick="AddDocumentAsync">Add Document</MudButton>
+                </MudPaper>
+
+                @if (!string.IsNullOrWhiteSpace(_workspaceMessage))
+                {
+                    <MudAlert Severity="@(_workspaceSuccess ? Severity.Success : Severity.Error)">@_workspaceMessage</MudAlert>
+                }
+
+                <MudPaper Class="pa-4">
+                    <MudText Typo="Typo.subtitle1">Recent Notes</MudText>
+                    @if (_selectedProfile.Notes.Count == 0)
+                    {
+                        <MudText Typo="Typo.body2" Class="mud-text-secondary">No notes recorded yet.</MudText>
+                    }
+                    else
+                    {
+                        @foreach (var note in _selectedProfile.Notes.OrderByDescending(note => note.Date))
+                        {
+                            <MudPaper Class="pa-3 mt-2">
+                                <MudText Typo="Typo.body2">@note.Text</MudText>
+                                <MudText Typo="Typo.caption" Class="mud-text-secondary">@note.Category • @DisplayDate(note.Date) • @note.Author</MudText>
+                            </MudPaper>
+                        }
+                    }
+                </MudPaper>
+
+                <MudPaper Class="pa-4">
+                    <MudText Typo="Typo.subtitle1">Document Log</MudText>
+                    @if (_selectedProfile.Documents.Count == 0)
+                    {
+                        <MudText Typo="Typo.body2" Class="mud-text-secondary">No documents recorded yet.</MudText>
+                    }
+                    else
+                    {
+                        <MudTable Items="@_selectedProfile.Documents" Dense="true" Hover="true">
+                            <HeaderContent>
+                                <MudTh>Type</MudTh>
+                                <MudTh>Name</MudTh>
+                                <MudTh>Status</MudTh>
+                                <MudTh>Date</MudTh>
+                            </HeaderContent>
+                            <RowTemplate>
+                                <MudTd DataLabel="Type">@context.Type</MudTd>
+                                <MudTd DataLabel="Name">@context.Name</MudTd>
+                                <MudTd DataLabel="Status">@context.Status</MudTd>
+                                <MudTd DataLabel="Date">@DisplayDate(context.UploadDate)</MudTd>
+                            </RowTemplate>
+                        </MudTable>
+                    }
+                </MudPaper>
+            }
+        </MudStack>
+    </MudItem>
+</MudGrid>
+
+@code {
+    private List<CoreBanker.Services.ClientDto> _clients = new();
+    private CoreBanker.Services.ClientProfileDto? _selectedProfile;
+    private CoreBanker.Services.ClientKycStatusDto? _selectedKyc;
+    private string _selectedClientId = string.Empty;
+    private string _searchTerm = string.Empty;
+    private string _statusFilter = string.Empty;
+    private string _loadError = string.Empty;
+    private string _workspaceMessage = string.Empty;
+    private bool _workspaceSuccess;
+    private bool _isLoadingClients;
+    private bool _isLoadingProfile;
+    private bool _isAddingNote;
+    private bool _isAddingDocument;
+    private string _newNoteText = string.Empty;
+    private string _newNoteCategory = "GENERAL";
+    private string _newDocumentType = string.Empty;
+    private string _newDocumentName = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadClientsAsync();
+    }
+
+    private async Task LoadClientsAsync()
+    {
+        _isLoadingClients = true;
+        _loadError = string.Empty;
+
+        try
+        {
+            _clients = await ClientService.GetClientsAsync();
+            if (_clients.Count > 0 && string.IsNullOrWhiteSpace(_selectedClientId))
+            {
+                await LoadClientWorkspaceAsync(_clients[0].Id);
+            }
+        }
+        catch (CoreBanker.Services.ApiClientException ex)
+        {
+            _loadError = ex.Message;
+        }
+        finally
+        {
+            _isLoadingClients = false;
+        }
+    }
+
+    private async Task LoadClientWorkspaceAsync(string clientId)
+    {
+        if (string.IsNullOrWhiteSpace(clientId))
+        {
+            return;
+        }
+
+        _selectedClientId = clientId;
+        _isLoadingProfile = true;
+        _workspaceMessage = string.Empty;
+
+        try
+        {
+            _selectedProfile = await ClientService.GetClientProfileAsync(clientId);
+            _selectedKyc = await ClientService.GetClientKycAsync(clientId);
+        }
+        catch (CoreBanker.Services.ApiClientException ex)
+        {
+            _workspaceSuccess = false;
+            _workspaceMessage = ex.Message;
+        }
+        finally
+        {
+            _isLoadingProfile = false;
+        }
+    }
+
+    private Task RefreshSelectedClientAsync()
+    {
+        return LoadClientWorkspaceAsync(_selectedClientId);
+    }
+
+    private async Task AddNoteAsync()
+    {
+        if (_selectedProfile is null || string.IsNullOrWhiteSpace(_newNoteText))
+        {
+            return;
+        }
+
+        _isAddingNote = true;
+        try
+        {
+            await ClientService.AddClientNoteAsync(_selectedProfile.Id, new CoreBanker.Services.CreateClientNoteRequest
+            {
+                Text = _newNoteText,
+                Category = _newNoteCategory
+            });
+
+            _workspaceSuccess = true;
+            _workspaceMessage = "Client note saved.";
+            _newNoteText = string.Empty;
+            _newNoteCategory = "GENERAL";
+            await LoadClientWorkspaceAsync(_selectedProfile.Id);
+        }
+        catch (CoreBanker.Services.ApiClientException ex)
+        {
+            _workspaceSuccess = false;
+            _workspaceMessage = ex.Message;
+        }
+        finally
+        {
+            _isAddingNote = false;
+        }
+    }
+
+    private async Task AddDocumentAsync()
+    {
+        if (_selectedProfile is null || string.IsNullOrWhiteSpace(_newDocumentType) || string.IsNullOrWhiteSpace(_newDocumentName))
+        {
+            return;
+        }
+
+        _isAddingDocument = true;
+        try
+        {
+            await ClientService.AddClientDocumentAsync(_selectedProfile.Id, new CoreBanker.Services.CreateClientDocumentRequest
+            {
+                Type = _newDocumentType,
+                Name = _newDocumentName
+            });
+
+            _workspaceSuccess = true;
+            _workspaceMessage = "Client document registered.";
+            _newDocumentType = string.Empty;
+            _newDocumentName = string.Empty;
+            await LoadClientWorkspaceAsync(_selectedProfile.Id);
+        }
+        catch (CoreBanker.Services.ApiClientException ex)
+        {
+            _workspaceSuccess = false;
+            _workspaceMessage = ex.Message;
+        }
+        finally
+        {
+            _isAddingDocument = false;
+        }
+    }
+
+    private IEnumerable<CoreBanker.Services.ClientDto> FilteredClients =>
+        _clients.Where(client =>
+            (string.IsNullOrWhiteSpace(_searchTerm)
+             || client.Id.Contains(_searchTerm, StringComparison.OrdinalIgnoreCase)
+             || client.Name.Contains(_searchTerm, StringComparison.OrdinalIgnoreCase)
+             || client.Email.Contains(_searchTerm, StringComparison.OrdinalIgnoreCase)
+             || client.Phone.Contains(_searchTerm, StringComparison.OrdinalIgnoreCase))
+            && (string.IsNullOrWhiteSpace(_statusFilter) || string.Equals(client.Status, _statusFilter, StringComparison.OrdinalIgnoreCase)));
+
+    private static string DisplayValue(string? value)
+    {
+        return string.IsNullOrWhiteSpace(value) ? "Not recorded" : value;
+    }
+
+    private static string DisplayDate(DateTime? value)
+    {
+        return value?.ToLocalTime().ToString("dd MMM yyyy HH:mm") ?? "Not recorded";
+    }
+
+    private static string FormatAmount(decimal amount)
+    {
+        return amount.ToString("C", System.Globalization.CultureInfo.GetCultureInfo("en-GH"));
+    }
+}

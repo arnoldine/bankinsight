@@ -1,0 +1,242 @@
+@page "/accounts"
+@layout CoreBanker.Layouts.MainLayout
+
+@inject CoreBanker.Services.AccountService AccountService
+@inject CoreBanker.Services.ClientService ClientService
+
+<MudGrid>
+    <MudItem xs="12" xl="7">
+        <MudStack Spacing="3">
+            <MudPaper Class="pa-4">
+                <MudText Typo="Typo.h4">Deposit Accounts</MudText>
+                <MudText Typo="Typo.body2" Class="mud-text-secondary">Open customer accounts and review balances, product codes, and branch portfolio activity.</MudText>
+            </MudPaper>
+
+            <MudPaper Class="pa-4">
+                <MudGrid>
+                    <MudItem xs="12" md="8">
+                        <MudTextField @bind-Value="_searchTerm" Label="Search by account, customer, branch, or product" Variant="Variant.Outlined" Immediate="true" />
+                    </MudItem>
+                    <MudItem xs="12" md="4">
+                        <MudSelect @bind-Value="_typeFilter" Label="Account type" Variant="Variant.Outlined">
+                            <MudSelectItem Value="@string.Empty">All</MudSelectItem>
+                            <MudSelectItem Value="@("SAVINGS")">Savings</MudSelectItem>
+                            <MudSelectItem Value="@("CURRENT")">Current</MudSelectItem>
+                            <MudSelectItem Value="@("FIXED_DEPOSIT")">Fixed Deposit</MudSelectItem>
+                        </MudSelect>
+                    </MudItem>
+                </MudGrid>
+            </MudPaper>
+
+            @if (!string.IsNullOrWhiteSpace(_loadError))
+            {
+                <MudAlert Severity="Severity.Error">@_loadError</MudAlert>
+            }
+
+            <MudTable Items="@FilteredAccounts" Hover="true" Dense="true" Loading="@_isLoadingAccounts">
+                <HeaderContent>
+                    <MudTh>Account</MudTh>
+                    <MudTh>Customer</MudTh>
+                    <MudTh>Type</MudTh>
+                    <MudTh>Product</MudTh>
+                    <MudTh>Available</MudTh>
+                    <MudTh>Status</MudTh>
+                </HeaderContent>
+                <RowTemplate>
+                    <MudTd DataLabel="Account">
+                        <MudText Typo="Typo.body2">@context.Id</MudText>
+                        <MudText Typo="Typo.caption" Class="mud-text-secondary">@context.BranchId</MudText>
+                    </MudTd>
+                    <MudTd DataLabel="Customer">
+                        <MudText Typo="Typo.body2">@GetCustomerName(context.CustomerId)</MudText>
+                        <MudText Typo="Typo.caption" Class="mud-text-secondary">@context.CustomerId</MudText>
+                    </MudTd>
+                    <MudTd DataLabel="Type">@context.Type</MudTd>
+                    <MudTd DataLabel="Product">@context.ProductCode</MudTd>
+                    <MudTd DataLabel="Available">@FormatAmount(context.AvailableBalance, context.Currency)</MudTd>
+                    <MudTd DataLabel="Status">@context.Status</MudTd>
+                </RowTemplate>
+            </MudTable>
+        </MudStack>
+    </MudItem>
+
+    <MudItem xs="12" xl="5">
+        <MudStack Spacing="3">
+            <MudPaper Class="pa-4">
+                <MudText Typo="Typo.h5">Open New Account</MudText>
+                <MudText Typo="Typo.body2" Class="mud-text-secondary">Create a live account against an existing customer record.</MudText>
+
+                <MudForm @ref="_form" OnValidSubmit="CreateAccountAsync" Class="mt-4">
+                    <MudSelect @bind-Value="_request.CustomerId" @bind-Value:after="RefreshSelectedCustomerAccountsAsync" Label="Customer" Required="true" Variant="Variant.Outlined">
+                        @foreach (var client in _clients.OrderBy(client => client.Name))
+                        {
+                            <MudSelectItem Value="@client.Id">@($"{client.Name} ({client.Id})")</MudSelectItem>
+                        }
+                    </MudSelect>
+                    <MudTextField @bind-Value="_request.BranchId" Label="Branch ID" Variant="Variant.Outlined" Class="mt-3" />
+                    <MudSelect @bind-Value="_request.Type" Label="Account type" Required="true" Variant="Variant.Outlined" Class="mt-3">
+                        <MudSelectItem Value="@("SAVINGS")">Savings</MudSelectItem>
+                        <MudSelectItem Value="@("CURRENT")">Current</MudSelectItem>
+                        <MudSelectItem Value="@("FIXED_DEPOSIT")">Fixed Deposit</MudSelectItem>
+                    </MudSelect>
+                    <MudSelect @bind-Value="_request.Currency" Label="Currency" Required="true" Variant="Variant.Outlined" Class="mt-3">
+                        <MudSelectItem Value="@("GHS")">GHS</MudSelectItem>
+                        <MudSelectItem Value="@("USD")">USD</MudSelectItem>
+                    </MudSelect>
+                    <MudTextField @bind-Value="_request.ProductCode" Label="Product code" Variant="Variant.Outlined" Class="mt-3" HelperText="Defaults to SAV001, CUR001, or FD001 if left blank." />
+                    <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary" Class="mt-4" Disabled="@_isCreating">Create account</MudButton>
+                </MudForm>
+            </MudPaper>
+
+            @if (!string.IsNullOrWhiteSpace(_message))
+            {
+                <MudAlert Severity="@(_isSuccess ? Severity.Success : Severity.Error)">@_message</MudAlert>
+            }
+
+            @if (_selectedCustomerAccounts.Count > 0)
+            {
+                <MudPaper Class="pa-4">
+                    <MudText Typo="Typo.subtitle1">Selected Customer Portfolio</MudText>
+                    <MudText Typo="Typo.body2" Class="mud-text-secondary">@GetCustomerName(_request.CustomerId)</MudText>
+
+                    <MudTable Items="@_selectedCustomerAccounts" Dense="true" Hover="true" Class="mt-3">
+                        <HeaderContent>
+                            <MudTh>Account</MudTh>
+                            <MudTh>Type</MudTh>
+                            <MudTh>Available</MudTh>
+                        </HeaderContent>
+                        <RowTemplate>
+                            <MudTd DataLabel="Account">@context.Id</MudTd>
+                            <MudTd DataLabel="Type">@context.Type</MudTd>
+                            <MudTd DataLabel="Available">@FormatAmount(context.AvailableBalance, context.Currency)</MudTd>
+                        </RowTemplate>
+                    </MudTable>
+                </MudPaper>
+            }
+        </MudStack>
+    </MudItem>
+</MudGrid>
+
+@code {
+    private List<CoreBanker.Services.AccountDto> _accounts = new();
+    private List<CoreBanker.Services.ClientDto> _clients = new();
+    private List<CoreBanker.Services.AccountDto> _selectedCustomerAccounts = new();
+    private CoreBanker.Services.CreateAccountRequest _request = new()
+    {
+        BranchId = "BR001",
+        Type = "SAVINGS",
+        Currency = "GHS"
+    };
+    private MudForm? _form;
+    private string _searchTerm = string.Empty;
+    private string _typeFilter = string.Empty;
+    private string _loadError = string.Empty;
+    private string _message = string.Empty;
+    private bool _isSuccess;
+    private bool _isCreating;
+    private bool _isLoadingAccounts;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadDataAsync();
+    }
+
+    private async Task LoadDataAsync()
+    {
+        _isLoadingAccounts = true;
+        _loadError = string.Empty;
+
+        try
+        {
+            _clients = await ClientService.GetClientsAsync();
+            _accounts = await AccountService.GetAccountsAsync();
+            await RefreshSelectedCustomerAccountsAsync();
+        }
+        catch (CoreBanker.Services.ApiClientException ex)
+        {
+            _loadError = ex.Message;
+        }
+        finally
+        {
+            _isLoadingAccounts = false;
+        }
+    }
+
+    private async Task CreateAccountAsync()
+    {
+        if (_form is null)
+        {
+            return;
+        }
+
+        await _form.ValidateAsync();
+        if (!_form.IsValid)
+        {
+            return;
+        }
+
+        _isCreating = true;
+        _message = string.Empty;
+
+        try
+        {
+            var created = await AccountService.CreateAccountAsync(_request);
+            _isSuccess = true;
+            _message = created is null
+                ? "Account created successfully."
+                : $"Account {created.Id} created successfully.";
+
+            _request = new CoreBanker.Services.CreateAccountRequest
+            {
+                CustomerId = _request.CustomerId,
+                BranchId = "BR001",
+                Type = "SAVINGS",
+                Currency = "GHS"
+            };
+
+            _accounts = await AccountService.GetAccountsAsync();
+            await RefreshSelectedCustomerAccountsAsync();
+        }
+        catch (CoreBanker.Services.ApiClientException ex)
+        {
+            _isSuccess = false;
+            _message = ex.Message;
+        }
+        finally
+        {
+            _isCreating = false;
+        }
+    }
+
+    private async Task RefreshSelectedCustomerAccountsAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_request.CustomerId))
+        {
+            _selectedCustomerAccounts.Clear();
+            return;
+        }
+
+        _selectedCustomerAccounts = await AccountService.GetAccountsByCustomerIdAsync(_request.CustomerId);
+    }
+
+    private IEnumerable<CoreBanker.Services.AccountDto> FilteredAccounts =>
+        _accounts.Where(account =>
+            (string.IsNullOrWhiteSpace(_searchTerm)
+             || account.Id.Contains(_searchTerm, StringComparison.OrdinalIgnoreCase)
+             || account.CustomerId.Contains(_searchTerm, StringComparison.OrdinalIgnoreCase)
+             || GetCustomerName(account.CustomerId).Contains(_searchTerm, StringComparison.OrdinalIgnoreCase)
+             || account.ProductCode.Contains(_searchTerm, StringComparison.OrdinalIgnoreCase)
+             || account.BranchId.Contains(_searchTerm, StringComparison.OrdinalIgnoreCase))
+            && (string.IsNullOrWhiteSpace(_typeFilter) || string.Equals(account.Type, _typeFilter, StringComparison.OrdinalIgnoreCase)));
+
+    private string GetCustomerName(string customerId)
+    {
+        return _clients.FirstOrDefault(client => client.Id == customerId)?.Name ?? customerId;
+    }
+
+    private static string FormatAmount(decimal amount, string currency)
+    {
+        var culture = currency == "USD" ? System.Globalization.CultureInfo.GetCultureInfo("en-US") : System.Globalization.CultureInfo.GetCultureInfo("en-GH");
+        return string.Format(culture, "{0:C}", amount);
+    }
+}

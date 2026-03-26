@@ -1,0 +1,158 @@
+@page "/security"
+@layout CoreBanker.Layouts.MainLayout
+
+<MudText Typo="Typo.h4">Security Operations</MudText>
+
+<MudTabs>
+    <MudTabPanel Text="Overview">
+        <MudPaper Class="pa-4">
+            <MudText Typo="Typo.h6">Security Summary</MudText>
+            <MudTable Items="_alerts" Hover="true" Dense="true">
+                <HeaderContent>
+                    <MudTh>Type</MudTh>
+                    <MudTh>Message</MudTh>
+                    <MudTh>Severity</MudTh>
+                    <MudTh>Timestamp</MudTh>
+                </HeaderContent>
+                <RowTemplate>
+                    <MudTd DataLabel="Type">@context.Type</MudTd>
+                    <MudTd DataLabel="Message">@context.Message</MudTd>
+                    <MudTd DataLabel="Severity">
+                        <MudChip T="string" Color="@(context.Severity == "High" ? Color.Error : context.Severity == "Medium" ? Color.Warning : Color.Info)">@context.Severity</MudChip>
+                    </MudTd>
+                    <MudTd DataLabel="Timestamp">@context.Timestamp</MudTd>
+                </RowTemplate>
+            </MudTable>
+        </MudPaper>
+    </MudTabPanel>
+    <MudTabPanel Text="Terminal Registry">
+        <MudPaper Class="pa-4">
+            <MudText Typo="Typo.h6">Terminals</MudText>
+            <MudTable Items="_terminals" Hover="true" Dense="true">
+                <HeaderContent>
+                    <MudTh>ID</MudTh>
+                    <MudTh>Branch</MudTh>
+                    <MudTh>Staff</MudTh>
+                    <MudTh>IP</MudTh>
+                    <MudTh>Status</MudTh>
+                    <MudTh>Risk</MudTh>
+                    <MudTh>Version</MudTh>
+                    <MudTh></MudTh>
+                </HeaderContent>
+                <RowTemplate>
+                    <MudTd DataLabel="ID">@context.Id</MudTd>
+                    <MudTd DataLabel="Branch">@context.Branch</MudTd>
+                    <MudTd DataLabel="Staff">@context.Staff</MudTd>
+                    <MudTd DataLabel="IP">@context.IP</MudTd>
+                    <MudTd DataLabel="Status">@context.Status</MudTd>
+                    <MudTd DataLabel="Risk">
+                        <MudChip T="string" Color="@(context.Risk == "High" ? Color.Error : context.Risk == "Medium" ? Color.Warning : Color.Info)">@context.Risk</MudChip>
+                    </MudTd>
+                    <MudTd DataLabel="Version">@context.Version</MudTd>
+                    <MudTd>
+                        <MudButton Variant="Variant.Outlined" Color="Color.Primary" OnClick="@(() => EditTerminal(context))">Edit</MudButton>
+                    </MudTd>
+                </RowTemplate>
+            </MudTable>
+        </MudPaper>
+    </MudTabPanel>
+    <MudTabPanel Text="Alerts">
+        <MudPaper Class="pa-4">
+            <MudText Typo="Typo.h6">Security Alerts</MudText>
+            <MudTable Items="_alerts" Hover="true" Dense="true">
+                <HeaderContent>
+                    <MudTh>Type</MudTh>
+                    <MudTh>Message</MudTh>
+                    <MudTh>Severity</MudTh>
+                    <MudTh>Timestamp</MudTh>
+                </HeaderContent>
+                <RowTemplate>
+                    <MudTd DataLabel="Type">@context.Type</MudTd>
+                    <MudTd DataLabel="Message">@context.Message</MudTd>
+                    <MudTd DataLabel="Severity">
+                        <MudChip T="string" Color="@(context.Severity == "High" ? Color.Error : context.Severity == "Medium" ? Color.Warning : Color.Info)">@context.Severity</MudChip>
+                    </MudTd>
+                    <MudTd DataLabel="Timestamp">@context.Timestamp</MudTd>
+                </RowTemplate>
+            </MudTable>
+        </MudPaper>
+    </MudTabPanel>
+</MudTabs>
+
+<MudDialog @bind-IsOpen="_editOpen" MaxWidth="MaxWidth.Medium">
+    <DialogContent>
+        <MudText Typo="Typo.h6">Edit Terminal</MudText>
+        @if (_editTerminal != null)
+        {
+            <MudForm @ref="_editForm" OnValidSubmit="SaveTerminal">
+                <MudTextField @bind-Value="_editTerminal.Branch" Label="Branch" />
+                <MudTextField @bind-Value="_editTerminal.Staff" Label="Staff" />
+                <MudTextField @bind-Value="_editTerminal.IP" Label="IP" />
+                <MudTextField @bind-Value="_editTerminal.Status" Label="Status" />
+                <MudTextField @bind-Value="_editTerminal.Risk" Label="Risk" />
+                <MudTextField @bind-Value="_editTerminal.Version" Label="Version" />
+                <MudButton Type="Submit" Variant="Variant.Filled" Color="Color.Primary">Save</MudButton>
+            </MudForm>
+        }
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="@(() => _editOpen = false)">Cancel</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [Inject] private CoreBanker.Services.SecurityService? SecurityService { get; set; }
+    [Inject] private ISnackbar? Snackbar { get; set; }
+
+    private List<CoreBanker.Services.TerminalDto> _terminals = new();
+    private List<CoreBanker.Services.SecurityAlertDto> _alerts = new();
+    private bool _editOpen = false;
+    private CoreBanker.Services.TerminalDto? _editTerminal;
+    private MudForm? _editForm;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (SecurityService != null)
+        {
+            _terminals = await SecurityService.GetTerminalsAsync();
+            _alerts = await SecurityService.GetAlertsAsync();
+        }
+    }
+
+    private void EditTerminal(CoreBanker.Services.TerminalDto terminal)
+    {
+        _editTerminal = new CoreBanker.Services.TerminalDto
+        {
+            Id = terminal.Id,
+            Branch = terminal.Branch,
+            Staff = terminal.Staff,
+            IP = terminal.IP,
+            Status = terminal.Status,
+            Risk = terminal.Risk,
+            Version = terminal.Version
+        };
+        _editOpen = true;
+    }
+
+    private async Task SaveTerminal()
+    {
+        if (_editForm != null)
+        {
+            await _editForm.ValidateAsync();
+            if (_editForm.IsValid && SecurityService != null && _editTerminal != null)
+            {
+                var success = await SecurityService.UpdateTerminalAsync(_editTerminal);
+                if (success && Snackbar != null)
+                {
+                    Snackbar.Add("Terminal updated.", Severity.Success);
+                    _terminals = await SecurityService.GetTerminalsAsync();
+                    _editOpen = false;
+                }
+                else if (Snackbar != null)
+                {
+                    Snackbar.Add("Failed to update terminal.", Severity.Error);
+                }
+            }
+        }
+    }
+}

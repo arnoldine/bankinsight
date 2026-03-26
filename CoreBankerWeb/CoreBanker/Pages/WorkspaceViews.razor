@@ -1,0 +1,98 @@
+@page "/workspaces"
+@layout CoreBanker.Layouts.MainLayout
+
+<MudText Typo="Typo.h4">Workspace Views</MudText>
+<MudTabs>
+	<MudTabPanel Text="Loan Officer">
+		<MudPaper Class="pa-4">
+			<MudText Typo="Typo.h6">Loan Officer Dashboard</MudText>
+			<MudGrid>
+				<MudItem xs="12" md="6">
+					<MudCard>
+						<MudCardContent>
+							<MudText Typo="Typo.subtitle1">My Loan Portfolio</MudText>
+							<!-- TODO: Bind to loan portfolio data -->
+						</MudCardContent>
+					</MudCard>
+				</MudItem>
+				<MudItem xs="12" md="6">
+					<MudCard>
+						<MudCardContent>
+							<MudText Typo="Typo.subtitle1">Pending Applications</MudText>
+							<!-- TODO: Bind to pending applications -->
+						</MudCardContent>
+					</MudCard>
+				</MudItem>
+			</MudGrid>
+		</MudPaper>
+	</MudTabPanel>
+	<MudTabPanel Text="Accountant">
+		<MudPaper Class="pa-4">
+			<MudText Typo="Typo.h6">Accountant Workspace</MudText>
+			<MudGrid>
+				<MudItem xs="12" md="6">
+					<MudCard>
+						<MudCardContent>
+							<MudText Typo="Typo.subtitle1">GL Accounts</MudText>
+							<!-- TODO: Bind to GL accounts data -->
+						</MudCardContent>
+					</MudCard>
+				</MudItem>
+				<MudItem xs="12" md="6">
+					<MudCard>
+						<MudCardContent>
+							<MudText Typo="Typo.subtitle1">Journal Entries</MudText>
+							<!-- TODO: Bind to journal entries -->
+						</MudCardContent>
+					</MudCard>
+				</MudItem>
+			</MudGrid>
+		</MudPaper>
+	</MudTabPanel>
+	<MudTabPanel Text="Customer Service">
+		<MudPaper Class="pa-4">
+			<MudText Typo="Typo.h6">Customer Service Workspace</MudText>
+			<MudGrid>
+				<MudItem xs="12" md="6">
+					<MudCard>
+						<MudCardContent>
+							<MudText Typo="Typo.subtitle1">Active Clients</MudText>
+							<!-- TODO: Bind to client data -->
+						</MudCardContent>
+					</MudCard>
+				</MudItem>
+				<MudItem xs="12" md="6">
+					<MudCard>
+						<MudCardContent>
+							<MudText Typo="Typo.subtitle1">Recent Accounts</MudText>
+							<!-- TODO: Bind to recent accounts -->
+						</MudCardContent>
+					</MudCard>
+				</MudItem>
+			</MudGrid>
+		</MudPaper>
+	</MudTabPanel>
+	<MudTabPanel Text="Compliance">
+		<MudPaper Class="pa-4">
+			<MudText Typo="Typo.h6">Compliance Workspace</MudText>
+			<MudGrid>
+				<MudItem xs="12" md="6">
+					<MudCard>
+						<MudCardContent>
+							<MudText Typo="Typo.subtitle1">KYC Exceptions</MudText>
+							<!-- TODO: Bind to KYC exception data -->
+						</MudCardContent>
+					</MudCard>
+				</MudItem>
+				<MudItem xs="12" md="6">
+					<MudCard>
+						<MudCardContent>
+							<MudText Typo="Typo.subtitle1">Audit Trail</MudText>
+							<!-- TODO: Bind to audit trail data -->
+						</MudCardContent>
+					</MudCard>
+				</MudItem>
+			</MudGrid>
+		</MudPaper>
+	</MudTabPanel>
+</MudTabs>

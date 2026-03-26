@@ -1,0 +1,181 @@
+@page "/login"
+@layout CoreBanker.Layouts.LoginLayout
+@inject CoreBanker.Auth.AuthService AuthService
+@inject CoreBanker.State.AppState AppState
+@inject NavigationManager Navigation
+
+<MudPaper Class="pa-6 mt-12" Elevation="6">
+    <MudText Typo="Typo.h5" Class="mb-2">Sign in to CoreBanker</MudText>
+    <MudText Typo="Typo.body2" Class="mb-4">Use your BankInsight operator credentials to open the banking workspace.</MudText>
+
+    @if (!string.IsNullOrWhiteSpace(statusMessage))
+    {
+        <MudAlert Severity="Severity.Info" Dense="true" Class="mb-4">@statusMessage</MudAlert>
+    }
+
+    @if (!mfaRequired)
+    {
+        <MudForm @ref="form" OnValidSubmit="HandleLogin">
+            <MudTextField @bind-Value="Email" Label="Email" Required="true" For="@(() => Email)" Immediate="true" />
+            <MudTextField @bind-Value="Password" Label="Password" InputType="InputType.Password" Required="true" For="@(() => Password)" Immediate="true" />
+            <MudButton Type="ButtonType.Submit" Color="Color.Primary" Variant="Variant.Filled" Class="mt-4" Disabled="@loading" FullWidth="true">Login</MudButton>
+        </MudForm>
+        <MudProgressLinear Indeterminate="true" Visible="@loading" Class="mt-3" />
+        @if (!string.IsNullOrEmpty(error))
+        {
+            <MudAlert Severity="Severity.Error" Dense="true" Class="mt-3">@error</MudAlert>
+        }
+    }
+    else
+    {
+        <MudAlert Severity="Severity.Warning" Dense="true" Class="mb-4">
+            Enter the 6-digit code sent to @deliveryHint.
+            @if (!string.IsNullOrWhiteSpace(debugCode))
+            {
+                <span> Debug code: <strong>@debugCode</strong></span>
+            }
+        </MudAlert>
+
+        <MudForm OnValidSubmit="HandleMfa">
+            <MudTextField @bind-Value="MfaCode" Label="MFA Code" Required="true" For="@(() => MfaCode)" Immediate="true" />
+            <MudButton Type="ButtonType.Submit" Color="Color.Primary" Variant="Variant.Filled" Class="mt-4" Disabled="@mfaLoading" FullWidth="true">Verify</MudButton>
+        </MudForm>
+        <MudProgressLinear Indeterminate="true" Visible="@mfaLoading" Class="mt-3" />
+        @if (!string.IsNullOrEmpty(mfaError))
+        {
+            <MudAlert Severity="Severity.Error" Dense="true" Class="mt-3">@mfaError</MudAlert>
+        }
+        <MudButton Variant="Variant.Text" OnClick="ResendMfa" Disabled="@mfaLoading" Class="mt-2">Resend Code</MudButton>
+        <MudButton Variant="Variant.Text" Color="Color.Secondary" OnClick="RestartLogin" Disabled="@mfaLoading" Class="mt-2">Use different account</MudButton>
+    }
+</MudPaper>
+
+@code {
+    private MudForm? form;
+    private string Email = string.Empty;
+    private string Password = string.Empty;
+    private bool loading;
+    private string? error;
+    private bool mfaRequired;
+    private string MfaCode = string.Empty;
+    private bool mfaLoading;
+    private string? mfaError;
+    private string? mfaToken;
+    private string? deliveryHint;
+    private string? statusMessage;
+    private string? debugCode;
+
+    protected override void OnInitialized()
+    {
+        if (AppState.IsAuthenticated)
+        {
+            Navigation.NavigateTo(AppState.GetDefaultRoute(), true);
+        }
+    }
+
+    private async Task HandleLogin()
+    {
+        loading = true;
+        error = null;
+        statusMessage = null;
+
+        try
+        {
+            var result = await AuthService.LoginAsync(Email, Password);
+            if (result.RequiresMfa)
+            {
+                mfaRequired = true;
+                mfaToken = result.MfaToken;
+                deliveryHint = result.DeliveryHint ?? result.DeliveryChannel ?? "your registered factor";
+                statusMessage = result.DeliveryMessage;
+                debugCode = result.DebugCode;
+                MfaCode = string.Empty;
+                return;
+            }
+
+            Navigation.NavigateTo(AppState.GetDefaultRoute(), true);
+        }
+        catch (Exception ex)
+        {
+            error = ex.Message;
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    private async Task HandleMfa()
+    {
+        if (string.IsNullOrWhiteSpace(mfaToken))
+        {
+            mfaError = "Your verification session has expired. Please sign in again.";
+            mfaRequired = false;
+            return;
+        }
+
+        mfaLoading = true;
+        mfaError = null;
+
+        try
+        {
+            var result = await AuthService.VerifyMfaAsync(mfaToken, MfaCode);
+            if (!result)
+            {
+                mfaError = "The verification code was not accepted.";
+                return;
+            }
+
+            Navigation.NavigateTo(AppState.GetDefaultRoute(), true);
+        }
+        catch (Exception ex)
+        {
+            mfaError = ex.Message;
+        }
+        finally
+        {
+            mfaLoading = false;
+        }
+    }
+
+    private async Task ResendMfa()
+    {
+        if (string.IsNullOrWhiteSpace(mfaToken))
+        {
+            mfaError = "Your verification session has expired. Please sign in again.";
+            return;
+        }
+
+        mfaLoading = true;
+        mfaError = null;
+        statusMessage = null;
+
+        try
+        {
+            var result = await AuthService.ResendMfaAsync(mfaToken);
+            mfaToken = result.MfaToken ?? mfaToken;
+            deliveryHint = result.DeliveryHint ?? deliveryHint;
+            statusMessage = result.DeliveryMessage ?? "A fresh verification code has been sent.";
+            debugCode = result.DebugCode;
+        }
+        catch (Exception ex)
+        {
+            mfaError = ex.Message;
+        }
+        finally
+        {
+            mfaLoading = false;
+        }
+    }
+
+    private void RestartLogin()
+    {
+        mfaRequired = false;
+        mfaToken = null;
+        deliveryHint = null;
+        debugCode = null;
+        MfaCode = string.Empty;
+        statusMessage = null;
+        mfaError = null;
+    }
+}

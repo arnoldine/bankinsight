@@ -1,0 +1,180 @@
+@page "/dashboard"
+@layout CoreBanker.Layouts.MainLayout
+
+@inject CoreBanker.Services.DashboardService DashboardService
+@inject NavigationManager Navigation
+
+<MudStack Spacing="3">
+    <MudPaper Class="pa-4">
+        <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+            <div>
+                <MudText Typo="Typo.h4">Operational Overview</MudText>
+                <MudText Typo="Typo.body2" Class="mud-text-secondary">Live branch workspace across clients, accounts, loans, transactions, approvals, and audit activity.</MudText>
+            </div>
+            <MudButton Variant="Variant.Outlined" Color="Color.Secondary" OnClick="LoadDashboardAsync">Refresh</MudButton>
+        </MudStack>
+    </MudPaper>
+
+    @if (!string.IsNullOrWhiteSpace(_loadError))
+    {
+        <MudAlert Severity="Severity.Error">@_loadError</MudAlert>
+    }
+
+    <MudGrid>
+        <MudItem xs="12" sm="6" md="3">
+            <MudCard>
+                <MudCardContent>
+                    <MudText Typo="Typo.subtitle2">Active Clients</MudText>
+                    <MudText Typo="Typo.h5">@_snapshot.Kpis.ActiveClients</MudText>
+                </MudCardContent>
+            </MudCard>
+        </MudItem>
+        <MudItem xs="12" sm="6" md="3">
+            <MudCard>
+                <MudCardContent>
+                    <MudText Typo="Typo.subtitle2">Active Accounts</MudText>
+                    <MudText Typo="Typo.h5">@_snapshot.Kpis.ActiveAccounts</MudText>
+                </MudCardContent>
+            </MudCard>
+        </MudItem>
+        <MudItem xs="12" sm="6" md="3">
+            <MudCard>
+                <MudCardContent>
+                    <MudText Typo="Typo.subtitle2">Active Loans</MudText>
+                    <MudText Typo="Typo.h5">@_snapshot.Kpis.ActiveLoans</MudText>
+                </MudCardContent>
+            </MudCard>
+        </MudItem>
+        <MudItem xs="12" sm="6" md="3">
+            <MudCard>
+                <MudCardContent>
+                    <MudText Typo="Typo.subtitle2">Pending Approvals</MudText>
+                    <MudText Typo="Typo.h5">@_snapshot.Kpis.PendingApprovals</MudText>
+                </MudCardContent>
+            </MudCard>
+        </MudItem>
+        <MudItem xs="12" sm="6" md="3">
+            <MudCard>
+                <MudCardContent>
+                    <MudText Typo="Typo.subtitle2">Today's Transactions</MudText>
+                    <MudText Typo="Typo.h5">@_snapshot.Kpis.TransactionsToday</MudText>
+                    <MudText Typo="Typo.caption" Class="mud-text-secondary">@FormatAmount(_snapshot.Kpis.TransactionValueToday)</MudText>
+                </MudCardContent>
+            </MudCard>
+        </MudItem>
+        <MudItem xs="12" sm="6" md="3">
+            <MudCard>
+                <MudCardContent>
+                    <MudText Typo="Typo.subtitle2">Total Deposits</MudText>
+                    <MudText Typo="Typo.h5">@FormatAmount(_snapshot.Kpis.TotalDeposits)</MudText>
+                </MudCardContent>
+            </MudCard>
+        </MudItem>
+        <MudItem xs="12" sm="6" md="3">
+            <MudCard>
+                <MudCardContent>
+                    <MudText Typo="Typo.subtitle2">Audit Exceptions</MudText>
+                    <MudText Typo="Typo.h5">@_snapshot.Kpis.AuditExceptions</MudText>
+                </MudCardContent>
+            </MudCard>
+        </MudItem>
+    </MudGrid>
+
+    <MudGrid>
+        <MudItem xs="12" lg="7">
+            <MudPaper Class="pa-4">
+                <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+                    <MudText Typo="Typo.h6">Recent Transactions</MudText>
+                    <MudButton Variant="Variant.Text" Color="Color.Primary" OnClick="@(() => Navigation.NavigateTo("/transactions"))">Open Explorer</MudButton>
+                </MudStack>
+
+                <MudTable Items="@_snapshot.RecentTransactions" Hover="true" Dense="true" Loading="@_isLoading" Class="mt-2">
+                    <HeaderContent>
+                        <MudTh>Txn ID</MudTh>
+                        <MudTh>Account</MudTh>
+                        <MudTh>Type</MudTh>
+                        <MudTh>Amount</MudTh>
+                        <MudTh>Status</MudTh>
+                        <MudTh>Date</MudTh>
+                    </HeaderContent>
+                    <RowTemplate>
+                        <MudTd DataLabel="Txn ID">@context.Id</MudTd>
+                        <MudTd DataLabel="Account">@context.AccountId</MudTd>
+                        <MudTd DataLabel="Type">@context.Type</MudTd>
+                        <MudTd DataLabel="Amount">@FormatAmount(context.Amount)</MudTd>
+                        <MudTd DataLabel="Status">@context.Status</MudTd>
+                        <MudTd DataLabel="Date">@context.Date.ToLocalTime().ToString("dd MMM yyyy HH:mm")</MudTd>
+                    </RowTemplate>
+                </MudTable>
+            </MudPaper>
+        </MudItem>
+
+        <MudItem xs="12" lg="5">
+            <MudPaper Class="pa-4">
+                <MudText Typo="Typo.h6">Recent Audit Activity</MudText>
+
+                @if (_snapshot.RecentAuditLogs.Count == 0)
+                {
+                    <MudText Typo="Typo.body2" Class="mud-text-secondary mt-3">No audit activity available.</MudText>
+                }
+                else
+                {
+                    @foreach (var log in _snapshot.RecentAuditLogs)
+                    {
+                        <MudPaper Class="pa-3 mt-3">
+                            <MudText Typo="Typo.body2">@log.Action</MudText>
+                            <MudText Typo="Typo.caption" Class="mud-text-secondary">@log.User • @log.Module • @log.Date.ToLocalTime().ToString("dd MMM yyyy HH:mm")</MudText>
+                            <MudText Typo="Typo.body2" Class="mt-1">@log.Details</MudText>
+                        </MudPaper>
+                    }
+                }
+            </MudPaper>
+        </MudItem>
+    </MudGrid>
+
+    <MudPaper Class="pa-4">
+        <MudText Typo="Typo.h6">Guided Shortcuts</MudText>
+        <MudChipSet T="object" Class="mt-3">
+            <MudChip T="object" Color="Color.Primary" OnClick="@(() => Navigation.NavigateTo("/clients/onboard"))">Onboard Client</MudChip>
+            <MudChip T="object" Color="Color.Secondary" OnClick="@(() => Navigation.NavigateTo("/accounts"))">Open Account</MudChip>
+            <MudChip T="object" Color="Color.Info" OnClick="@(() => Navigation.NavigateTo("/loan-management"))">Loan Management</MudChip>
+            <MudChip T="object" Color="Color.Success" OnClick="@(() => Navigation.NavigateTo("/teller"))">Teller Terminal</MudChip>
+            <MudChip T="object" Color="Color.Warning" OnClick="@(() => Navigation.NavigateTo("/approvals"))">Approval Inbox</MudChip>
+        </MudChipSet>
+    </MudPaper>
+</MudStack>
+
+@code {
+    private CoreBanker.Services.DashboardSnapshot _snapshot = new();
+    private bool _isLoading;
+    private string _loadError = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadDashboardAsync();
+    }
+
+    private async Task LoadDashboardAsync()
+    {
+        _isLoading = true;
+        _loadError = string.Empty;
+
+        try
+        {
+            _snapshot = await DashboardService.GetDashboardSnapshotAsync();
+        }
+        catch (CoreBanker.Services.ApiClientException ex)
+        {
+            _loadError = ex.Message;
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private static string FormatAmount(decimal amount)
+    {
+        return amount.ToString("C", System.Globalization.CultureInfo.GetCultureInfo("en-GH"));
+    }
+}

@@ -1,0 +1,56 @@
+@page "/loans"
+@layout CoreBanker.Layouts.MainLayout
+
+@inject CoreBanker.Services.LoanService LoanService
+
+<MudText Typo="Typo.h4" Class="mb-4">Loan Portfolio</MudText>
+
+<MudPaper Class="pa-4 mb-4">
+	<MudGrid>
+		<MudItem xs="12" sm="6">
+			<MudTextField @bind-Value="searchTerm" Label="Search by client or product" Variant="Variant.Outlined" />
+		</MudItem>
+		<MudItem xs="12" sm="3">
+			<MudSelect @bind-Value="statusFilter" Label="Status" Variant="Variant.Outlined">
+				<MudSelectItem Value="@string.Empty">All</MudSelectItem>
+				<MudSelectItem Value="@("Active")">Active</MudSelectItem>
+				<MudSelectItem Value="@("Pending")">Pending</MudSelectItem>
+				<MudSelectItem Value="@("Closed")">Closed</MudSelectItem>
+			</MudSelect>
+		</MudItem>
+	</MudGrid>
+</MudPaper>
+
+<MudTable Items="@FilteredLoans" Hover="true" Dense="true">
+	<HeaderContent>
+		<MudTh>Loan ID</MudTh>
+		<MudTh>Client</MudTh>
+		<MudTh>Product</MudTh>
+		<MudTh>Principal</MudTh>
+		<MudTh>Outstanding</MudTh>
+		<MudTh>Status</MudTh>
+	</HeaderContent>
+	<RowTemplate>
+		<MudTd DataLabel="Loan ID">@context.Id</MudTd>
+		<MudTd DataLabel="Client">@context.ClientName</MudTd>
+		<MudTd DataLabel="Product">@context.Product</MudTd>
+		<MudTd DataLabel="Principal">@context.Principal.ToString("C")</MudTd>
+		<MudTd DataLabel="Outstanding">@context.Outstanding.ToString("C")</MudTd>
+		<MudTd DataLabel="Status">@context.Status</MudTd>
+	</RowTemplate>
+</MudTable>
+
+@code {
+	private List<CoreBanker.Services.LoanDto> Loans = new();
+	private string searchTerm = string.Empty;
+	private string statusFilter = string.Empty;
+
+	protected override async Task OnInitializedAsync()
+	{
+		Loans = await LoanService.GetLoansAsync();
+	}
+
+	private IEnumerable<CoreBanker.Services.LoanDto> FilteredLoans =>
+		Loans.Where(l => (string.IsNullOrWhiteSpace(searchTerm) || l.ClientName.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) || l.Product.Contains(searchTerm, StringComparison.OrdinalIgnoreCase))
+			&& (string.IsNullOrWhiteSpace(statusFilter) || l.Status == statusFilter));
+}

@@ -34,5 +34,6 @@ payload.json
 *.njsproj
 *.sln
 !bankinsight.sln
+!CoreBankerWeb/CoreBankerWeb.sln
 BankInsight.API.zip
 *.sw?

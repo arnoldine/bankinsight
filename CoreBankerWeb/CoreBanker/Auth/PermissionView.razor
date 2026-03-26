@@ -1,0 +1,13 @@
+@typeparam TPermission
+@if (HasPermission)
+{
+    @ChildContent
+}
+
+@code {
+    [Parameter] public TPermission? Permission { get; set; }
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+    [Inject] public CoreBanker.Auth.IAuthStateProvider AuthStateProvider { get; set; } = default!;
+
+    private bool HasPermission => AuthStateProvider.HasPermission(Permission?.ToString() ?? string.Empty);
+}

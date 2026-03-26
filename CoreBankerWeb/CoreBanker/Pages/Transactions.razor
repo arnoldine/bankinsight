@@ -1,0 +1,224 @@
+@page "/transactions"
+@layout CoreBanker.Layouts.MainLayout
+
+@inject CoreBanker.Services.TransactionService TransactionService
+@inject CoreBanker.Services.AccountService AccountService
+@inject CoreBanker.Services.ClientService ClientService
+
+<MudStack Spacing="3">
+    <MudPaper Class="pa-4">
+        <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+            <div>
+                <MudText Typo="Typo.h4">Transaction Explorer</MudText>
+                <MudText Typo="Typo.body2" Class="mud-text-secondary">Review posted activity with account and customer context from the live banking API.</MudText>
+            </div>
+            <MudButton Variant="Variant.Outlined" Color="Color.Secondary" OnClick="LoadWorkspaceAsync">Refresh</MudButton>
+        </MudStack>
+    </MudPaper>
+
+    <MudGrid>
+        <MudItem xs="12" sm="6" md="3">
+            <MudCard><MudCardContent><MudText Typo="Typo.subtitle2">Transactions</MudText><MudText Typo="Typo.h5">@FilteredTransactions.Count()</MudText></MudCardContent></MudCard>
+        </MudItem>
+        <MudItem xs="12" sm="6" md="3">
+            <MudCard><MudCardContent><MudText Typo="Typo.subtitle2">Posted Value</MudText><MudText Typo="Typo.h5">@FormatAmount(FilteredTransactions.Where(t => t.Status == "POSTED").Sum(t => t.Amount))</MudText></MudCardContent></MudCard>
+        </MudItem>
+        <MudItem xs="12" sm="6" md="3">
+            <MudCard><MudCardContent><MudText Typo="Typo.subtitle2">Deposits</MudText><MudText Typo="Typo.h5">@FilteredTransactions.Count(t => t.Type == "DEPOSIT")</MudText></MudCardContent></MudCard>
+        </MudItem>
+        <MudItem xs="12" sm="6" md="3">
+            <MudCard><MudCardContent><MudText Typo="Typo.subtitle2">Withdrawals</MudText><MudText Typo="Typo.h5">@FilteredTransactions.Count(t => t.Type == "WITHDRAWAL")</MudText></MudCardContent></MudCard>
+        </MudItem>
+    </MudGrid>
+
+    <MudPaper Class="pa-4">
+        <MudGrid>
+            <MudItem xs="12" md="5">
+                <MudTextField @bind-Value="_searchTerm" Label="Search by account, customer, reference, or type" Variant="Variant.Outlined" Immediate="true" />
+            </MudItem>
+            <MudItem xs="12" md="3">
+                <MudSelect @bind-Value="_statusFilter" Label="Status" Variant="Variant.Outlined">
+                    <MudSelectItem Value="@string.Empty">All</MudSelectItem>
+                    <MudSelectItem Value="@("POSTED")">Posted</MudSelectItem>
+                    <MudSelectItem Value="@("PENDING")">Pending</MudSelectItem>
+                    <MudSelectItem Value="@("FAILED")">Failed</MudSelectItem>
+                </MudSelect>
+            </MudItem>
+            <MudItem xs="12" md="4">
+                <MudSelect @bind-Value="_accountFilter" Label="Account" Variant="Variant.Outlined">
+                    <MudSelectItem Value="@string.Empty">All accounts</MudSelectItem>
+                    @foreach (var account in _accounts.OrderBy(account => account.Id))
+                    {
+                        <MudSelectItem Value="@account.Id">@($"{account.Id} • {GetCustomerName(account.CustomerId)}")</MudSelectItem>
+                    }
+                </MudSelect>
+            </MudItem>
+        </MudGrid>
+    </MudPaper>
+
+    @if (!string.IsNullOrWhiteSpace(_loadError))
+    {
+        <MudAlert Severity="Severity.Error">@_loadError</MudAlert>
+    }
+
+    <MudTabs @bind-ActivePanelIndex="_tabIndex" Rounded="true">
+        <MudTabPanel Text="Recent">
+            <MudTable Items="@RecentTransactions" Hover="true" Dense="true" Loading="@_isLoading">
+                <HeaderContent>
+                    <MudTh>Txn ID</MudTh>
+                    <MudTh>Account / Customer</MudTh>
+                    <MudTh>Type</MudTh>
+                    <MudTh>Amount</MudTh>
+                    <MudTh>Reference</MudTh>
+                    <MudTh>Status</MudTh>
+                    <MudTh>Date</MudTh>
+                </HeaderContent>
+                <RowTemplate>
+                    <MudTd DataLabel="Txn ID">@context.Id</MudTd>
+                    <MudTd DataLabel="Account / Customer">
+                        <MudText Typo="Typo.body2">@context.AccountId</MudText>
+                        <MudText Typo="Typo.caption" Class="mud-text-secondary">@GetCustomerNameForTransaction(context.AccountId)</MudText>
+                    </MudTd>
+                    <MudTd DataLabel="Type">@context.Type</MudTd>
+                    <MudTd DataLabel="Amount">@FormatAmount(context.Amount, CurrencyFor(context.AccountId))</MudTd>
+                    <MudTd DataLabel="Reference">@DisplayValue(context.Reference)</MudTd>
+                    <MudTd DataLabel="Status">@context.Status</MudTd>
+                    <MudTd DataLabel="Date">@context.Date.ToLocalTime().ToString("dd MMM yyyy HH:mm")</MudTd>
+                </RowTemplate>
+            </MudTable>
+        </MudTabPanel>
+        <MudTabPanel Text="Posted">
+            <MudTable Items="@PostedTransactions" Hover="true" Dense="true">
+                <HeaderContent>
+                    <MudTh>Txn ID</MudTh>
+                    <MudTh>Account</MudTh>
+                    <MudTh>Type</MudTh>
+                    <MudTh>Amount</MudTh>
+                    <MudTh>Narration</MudTh>
+                    <MudTh>Date</MudTh>
+                </HeaderContent>
+                <RowTemplate>
+                    <MudTd DataLabel="Txn ID">@context.Id</MudTd>
+                    <MudTd DataLabel="Account">@context.AccountId</MudTd>
+                    <MudTd DataLabel="Type">@context.Type</MudTd>
+                    <MudTd DataLabel="Amount">@FormatAmount(context.Amount, CurrencyFor(context.AccountId))</MudTd>
+                    <MudTd DataLabel="Narration">@DisplayValue(context.Narration)</MudTd>
+                    <MudTd DataLabel="Date">@context.Date.ToLocalTime().ToString("dd MMM yyyy HH:mm")</MudTd>
+                </RowTemplate>
+            </MudTable>
+        </MudTabPanel>
+        <MudTabPanel Text="Exceptions">
+            <MudTable Items="@ExceptionTransactions" Hover="true" Dense="true">
+                <HeaderContent>
+                    <MudTh>Txn ID</MudTh>
+                    <MudTh>Account</MudTh>
+                    <MudTh>Status</MudTh>
+                    <MudTh>Reference</MudTh>
+                    <MudTh>Date</MudTh>
+                </HeaderContent>
+                <RowTemplate>
+                    <MudTd DataLabel="Txn ID">@context.Id</MudTd>
+                    <MudTd DataLabel="Account">@context.AccountId</MudTd>
+                    <MudTd DataLabel="Status">@context.Status</MudTd>
+                    <MudTd DataLabel="Reference">@DisplayValue(context.Reference)</MudTd>
+                    <MudTd DataLabel="Date">@context.Date.ToLocalTime().ToString("dd MMM yyyy HH:mm")</MudTd>
+                </RowTemplate>
+            </MudTable>
+        </MudTabPanel>
+    </MudTabs>
+</MudStack>
+
+@code {
+    private List<CoreBanker.Services.TransactionDto> _transactions = new();
+    private List<CoreBanker.Services.AccountDto> _accounts = new();
+    private List<CoreBanker.Services.ClientDto> _clients = new();
+    private string _searchTerm = string.Empty;
+    private string _statusFilter = string.Empty;
+    private string _accountFilter = string.Empty;
+    private string _loadError = string.Empty;
+    private bool _isLoading;
+    private int _tabIndex;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadWorkspaceAsync();
+    }
+
+    private async Task LoadWorkspaceAsync()
+    {
+        _isLoading = true;
+        _loadError = string.Empty;
+
+        try
+        {
+            var transactionsTask = TransactionService.GetTransactionsAsync();
+            var accountsTask = AccountService.GetAccountsAsync();
+            var clientsTask = ClientService.GetClientsAsync();
+
+            await Task.WhenAll(transactionsTask, accountsTask, clientsTask);
+
+            _transactions = transactionsTask.Result;
+            _accounts = accountsTask.Result;
+            _clients = clientsTask.Result;
+        }
+        catch (CoreBanker.Services.ApiClientException ex)
+        {
+            _loadError = ex.Message;
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private IEnumerable<CoreBanker.Services.TransactionDto> FilteredTransactions =>
+        _transactions.Where(transaction =>
+            (string.IsNullOrWhiteSpace(_searchTerm)
+             || transaction.AccountId.Contains(_searchTerm, StringComparison.OrdinalIgnoreCase)
+             || transaction.Type.Contains(_searchTerm, StringComparison.OrdinalIgnoreCase)
+             || transaction.Reference.Contains(_searchTerm, StringComparison.OrdinalIgnoreCase)
+             || GetCustomerNameForTransaction(transaction.AccountId).Contains(_searchTerm, StringComparison.OrdinalIgnoreCase))
+            && (string.IsNullOrWhiteSpace(_statusFilter) || string.Equals(transaction.Status, _statusFilter, StringComparison.OrdinalIgnoreCase))
+            && (string.IsNullOrWhiteSpace(_accountFilter) || string.Equals(transaction.AccountId, _accountFilter, StringComparison.OrdinalIgnoreCase)));
+
+    private IEnumerable<CoreBanker.Services.TransactionDto> RecentTransactions =>
+        FilteredTransactions.OrderByDescending(transaction => transaction.Date).Take(20);
+
+    private IEnumerable<CoreBanker.Services.TransactionDto> PostedTransactions =>
+        FilteredTransactions.Where(transaction => transaction.Status == "POSTED").OrderByDescending(transaction => transaction.Date);
+
+    private IEnumerable<CoreBanker.Services.TransactionDto> ExceptionTransactions =>
+        FilteredTransactions.Where(transaction => transaction.Status != "POSTED").OrderByDescending(transaction => transaction.Date);
+
+    private string GetCustomerNameForTransaction(string accountId)
+    {
+        var customerId = _accounts.FirstOrDefault(account => account.Id == accountId)?.CustomerId;
+        return GetCustomerName(customerId);
+    }
+
+    private string GetCustomerName(string? customerId)
+    {
+        if (string.IsNullOrWhiteSpace(customerId))
+        {
+            return "Unknown customer";
+        }
+
+        return _clients.FirstOrDefault(client => client.Id == customerId)?.Name ?? customerId;
+    }
+
+    private string CurrencyFor(string accountId)
+    {
+        return _accounts.FirstOrDefault(account => account.Id == accountId)?.Currency ?? "GHS";
+    }
+
+    private static string DisplayValue(string value)
+    {
+        return string.IsNullOrWhiteSpace(value) ? "Not provided" : value;
+    }
+
+    private static string FormatAmount(decimal amount, string currency = "GHS")
+    {
+        var culture = currency == "USD" ? System.Globalization.CultureInfo.GetCultureInfo("en-US") : System.Globalization.CultureInfo.GetCultureInfo("en-GH");
+        return string.Format(culture, "{0:C}", amount);
+    }
+}

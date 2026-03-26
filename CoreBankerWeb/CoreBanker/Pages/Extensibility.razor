@@ -1,0 +1,119 @@
+@page "/extensibility"
+@layout CoreBanker.Layouts.MainLayout
+
+<MudText Typo="Typo.h4">Extensibility / Dynamic Forms</MudText>
+
+<MudPaper Class="pa-4">
+	<MudTextField @bind-Value="_formId" Label="Form ID" Variant="Variant.Outlined" />
+	<MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="LoadForm">Load Form</MudButton>
+	<MudDivider Class="my-2" />
+	@if (_schema != null)
+	{
+		<MudText Typo="Typo.h6">@_schema.Title</MudText>
+		<MudForm @ref="_form" OnValidSubmit="SubmitForm">
+			@foreach (var field in _schema.Fields ?? new List<CoreBanker.Services.DynamicFormFieldDto>())
+			{
+				@RenderField(field)
+			}
+			<MudButton Type="Submit" Variant="Variant.Filled" Color="Color.Primary">Submit</MudButton>
+		</MudForm>
+	}
+	@if (_submitResult != null)
+	{
+		<MudAlert Severity="@(_submitResult.Value ? Severity.Success : Severity.Error)">@(_submitResult.Value ? "Form submitted successfully." : "Form submission failed.")</MudAlert>
+	}
+</MudPaper>
+
+@code {
+	[Inject] private CoreBanker.Services.ExtensibilityService? ExtensibilityService { get; set; }
+	[Inject] private ISnackbar? Snackbar { get; set; }
+
+	private string _formId = string.Empty;
+	private CoreBanker.Services.DynamicFormSchemaDto? _schema;
+	private Dictionary<string, object> _values = new();
+	private MudForm? _form;
+	private bool? _submitResult;
+
+	private async Task LoadForm()
+	{
+		if (ExtensibilityService != null && !string.IsNullOrWhiteSpace(_formId))
+		{
+			_schema = await ExtensibilityService.GetFormSchemaAsync(_formId);
+			_values = new();
+			StateHasChanged();
+		}
+	}
+
+	private async Task SubmitForm()
+	{
+		if (_form != null)
+		{
+			await _form.ValidateAsync();
+			if (_form.IsValid && ExtensibilityService != null && _schema != null)
+			{
+				var result = await ExtensibilityService.SubmitFormAsync(_schema.Id ?? string.Empty, _values);
+				_submitResult = result;
+				if (Snackbar != null)
+				{
+					Snackbar.Add(result ? "Form submitted successfully." : "Form submission failed.", result ? Severity.Success : Severity.Error);
+				}
+			}
+		}
+	}
+
+	private RenderFragment RenderField(CoreBanker.Services.DynamicFormFieldDto field) => builder =>
+	{
+		int seq = 0;
+		switch (field.Type)
+		{
+			case "text":
+				builder.OpenComponent<MudTextField<string>>(seq++);
+				builder.AddAttribute(seq++, "Label", field.Label);
+				builder.AddAttribute(seq++, "Required", field.Required);
+				builder.AddAttribute(seq++, "Value", _values.ContainsKey(field.Name ?? "") ? _values[field.Name ?? ""] as string : string.Empty);
+				builder.AddAttribute(seq++, "ValueChanged", EventCallback.Factory.Create<string>(this, v => _values[field.Name ?? ""] = v));
+				builder.CloseComponent();
+				break;
+			case "number":
+				builder.OpenComponent<MudNumericField<decimal>>(seq++);
+				builder.AddAttribute(seq++, "Label", field.Label);
+				builder.AddAttribute(seq++, "Required", field.Required);
+				builder.AddAttribute(seq++, "Value", _values.TryGetValue(field.Name ?? string.Empty, out var numberValue) && numberValue is decimal decimalValue ? decimalValue : 0m);
+				builder.AddAttribute(seq++, "ValueChanged", EventCallback.Factory.Create<decimal?>(this, v => _values[field.Name ?? ""] = v ?? 0));
+				builder.CloseComponent();
+				break;
+			case "date":
+				builder.OpenComponent<MudDatePicker>(seq++);
+				builder.AddAttribute(seq++, "Label", field.Label);
+				builder.AddAttribute(seq++, "Required", field.Required);
+				builder.AddAttribute(seq++, "Date", _values.ContainsKey(field.Name ?? "") ? _values[field.Name ?? ""] : null);
+				builder.AddAttribute(seq++, "DateChanged", EventCallback.Factory.Create<DateTime?>(this, v => _values[field.Name ?? ""] = v));
+				builder.CloseComponent();
+				break;
+			case "select":
+				builder.OpenComponent<MudSelect<string>>(seq++);
+				builder.AddAttribute(seq++, "Label", field.Label);
+				builder.AddAttribute(seq++, "Required", field.Required);
+				builder.AddAttribute(seq++, "Value", _values.ContainsKey(field.Name ?? "") ? _values[field.Name ?? ""] as string : string.Empty);
+				builder.AddAttribute(seq++, "ValueChanged", EventCallback.Factory.Create<string>(this, v => _values[field.Name ?? ""] = v));
+				builder.AddAttribute(seq++, "ChildContent", (RenderFragment)(childBuilder =>
+				{
+					int childSeq = 0;
+					foreach (var opt in field.Options ?? new List<string>())
+					{
+						childBuilder.OpenComponent<MudSelectItem<string>>(childSeq++);
+						childBuilder.AddAttribute(childSeq++, "Value", opt);
+						childBuilder.AddAttribute(childSeq++, "ChildContent", (RenderFragment)(optBuilder => optBuilder.AddContent(0, opt)));
+						childBuilder.CloseComponent();
+					}
+				}));
+				builder.CloseComponent();
+				break;
+			default:
+				builder.OpenElement(seq++, "div");
+				builder.AddContent(seq++, $"Unsupported field type: {field.Type}");
+				builder.CloseElement();
+				break;
+		}
+	};
+}

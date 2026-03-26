@@ -1,0 +1,124 @@
+@inherits LayoutComponentBase
+@implements IDisposable
+@inject CoreBanker.Auth.IAuthStateProvider AuthStateProvider
+@inject CoreBanker.Auth.AuthService AuthService
+@inject CoreBanker.State.AppState AppState
+@inject NavigationManager Navigation
+
+<MudThemeProvider />
+<MudDialogProvider />
+<MudSnackbarProvider />
+
+<MudLayout>
+    <MudAppBar Color="Color.Primary" Elevation="1">
+        <MudIconButton Icon="@Icons.Material.Filled.Menu" Color="Color.Inherit" Edge="Edge.Start" OnClick="ToggleDrawer" Class="mr-2" />
+        <div class="d-flex flex-column">
+            <MudText Typo="Typo.h6">CoreBanker</MudText>
+            <MudText Typo="Typo.caption">Connected operational workspace</MudText>
+        </div>
+        <MudSpacer />
+        <div class="d-none d-md-flex align-center ga-2">
+            <MudChip T="string" Color="Color.Success" Variant="Variant.Outlined">Secure session</MudChip>
+            <MudChip T="string" Color="Color.Info" Variant="Variant.Outlined">@DateTime.Now.ToString("ddd, dd MMM yyyy")</MudChip>
+        </div>
+        <MudMenu Icon="@Icons.Material.Filled.AccountCircle" Color="Color.Inherit" AnchorOrigin="Origin.BottomCenter" TransformOrigin="Origin.TopCenter">
+            <ActivatorContent>
+                <MudButton Variant="Variant.Text" Color="Color.Inherit">
+                    @AuthStateProvider.UserName
+                </MudButton>
+            </ActivatorContent>
+            <ChildContent>
+                <MudText Class="px-4 pt-2" Typo="Typo.subtitle2">@AuthStateProvider.UserRole</MudText>
+                <MudText Class="px-4 pb-2" Typo="Typo.caption">@AuthStateProvider.UserEmail</MudText>
+                <MudDivider />
+                <MudMenuItem OnClick="HandleLogout">Logout</MudMenuItem>
+            </ChildContent>
+        </MudMenu>
+    </MudAppBar>
+
+    <MudDrawer @bind-Open="_drawerOpen" ClipMode="DrawerClipMode.Always" Elevation="1" Variant="DrawerVariant.Responsive">
+        <MudStack Class="pa-4" Spacing="2">
+            <div>
+                <MudText Typo="Typo.overline">Workspace</MudText>
+                <MudText Typo="Typo.h6">@AuthStateProvider.UserRole</MudText>
+                <MudText Typo="Typo.caption">@AuthStateProvider.UserEmail</MudText>
+            </div>
+            <CoreBanker.Components.Shared.AppNavMenu />
+        </MudStack>
+    </MudDrawer>
+
+    <MudMainContent>
+        <MudContainer MaxWidth="MaxWidth.False" Class="pa-4 corebanker-shell">
+            <MudPaper Class="pa-5 mb-4 corebanker-hero" Elevation="0">
+                <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Start" Class="flex-wrap">
+                    <div>
+                        <MudText Typo="Typo.overline">@CurrentSectionLabel</MudText>
+                        <MudText Typo="Typo.h4">@CurrentTitle</MudText>
+                        <MudText Typo="Typo.body1" Class="mt-1">@CurrentSubtitle</MudText>
+                    </div>
+                    <MudStack Row="true" Spacing="1" Class="mt-2 mt-md-0">
+                        @foreach (var shortcut in ShortcutRoutes)
+                        {
+                            <MudButton Variant="Variant.Outlined" Color="Color.Default" StartIcon="@shortcut.Icon" OnClick="@(() => NavigateTo(shortcut.Route))">
+                                @shortcut.Title
+                            </MudButton>
+                        }
+                    </MudStack>
+                </MudStack>
+            </MudPaper>
+
+            @Body
+        </MudContainer>
+    </MudMainContent>
+</MudLayout>
+
+@code {
+    private bool _drawerOpen = true;
+
+    private CoreBanker.Navigation.AppRouteDefinition? CurrentRoute =>
+        CoreBanker.Navigation.AppRouteRegistry.GetByUri(Navigation.Uri);
+
+    private string CurrentTitle => CurrentRoute?.Title ?? "CoreBanker Workspace";
+    private string CurrentSubtitle => CurrentRoute?.Subtitle ?? "Operate the banking platform through a role-aware workspace shell.";
+    private string CurrentSectionLabel => CurrentRoute?.Group ?? "Workspace";
+    private IReadOnlyList<CoreBanker.Navigation.AppRouteDefinition> ShortcutRoutes =>
+        CoreBanker.Navigation.AppRouteRegistry.GetShortcutRoutes(AuthStateProvider.Permissions);
+
+    protected override void OnInitialized()
+    {
+        AppState.Changed += OnAppStateChanged;
+        Navigation.LocationChanged += OnLocationChanged;
+    }
+
+    private void ToggleDrawer()
+    {
+        _drawerOpen = !_drawerOpen;
+    }
+
+    private void NavigateTo(string route)
+    {
+        Navigation.NavigateTo(route);
+    }
+
+    private async Task HandleLogout()
+    {
+        await AuthService.LogoutAsync();
+        Navigation.NavigateTo("/login", true);
+    }
+
+    private void OnAppStateChanged()
+    {
+        InvokeAsync(StateHasChanged);
+    }
+
+    private void OnLocationChanged(object? sender, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs e)
+    {
+        InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose()
+    {
+        AppState.Changed -= OnAppStateChanged;
+        Navigation.LocationChanged -= OnLocationChanged;
+    }
+}

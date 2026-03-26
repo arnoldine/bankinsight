@@ -1,0 +1,14 @@
+﻿@inherits LayoutComponentBase
+<MudThemeProvider>
+    <MudLayout>
+        <MudAppBar Color="Color.Primary" Elevation="4">
+            <MudText Typo="Typo.h6">CoreBanker</MudText>
+        </MudAppBar>
+        <MudDrawer Open="true" ClipMode="DrawerClipMode.Always" Variant="DrawerVariant.Temporary">
+            <NavMenu />
+        </MudDrawer>
+        <MudMainContent>
+            @Body
+        </MudMainContent>
+    </MudLayout>
+</MudThemeProvider>

@@ -1,0 +1,116 @@
+@page "/reporting"
+@layout CoreBanker.Layouts.MainLayout
+
+<MudText Typo="Typo.h4">Reporting</MudText>
+
+<MudPaper Class="pa-4">
+	<MudTextField @bind-Value="_search" Label="Search reports..." Variant="Variant.Outlined" Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search" Immediate="true" />
+	<MudTable T="CoreBanker.Services.ReportCatalogItemDto" Items="@FilteredCatalog" Hover="true" Dense="true">
+		<HeaderContent>
+			<MudTh>Name</MudTh>
+			<MudTh>Category</MudTh>
+			<MudTh>Description</MudTh>
+			<MudTh></MudTh>
+		</HeaderContent>
+		<RowTemplate>
+			<MudTd DataLabel="Name">@context.Name</MudTd>
+			<MudTd DataLabel="Category">@context.Category</MudTd>
+			<MudTd DataLabel="Description">@context.Description</MudTd>
+			<MudTd>
+				<MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="@(() => SelectReport(context))">Preview</MudButton>
+			</MudTd>
+		</RowTemplate>
+	</MudTable>
+</MudPaper>
+
+<MudDialog @bind-IsOpen="_previewOpen" MaxWidth="MaxWidth.ExtraLarge">
+	<DialogContent>
+		<MudText Typo="Typo.h6">@_selectedReport?.Name</MudText>
+		<MudText Typo="Typo.subtitle2">@_selectedReport?.Description</MudText>
+		<MudDivider Class="my-2" />
+		@if (_reportResult != null && _reportResult.Columns != null && _reportResult.Rows != null)
+		{
+			<div class="overflow-auto">
+				<table class="mud-table-root w-100">
+					<thead>
+						<tr>
+							@foreach (var column in _reportResult.Columns)
+							{
+								<th class="pa-2 text-left">@column</th>
+							}
+						</tr>
+					</thead>
+					<tbody>
+						@foreach (var row in _reportResult.Rows)
+						{
+							<tr>
+								@foreach (var cell in row)
+								{
+									<td class="pa-2">@cell</td>
+								}
+							</tr>
+						}
+					</tbody>
+				</table>
+			</div>
+			<MudDivider Class="my-2" />
+			@if (!string.IsNullOrEmpty(_reportResult.ExportUrl))
+			{
+				<MudButton Variant="Variant.Filled" Color="Color.Secondary" Href="@_reportResult.ExportUrl" Target="_blank">Export</MudButton>
+			}
+		}
+		else if (_loadingPreview)
+		{
+			<MudProgressCircular Indeterminate="true" />
+		}
+		else
+		{
+			<MudText>No preview available.</MudText>
+		}
+	</DialogContent>
+	<DialogActions>
+		<MudButton OnClick="@(() => _previewOpen = false)">Close</MudButton>
+	</DialogActions>
+</MudDialog>
+
+@code {
+	[Inject] private CoreBanker.Services.ReportingService? ReportingService { get; set; }
+
+	private List<CoreBanker.Services.ReportCatalogItemDto> _catalog = new();
+	private string _search = string.Empty;
+	private CoreBanker.Services.ReportCatalogItemDto? _selectedReport;
+	private CoreBanker.Services.ReportResultDto? _reportResult;
+	private bool _previewOpen;
+	private bool _loadingPreview;
+
+	private IEnumerable<CoreBanker.Services.ReportCatalogItemDto> FilteredCatalog =>
+		string.IsNullOrWhiteSpace(_search)
+			? _catalog
+			: _catalog.Where(r =>
+				(r.Name ?? string.Empty).Contains(_search, StringComparison.OrdinalIgnoreCase) ||
+				(r.Description ?? string.Empty).Contains(_search, StringComparison.OrdinalIgnoreCase) ||
+				(r.Category ?? string.Empty).Contains(_search, StringComparison.OrdinalIgnoreCase));
+
+	protected override async Task OnInitializedAsync()
+	{
+		if (ReportingService != null)
+		{
+			_catalog = await ReportingService.GetReportCatalogAsync();
+		}
+	}
+
+	private async Task SelectReport(CoreBanker.Services.ReportCatalogItemDto report)
+	{
+		_selectedReport = report;
+		_previewOpen = true;
+		_loadingPreview = true;
+		_reportResult = null;
+		StateHasChanged();
+		if (ReportingService != null && report.Id != null)
+		{
+			_reportResult = await ReportingService.RunReportAsync(report.Id, new Dictionary<string, object>());
+		}
+		_loadingPreview = false;
+		StateHasChanged();
+	}
+}

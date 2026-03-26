@@ -1,0 +1,214 @@
+@page "/teller"
+@layout CoreBanker.Layouts.MainLayout
+
+@inject CoreBanker.Services.TellerService TellerService
+@inject CoreBanker.Services.AccountService AccountService
+@inject CoreBanker.Services.TransactionService TransactionService
+@inject CoreBanker.State.AppState AppState
+
+<MudGrid>
+    <MudItem xs="12" xl="5">
+        <MudStack Spacing="3">
+            <MudPaper Class="pa-4">
+                <MudText Typo="Typo.h4">Teller Terminal</MudText>
+                <MudText Typo="Typo.body2" Class="mud-text-secondary">Post live cash transactions and immediately refresh balances and recent activity.</MudText>
+            </MudPaper>
+
+            <MudPaper Class="pa-4">
+                <MudForm @ref="_form" OnValidSubmit="PostTransactionAsync">
+                    <MudSelect @bind-Value="_request.AccountId" @bind-Value:after="SyncSelectedAccount" Label="Account" Required="true" Variant="Variant.Outlined">
+                        @foreach (var account in _accounts.OrderBy(account => account.Id))
+                        {
+                            <MudSelectItem Value="@account.Id">@($"{account.Id} • {account.CustomerId} • {FormatAmount(account.AvailableBalance, account.Currency)}")</MudSelectItem>
+                        }
+                    </MudSelect>
+                    <MudSelect @bind-Value="_request.Type" Label="Transaction type" Required="true" Variant="Variant.Outlined" Class="mt-3">
+                        <MudSelectItem Value="@("DEPOSIT")">Deposit</MudSelectItem>
+                        <MudSelectItem Value="@("WITHDRAWAL")">Withdrawal</MudSelectItem>
+                        <MudSelectItem Value="@("TRANSFER")">Transfer</MudSelectItem>
+                        <MudSelectItem Value="@("LOAN_REPAYMENT")">Loan Repayment</MudSelectItem>
+                    </MudSelect>
+                    <MudNumericField T="decimal" @bind-Value="_request.Amount" Label="Amount" Required="true" Variant="Variant.Outlined" Class="mt-3" Min="0.01m" />
+                    <MudTextField @bind-Value="_request.Narration" Label="Narration" Variant="Variant.Outlined" Class="mt-3" />
+                    <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary" Class="mt-4" Disabled="@_isPosting">Post Transaction</MudButton>
+                </MudForm>
+
+                @if (!string.IsNullOrWhiteSpace(_message))
+                {
+                    <MudAlert Severity="@(_isSuccess ? Severity.Success : Severity.Error)" Class="mt-4">@_message</MudAlert>
+                }
+            </MudPaper>
+
+            @if (_selectedAccount is not null)
+            {
+                <MudPaper Class="pa-4">
+                    <MudText Typo="Typo.subtitle1">Selected Account Snapshot</MudText>
+                    <MudText Typo="Typo.body2">Account: @_selectedAccount.Id</MudText>
+                    <MudText Typo="Typo.body2">Customer: @_selectedAccount.CustomerId</MudText>
+                    <MudText Typo="Typo.body2">Status: @_selectedAccount.Status</MudText>
+                    <MudText Typo="Typo.body2">Balance: @FormatAmount(_selectedAccount.Balance, _selectedAccount.Currency)</MudText>
+                    <MudText Typo="Typo.body2">Available: @FormatAmount(_selectedAccount.AvailableBalance, _selectedAccount.Currency)</MudText>
+                    <MudText Typo="Typo.body2">Last Transaction: @DisplayDate(_selectedAccount.LastTransDate)</MudText>
+                </MudPaper>
+            }
+        </MudStack>
+    </MudItem>
+
+    <MudItem xs="12" xl="7">
+        <MudStack Spacing="3">
+            <MudPaper Class="pa-4">
+                <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+                    <div>
+                        <MudText Typo="Typo.h5">Recent Transactions</MudText>
+                        <MudText Typo="Typo.body2" Class="mud-text-secondary">Latest posted transaction activity, filtered to the selected account when one is chosen.</MudText>
+                    </div>
+                    <MudButton Variant="Variant.Outlined" Color="Color.Secondary" OnClick="LoadWorkspaceAsync">Refresh</MudButton>
+                </MudStack>
+            </MudPaper>
+
+            @if (!string.IsNullOrWhiteSpace(_loadError))
+            {
+                <MudAlert Severity="Severity.Error">@_loadError</MudAlert>
+            }
+
+            <MudTable Items="@VisibleTransactions" Hover="true" Dense="true" Loading="@_isLoading">
+                <HeaderContent>
+                    <MudTh>Txn ID</MudTh>
+                    <MudTh>Account</MudTh>
+                    <MudTh>Type</MudTh>
+                    <MudTh>Amount</MudTh>
+                    <MudTh>Status</MudTh>
+                    <MudTh>Date</MudTh>
+                </HeaderContent>
+                <RowTemplate>
+                    <MudTd DataLabel="Txn ID">@context.Id</MudTd>
+                    <MudTd DataLabel="Account">@context.AccountId</MudTd>
+                    <MudTd DataLabel="Type">@context.Type</MudTd>
+                    <MudTd DataLabel="Amount">@FormatAmount(context.Amount, SelectedCurrencyFor(context.AccountId))</MudTd>
+                    <MudTd DataLabel="Status">@context.Status</MudTd>
+                    <MudTd DataLabel="Date">@context.Date.ToLocalTime().ToString("dd MMM yyyy HH:mm")</MudTd>
+                </RowTemplate>
+            </MudTable>
+        </MudStack>
+    </MudItem>
+</MudGrid>
+
+@code {
+    private List<CoreBanker.Services.AccountDto> _accounts = new();
+    private List<CoreBanker.Services.TransactionDto> _transactions = new();
+    private CoreBanker.Services.TellerTransactionRequest _request = new()
+    {
+        Type = "DEPOSIT"
+    };
+    private CoreBanker.Services.AccountDto? _selectedAccount;
+    private MudForm? _form;
+    private bool _isLoading;
+    private bool _isPosting;
+    private bool _isSuccess;
+    private string _message = string.Empty;
+    private string _loadError = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadWorkspaceAsync();
+    }
+
+    private async Task LoadWorkspaceAsync()
+    {
+        _isLoading = true;
+        _loadError = string.Empty;
+
+        try
+        {
+            _accounts = await AccountService.GetAccountsAsync();
+            _transactions = await TransactionService.GetTransactionsAsync();
+            SyncSelectedAccount();
+        }
+        catch (CoreBanker.Services.ApiClientException ex)
+        {
+            _loadError = ex.Message;
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private async Task PostTransactionAsync()
+    {
+        if (_form is null)
+        {
+            return;
+        }
+
+        await _form.ValidateAsync();
+        if (!_form.IsValid)
+        {
+            return;
+        }
+
+        _isPosting = true;
+        _message = string.Empty;
+
+        try
+        {
+            _request.TellerId = string.IsNullOrWhiteSpace(AppState.UserId) ? "STF1123" : AppState.UserId;
+            _request.ClientReference = $"{_request.Type}-{DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}";
+
+            var result = await TellerService.PostTransactionAsync(_request);
+            _isSuccess = true;
+            _message = $"Transaction posted successfully. Reference: {result.Reference}";
+
+            var accountId = _request.AccountId;
+            _request = new CoreBanker.Services.TellerTransactionRequest
+            {
+                AccountId = accountId,
+                Type = "DEPOSIT"
+            };
+
+            await LoadWorkspaceAsync();
+        }
+        catch (CoreBanker.Services.ApiClientException ex)
+        {
+            _isSuccess = false;
+            _message = ex.Message;
+        }
+        finally
+        {
+            _isPosting = false;
+        }
+    }
+
+    private void SyncSelectedAccount()
+    {
+        _selectedAccount = _accounts.FirstOrDefault(account => account.Id == _request.AccountId);
+    }
+
+    private IEnumerable<CoreBanker.Services.TransactionDto> VisibleTransactions
+    {
+        get
+        {
+            var items = string.IsNullOrWhiteSpace(_request.AccountId)
+                ? _transactions
+                : _transactions.Where(transaction => transaction.AccountId == _request.AccountId).ToList();
+
+            return items.OrderByDescending(transaction => transaction.Date).Take(12);
+        }
+    }
+
+    private string SelectedCurrencyFor(string accountId)
+    {
+        return _accounts.FirstOrDefault(account => account.Id == accountId)?.Currency ?? "GHS";
+    }
+
+    private static string FormatAmount(decimal amount, string currency)
+    {
+        var culture = currency == "USD" ? System.Globalization.CultureInfo.GetCultureInfo("en-US") : System.Globalization.CultureInfo.GetCultureInfo("en-GH");
+        return string.Format(culture, "{0:C}", amount);
+    }
+
+    private static string DisplayDate(DateTime? value)
+    {
+        return value?.ToLocalTime().ToString("dd MMM yyyy HH:mm") ?? "Not recorded";
+    }
+}

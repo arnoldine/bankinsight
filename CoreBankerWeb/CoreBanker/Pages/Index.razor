@@ -1,0 +1,16 @@
+@page "/"
+@inject CoreBanker.State.AppState AppState
+@inject NavigationManager Navigation
+
+@code {
+    protected override void OnInitialized()
+    {
+        if (!AppState.IsAuthenticated)
+        {
+            Navigation.NavigateTo("/login", true);
+            return;
+        }
+
+        Navigation.NavigateTo(AppState.GetDefaultRoute(), true);
+    }
+}
