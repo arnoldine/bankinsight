@@ -28,6 +28,7 @@
   },
   "exclude": [
     "BankingOS/web",
+    "server",
     "dist",
     "node_modules"
   ]
