@@ -25,5 +25,10 @@
     },
     "allowImportingTsExtensions": true,
     "noEmit": true
-  }
+  },
+  "exclude": [
+    "BankingOS/web",
+    "dist",
+    "node_modules"
+  ]
 }

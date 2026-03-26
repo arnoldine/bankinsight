@@ -226,6 +226,7 @@ export default function Settings({
     const needsRoles = activeTab === 'USERS' || activeTab === 'ROLES' || activeTab === 'MENU' || activeTab === 'SYSTEM_INFO';
     const needsBranches = activeTab === 'BRANCHES' || activeTab === 'SYSTEM_INFO';
     const needsConfig = activeTab === 'CONFIG' || activeTab === 'AUTH' || activeTab === 'ORASS' || activeTab === 'SYSTEM_INFO';
+    const needsProcesses = false;
     const needsOrassReadiness = activeTab === 'ORASS';
 
     const { data: usersData, loading: usersLoading, error: usersError } = useFetch(
@@ -361,7 +362,6 @@ export default function Settings({
     const tabLoadingMap: Record<SettingsTab, boolean> = {
         USERS: usersLoading || rolesLoading,
         ROLES: rolesLoading,
-        PROCESS: processLoading,
         MENU: rolesLoading,
         CONFIG: configLoading,
         AUTH: configLoading,
@@ -375,7 +375,6 @@ export default function Settings({
     const tabErrorMap: Record<SettingsTab, string | null> = {
         USERS: usersError || rolesError,
         ROLES: rolesError,
-        PROCESS: processError,
         MENU: rolesError,
         CONFIG: configError,
         AUTH: configError,
@@ -389,7 +388,6 @@ export default function Settings({
     const defaultErrorMessageMap: Record<SettingsTab, string> = {
         USERS: 'Failed to load users or roles.',
         ROLES: 'Failed to load roles and permissions.',
-        PROCESS: 'Failed to load process definitions.',
         MENU: 'Failed to load role data for menu configuration.',
         CONFIG: 'Failed to load system configuration.',
         AUTH: 'Failed to load authentication settings.',

@@ -165,6 +165,8 @@ export const API_ENDPOINTS = {
     prudentialReturn: '/report/regulatory/prudential-return',
     largeExposure: '/report/regulatory/large-exposure',
     regulatoryReturns: '/report/regulatory/returns',
+    approveReturn: (id: string) => `/report/regulatory/returns/${id}/approve`,
+    rejectReturn: (id: string) => `/report/regulatory/returns/${id}/reject`,
     submitReturn: (id: string) => `/report/regulatory/submit-to-bog/${id}`,
     balanceSheet: '/report/financial/balance-sheet',
     incomeStatement: '/report/financial/income-statement',

@@ -13,13 +13,13 @@ const defaultDraft = {
   tellerId: '',
   subject: '',
   details: '',
-  category: 'TILL' as const,
+  category: 'TILL' as CashOpsNoteRecord['category'],
 };
 
 export default function CashOpsNotesScreen({ vaults = [], tills = [] }: CashOpsNotesScreenProps) {
   const [notes, setNotes] = useState<CashOpsNoteRecord[]>(() => cashOpsNotesService.getNotes());
   const [query, setQuery] = useState('');
-  const [draft, setDraft] = useState(defaultDraft);
+  const [draft, setDraft] = useState<typeof defaultDraft>(defaultDraft);
   const [message, setMessage] = useState<string | null>(null);
 
   const filteredNotes = useMemo(() => {

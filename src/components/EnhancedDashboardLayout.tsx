@@ -2002,10 +2002,6 @@ function DashboardView({
     </div>
   );
 }
-// Export icon components that are missing
-const UserPlus = (props: React.ComponentProps<typeof Users>) => <Users {...props} />;
-const Plus = (props: React.ComponentProps<typeof CheckSquare>) => <CheckSquare {...props} />;
-
 function MetricMini({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-[20px] border border-white/70 bg-white/70 px-4 py-3 dark:border-white/10 dark:bg-white/5">

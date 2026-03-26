@@ -43,7 +43,7 @@ export function useAuth() {
       setIsAuthenticating(true);
       const response = await authService.login({ email, password });
       if (response.token && response.user) {
-        setUser(response.user);
+        setUser(authService.getUser());
         setIsAuthenticated(true);
       } else {
         setUser(null);
@@ -77,7 +77,7 @@ export function useAuth() {
       setIsAuthenticating(true);
       const response = await authService.verifyMfa({ mfaToken, code });
       if (response.token && response.user) {
-        setUser(response.user);
+        setUser(authService.getUser());
         setIsAuthenticated(true);
       } else {
         setUser(null);
@@ -855,6 +855,78 @@ export function useAdmin() {
     }
   }, []);
 
+  const getOrassReadiness = useCallback(async () => {
+    try {
+      setError(null);
+      return await adminService.getOrassReadiness();
+    } catch (err) {
+      const message = err instanceof ApiError ? 'Failed to load ORASS readiness' : (err as Error).message;
+      setError(message);
+      throw err;
+    }
+  }, []);
+
+  const getOrassQueue = useCallback(async () => {
+    try {
+      setError(null);
+      return await adminService.getOrassQueue();
+    } catch (err) {
+      const message = err instanceof ApiError ? 'Failed to load ORASS queue' : (err as Error).message;
+      setError(message);
+      throw err;
+    }
+  }, []);
+
+  const getOrassHistory = useCallback(async (take?: number) => {
+    try {
+      setError(null);
+      return await adminService.getOrassHistory(take);
+    } catch (err) {
+      const message = err instanceof ApiError ? 'Failed to load ORASS history' : (err as Error).message;
+      setError(message);
+      throw err;
+    }
+  }, []);
+
+  const submitOrassReturn = useCallback(async (returnId: number) => {
+    try {
+      setError(null);
+      setLoading(true);
+      return await adminService.submitOrassReturn(returnId);
+    } catch (err) {
+      const message = err instanceof ApiError ? 'Failed to submit ORASS return' : (err as Error).message;
+      setError(message);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const getOrassEvidence = useCallback(async (returnId: number) => {
+    try {
+      setError(null);
+      return await adminService.getOrassEvidence(returnId);
+    } catch (err) {
+      const message = err instanceof ApiError ? 'Failed to load ORASS evidence' : (err as Error).message;
+      setError(message);
+      throw err;
+    }
+  }, []);
+
+  const reconcileOrassAcknowledgements = useCallback(async () => {
+    try {
+      setError(null);
+      setLoading(true);
+      return await adminService.reconcileOrassAcknowledgements();
+    } catch (err) {
+      const message = err instanceof ApiError ? 'Failed to reconcile ORASS acknowledgements' : (err as Error).message;
+      setError(message);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
   const seedRegulatoryChartOfAccounts = useCallback(async (regionCode: string = 'GH'): Promise<RegulatoryChartSeedResponse> => {
     try {
       setError(null);
@@ -984,6 +1056,12 @@ export function useAdmin() {
     getSystemConfig,
     updateSystemConfig,
     seedRegulatoryChartOfAccounts,
+    getOrassReadiness,
+    getOrassQueue,
+    getOrassHistory,
+    submitOrassReturn,
+    getOrassEvidence,
+    reconcileOrassAcknowledgements,
     getPrivilegeLeases,
     createPrivilegeLease,
     revokePrivilegeLease,
