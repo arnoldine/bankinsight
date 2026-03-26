@@ -23,6 +23,7 @@ interface LoanManagementHubProps {
   customers?: Customer[];
   onDisburseLoan?: (data: any) => void;
   onRepayLoan?: (loanId: string, data: any) => void;
+  onDirtyChange?: (dirty: boolean) => void;
   initialTab?: 'portfolio' | 'origination' | 'repayment' | 'schedule' | 'operations';
 }
 
@@ -119,6 +120,7 @@ export default function LoanManagementHub({
   customers: initialCustomers = [],
   onDisburseLoan,
   onRepayLoan,
+  onDirtyChange,
   initialTab = 'portfolio',
 }: LoanManagementHubProps) {
   const {
@@ -264,6 +266,18 @@ export default function LoanManagementHub({
       return matchesSearch && matchesStatus && matchesPar;
     });
   }, [customerMap, loans, parFilter, searchQuery, statusFilter]);
+  const hasOriginationDraft =
+    origCif.trim().length > 0 ||
+    origProduct !== 'LP_CONS_MONTHLY' ||
+    origPrincipal.trim().length > 0 ||
+    origCollateralType.trim().length > 0 ||
+    origCollateralValue.trim().length > 0;
+  const hasApprovalDraft = approvalNotes.trim().length > 0;
+  const hasRepaymentDraft = repayAmount.trim().length > 0 || repayAccountId.trim().length > 0;
+
+  useEffect(() => {
+    onDirtyChange?.(hasOriginationDraft || hasApprovalDraft || hasRepaymentDraft);
+  }, [hasApprovalDraft, hasOriginationDraft, hasRepaymentDraft, onDirtyChange]);
 
   const upcomingInstallments = useMemo(
     () => schedule.filter((line) => normalizeStatus(line.status) !== 'PAID').slice(0, 3),

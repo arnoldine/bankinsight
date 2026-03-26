@@ -28,6 +28,7 @@ interface ClientManagerProps {
   onCreateCustomer: (data: Partial<Customer>) => Promise<unknown> | unknown;
   onUpdateCustomer: (id: string, data: Partial<Customer>) => Promise<unknown> | unknown;
   onCreateAccount: (cif: string, productCode: string) => Promise<unknown> | unknown;
+  onDirtyChange?: (dirty: boolean) => void;
   initialView?: 'LIST' | 'CREATE' | 'DETAILS';
   initialDetailTab?: 'OVERVIEW' | 'ACCOUNTS' | 'LOANS' | 'TRANSACTIONS' | 'DOCS' | 'NOTES';
 }
@@ -78,6 +79,7 @@ export default function ClientManager({
   onCreateCustomer,
   onUpdateCustomer,
   onCreateAccount,
+  onDirtyChange,
   initialView = 'LIST',
   initialDetailTab = 'OVERVIEW',
 }: ClientManagerProps) {
@@ -136,6 +138,27 @@ export default function ClientManager({
     () => products.filter((product) => ['SAVINGS', 'CURRENT', 'FIXED_DEPOSIT'].includes(product.type) && product.status === 'ACTIVE'),
     [products],
   );
+  const createDraftDirty = useMemo(() => JSON.stringify(newClient) !== JSON.stringify(newClientTemplate()), [newClient]);
+  const editDraftDirty = useMemo(() => {
+    if (!selectedClient || !isEditing) {
+      return false;
+    }
+
+    return (
+      (editFormData.name || '') !== (selectedClient.name || '') ||
+      (editFormData.phone || '') !== (selectedClient.phone || '') ||
+      (editFormData.email || '') !== (selectedClient.email || '') ||
+      (editFormData.digitalAddress || '') !== (selectedClient.digitalAddress || '') ||
+      (editFormData.riskRating || '') !== (selectedClient.riskRating || '')
+    );
+  }, [editFormData, isEditing, selectedClient]);
+  const noteDraftDirty = noteInput.trim().length > 0;
+  const documentDraftDirty = newDoc.type.trim() !== 'ID Card' || newDoc.name.trim().length > 0;
+  const accountDraftDirty = newAccountProduct.trim().length > 0;
+
+  useEffect(() => {
+    onDirtyChange?.(createDraftDirty || editDraftDirty || noteDraftDirty || documentDraftDirty || accountDraftDirty);
+  }, [accountDraftDirty, createDraftDirty, documentDraftDirty, editDraftDirty, noteDraftDirty, onDirtyChange]);
 
   useEffect(() => {
     if (!selectedClientId) {

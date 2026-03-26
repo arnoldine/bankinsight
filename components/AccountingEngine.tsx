@@ -9,6 +9,7 @@ interface AccountingEngineProps {
   journalEntries: JournalEntry[];
   onPostJournal: (payload: { description: string; reference?: string; lines: { code: string; debit: number; credit: number }[] }) => Promise<void> | void;
   onCreateAccount: (account: CreateGlAccountRequest) => Promise<void> | void;
+  onDirtyChange?: (dirty: boolean) => void;
   initialView?: AccountingView;
   canPostJournal?: boolean;
   canManageAccounts?: boolean;
@@ -26,6 +27,7 @@ const AccountingEngine: React.FC<AccountingEngineProps> = ({
   journalEntries,
   onPostJournal,
   onCreateAccount,
+  onDirtyChange,
   initialView = 'COA',
   canPostJournal = false,
   canManageAccounts = false,
@@ -97,6 +99,27 @@ const AccountingEngine: React.FC<AccountingEngineProps> = ({
   const draftDebit = jvLines.reduce((sum, line) => sum + Number(line.debit || 0), 0);
   const draftCredit = jvLines.reduce((sum, line) => sum + Number(line.credit || 0), 0);
   const draftDifference = draftDebit - draftCredit;
+  const hasJournalDraft = useMemo(
+    () =>
+      jvDescription.trim().length > 0 ||
+      jvReference.trim().length > 0 ||
+      jvLines.length > 2 ||
+      jvLines.some((line) => line.accountCode.trim().length > 0 || Number(line.debit || 0) > 0 || Number(line.credit || 0) > 0),
+    [jvDescription, jvLines, jvReference],
+  );
+  const hasNewGlDraft = useMemo(
+    () =>
+      newGL.code.trim().length > 0 ||
+      newGL.name.trim().length > 0 ||
+      newGL.category !== 'ASSET' ||
+      (newGL.currency || 'GHS').trim().toUpperCase() !== 'GHS' ||
+      Boolean(newGL.isHeader),
+    [newGL],
+  );
+
+  useEffect(() => {
+    onDirtyChange?.(hasJournalDraft || hasNewGlDraft);
+  }, [hasJournalDraft, hasNewGlDraft, onDirtyChange]);
 
   const toggleNode = (code: string) => {
     const next = new Set(expandedNodes);

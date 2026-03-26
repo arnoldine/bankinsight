@@ -128,8 +128,10 @@ export default function EnhancedDashboardLayout({
   });
   const [expandedMenus, setExpandedMenus] = useState<Set<string>>(new Set());
   const [menuQuery, setMenuQuery] = useState('');
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const userPermissions = user?.permissions ?? [];
   const hasPermission = (permission: string) => userPermissions.includes(permission);
+  const unsavedChangesMessage = 'You have unsaved changes in the current operation. Leave this screen and discard them?';
 
     // Initialize API hooks
   const { getProducts, createProduct, updateProduct, getAuditLogs, getRoles } = useAdmin();
@@ -288,6 +290,20 @@ export default function EnhancedDashboardLayout({
       .join(' ');
     document.title = `${screenLabel || 'Dashboard'} | BankInsight`;
   }, [activeTab]);
+
+  useEffect(() => {
+    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+      if (!hasUnsavedChanges) {
+        return;
+      }
+
+      event.preventDefault();
+      event.returnValue = unsavedChangesMessage;
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [hasUnsavedChanges, unsavedChangesMessage]);
 
 
   // Fetch initial data on mount
@@ -967,8 +983,29 @@ export default function EnhancedDashboardLayout({
     setExpandedMenus(newExpanded);
   };
 
-  const handleMenuClick = (itemId: string) => {
+  const canLeaveCurrentOperation = () => {
+    if (!hasUnsavedChanges) {
+      return true;
+    }
+
+    return window.confirm(unsavedChangesMessage);
+  };
+
+  const navigateTo = (itemId: string) => {
+    if (itemId === activeTab) {
+      return;
+    }
+
+    if (!canLeaveCurrentOperation()) {
+      return;
+    }
+
+    setHasUnsavedChanges(false);
     setActiveTab(itemId);
+  };
+
+  const handleMenuClick = (itemId: string) => {
+    navigateTo(itemId);
   };
 
   // Render screen content based on active tab
@@ -985,9 +1022,9 @@ export default function EnhancedDashboardLayout({
             title="Design tooling has moved to BankingOS"
             description="Form Designer and Process Designer are now maintained only in BankingOS so configuration stays in one governed platform workspace."
             primaryActionLabel="Open BankingOS"
-            onPrimaryAction={() => setActiveTab('bankingos')}
+            onPrimaryAction={() => navigateTo('bankingos')}
             secondaryActionLabel="Open Task Inbox"
-            onSecondaryAction={() => setActiveTab('task-inbox')}
+            onSecondaryAction={() => navigateTo('task-inbox')}
           />
         </ProtectedRoute>
       );
@@ -998,7 +1035,7 @@ export default function EnhancedDashboardLayout({
         return (
           <DashboardView
             user={user}
-            onNavigate={setActiveTab}
+            onNavigate={navigateTo}
             customers={customers}
             accounts={accounts}
             loans={loans}
@@ -1021,6 +1058,7 @@ export default function EnhancedDashboardLayout({
               onCreateCustomer={handleCreateCustomer} 
               onUpdateCustomer={handleUpdateCustomer} 
               onCreateAccount={handleCreateAccount}
+              onDirtyChange={setHasUnsavedChanges}
               initialView="LIST"
             />
           </ProtectedRoute>
@@ -1038,6 +1076,7 @@ export default function EnhancedDashboardLayout({
               onCreateCustomer={handleCreateCustomer} 
               onUpdateCustomer={handleUpdateCustomer} 
               onCreateAccount={handleCreateAccount}
+              onDirtyChange={setHasUnsavedChanges}
               initialView="CREATE"
             />
           </ProtectedRoute>
@@ -1049,9 +1088,9 @@ export default function EnhancedDashboardLayout({
               title="Accounts are organized by client"
                 description="Manage accounts from the client profile. Open the client list to review customer accounts, or go to statements for account-level history and verification."
               primaryActionLabel="Open Client List"
-              onPrimaryAction={() => setActiveTab('clients-list')}
+              onPrimaryAction={() => navigateTo('clients-list')}
               secondaryActionLabel="Open Statements"
-              onSecondaryAction={() => setActiveTab('statements')}
+              onSecondaryAction={() => navigateTo('statements')}
             />
           </ProtectedRoute>
         );
@@ -1062,9 +1101,9 @@ export default function EnhancedDashboardLayout({
               title="Create an account from onboarding"
                 description="New accounts are opened from the client profile so the customer, KYC profile, and product selection stay together in one flow."
               primaryActionLabel="Start Onboarding"
-              onPrimaryAction={() => setActiveTab('clients-onboard')}
+              onPrimaryAction={() => navigateTo('clients-onboard')}
               secondaryActionLabel="View Clients"
-              onSecondaryAction={() => setActiveTab('clients-list')}
+              onSecondaryAction={() => navigateTo('clients-list')}
             />
           </ProtectedRoute>
         );
@@ -1115,7 +1154,7 @@ export default function EnhancedDashboardLayout({
                 customers={customers}
                 tellerId={user.id}
                 onTransaction={handleTransaction}
-                onOpenNotes={() => setActiveTab('teller-notes')}
+                onOpenNotes={() => navigateTo('teller-notes')}
                 initialTransactionType="DEPOSIT"
               />
             </ProtectedRoute>
@@ -1129,7 +1168,7 @@ export default function EnhancedDashboardLayout({
                 customers={customers}
                 tellerId={user.id}
                 onTransaction={handleTransaction}
-                onOpenNotes={() => setActiveTab('teller-notes')}
+                onOpenNotes={() => navigateTo('teller-notes')}
                 initialTransactionType="WITHDRAWAL"
               />
             </ProtectedRoute>
@@ -1143,7 +1182,7 @@ export default function EnhancedDashboardLayout({
                 customers={customers}
                 tellerId={user.id}
                 onTransaction={handleTransaction}
-                onOpenNotes={() => setActiveTab('teller-notes')}
+                onOpenNotes={() => navigateTo('teller-notes')}
                 initialTransactionType="TRANSFER"
               />
             </ProtectedRoute>
@@ -1180,6 +1219,7 @@ export default function EnhancedDashboardLayout({
               journalEntries={journalEntries} 
               onPostJournal={handlePostJournal} 
               onCreateAccount={handleCreateGlAccount}
+              onDirtyChange={setHasUnsavedChanges}
               initialView="COA"
               canPostJournal={hasPermission(Permissions.GeneralLedger.Post)}
               canManageAccounts={hasPermission(Permissions.GeneralLedger.Post)}
@@ -1197,6 +1237,7 @@ export default function EnhancedDashboardLayout({
               journalEntries={journalEntries} 
               onPostJournal={handlePostJournal} 
               onCreateAccount={handleCreateGlAccount}
+              onDirtyChange={setHasUnsavedChanges}
               initialView="JV"
               canPostJournal={hasPermission(Permissions.GeneralLedger.Post)}
               canManageAccounts={hasPermission(Permissions.GeneralLedger.Post)}
@@ -1214,6 +1255,7 @@ export default function EnhancedDashboardLayout({
               journalEntries={journalEntries} 
               onPostJournal={handlePostJournal} 
               onCreateAccount={handleCreateGlAccount}
+              onDirtyChange={setHasUnsavedChanges}
               initialView="LEDGER"
               canPostJournal={hasPermission(Permissions.GeneralLedger.Post)}
               canManageAccounts={hasPermission(Permissions.GeneralLedger.Post)}
@@ -1232,6 +1274,7 @@ export default function EnhancedDashboardLayout({
               customers={customers}
               onDisburseLoan={handleDisburseLoan}
               onRepayLoan={(id, data) => console.log('Repay loan:', id, data)}
+              onDirtyChange={setHasUnsavedChanges}
               initialTab="portfolio"
             />
           </ProtectedRoute>
@@ -1245,6 +1288,7 @@ export default function EnhancedDashboardLayout({
               customers={customers}
               onDisburseLoan={handleDisburseLoan}
               onRepayLoan={(id, data) => console.log('Repay loan:', id, data)}
+              onDirtyChange={setHasUnsavedChanges}
               initialTab="origination"
             />
           </ProtectedRoute>
@@ -1256,9 +1300,9 @@ export default function EnhancedDashboardLayout({
               title="Loan approvals live in the approvals inbox"
                 description="Credit approval is handled from the approvals inbox so decisions, audit history, and escalations stay in one place."
               primaryActionLabel="Open Approvals"
-              onPrimaryAction={() => setActiveTab('approvals')}
+              onPrimaryAction={() => navigateTo('approvals')}
               secondaryActionLabel="Open Portfolio"
-              onSecondaryAction={() => setActiveTab('loans-portfolio')}
+              onSecondaryAction={() => navigateTo('loans-portfolio')}
             />
           </ProtectedRoute>
         );
@@ -1283,7 +1327,7 @@ export default function EnhancedDashboardLayout({
       case 'vault':
           return (
             <ProtectedRoute requiredPermission={Permissions.Accounts.View} userPermissions={userPermissions}>
-              <VaultManagementHub onOpenNotes={() => setActiveTab('cash-ops-notes')} />
+              <VaultManagementHub onOpenNotes={() => navigateTo('cash-ops-notes')} />
             </ProtectedRoute>
           );
       case 'cash-ops-notes':
@@ -1367,9 +1411,9 @@ export default function EnhancedDashboardLayout({
               title="Loan officer work happens in the loan pipeline"
               description="Use the production loan workbench for origination, appraisal, approvals, and disbursement instead of the legacy role-specific screen."
               primaryActionLabel="Open Loan Pipeline"
-              onPrimaryAction={() => setActiveTab('loans-pipeline')}
+              onPrimaryAction={() => navigateTo('loans-pipeline')}
               secondaryActionLabel="Open Portfolio"
-              onSecondaryAction={() => setActiveTab('loans-portfolio')}
+              onSecondaryAction={() => navigateTo('loans-portfolio')}
             />
           </ProtectedRoute>
         );
@@ -1380,9 +1424,9 @@ export default function EnhancedDashboardLayout({
               title="Accounting operations run through the accounting engine"
               description="Use the core accounting workspace for journals, reconciliations, and ledger review so finance actions stay in the governed production flow."
               primaryActionLabel="Open Accounting Engine"
-              onPrimaryAction={() => setActiveTab('accounting')}
+              onPrimaryAction={() => navigateTo('accounting')}
               secondaryActionLabel="Open Audit Trail"
-              onSecondaryAction={() => setActiveTab('audit')}
+              onSecondaryAction={() => navigateTo('audit')}
             />
           </ProtectedRoute>
         );
@@ -1393,9 +1437,9 @@ export default function EnhancedDashboardLayout({
               title="Customer service runs from client and statement workspaces"
               description="Use the client manager and statement verification screens for production customer servicing instead of the legacy prototype support dashboard."
               primaryActionLabel="Open Client List"
-              onPrimaryAction={() => setActiveTab('clients-list')}
+              onPrimaryAction={() => navigateTo('clients-list')}
               secondaryActionLabel="Open Statements"
-              onSecondaryAction={() => setActiveTab('statements')}
+              onSecondaryAction={() => navigateTo('statements')}
             />
           </ProtectedRoute>
         );
@@ -1406,9 +1450,9 @@ export default function EnhancedDashboardLayout({
               title="Compliance monitoring has moved to governed operations screens"
               description="Use Security Ops, reporting, and onboarding review queues for production compliance work instead of the legacy prototype dashboard."
               primaryActionLabel="Open Security Ops"
-              onPrimaryAction={() => setActiveTab('security-ops')}
+              onPrimaryAction={() => navigateTo('security-ops')}
               secondaryActionLabel="Open Reporting"
-              onSecondaryAction={() => setActiveTab('reporting')}
+              onSecondaryAction={() => navigateTo('reporting')}
             />
           </ProtectedRoute>
         );
@@ -1454,14 +1498,14 @@ export default function EnhancedDashboardLayout({
       case 'settings':
         return (
           <ProtectedRoute requiredPermission={Permissions.Roles.View} userPermissions={userPermissions}>
-            <Settings workflows={[]} customForms={customForms} menuItems={menuItems} onSaveMenu={handleSaveMenu} onDeleteMenu={handleDeleteMenu} currentUserId={user.id} pageTargets={[{ id: 'bankingos', label: 'BankingOS Config Studio', helper: 'Open the BankingOS workspace for forms, processes, themes, and governed releases' }, { id: 'security-ops', label: 'Security Ops', helper: 'Open device governance and monitoring' }]} />
+            <Settings workflows={[]} customForms={customForms} menuItems={menuItems} onSaveMenu={handleSaveMenu} onDeleteMenu={handleDeleteMenu} currentUserId={user.id} onDirtyChange={setHasUnsavedChanges} pageTargets={[{ id: 'bankingos', label: 'BankingOS Config Studio', helper: 'Open the BankingOS workspace for forms, processes, themes, and governed releases' }, { id: 'security-ops', label: 'Security Ops', helper: 'Open device governance and monitoring' }]} />
           </ProtectedRoute>
         );
       default:
         return (
           <DashboardView
             user={user}
-            onNavigate={setActiveTab}
+            onNavigate={navigateTo}
             customers={customers}
             accounts={accounts}
             loans={loans}
@@ -1643,6 +1687,10 @@ export default function EnhancedDashboardLayout({
                     loadGroupReports().catch((err) => console.error('Failed to refresh group lending reports:', err));
                     return;
                   }
+                  if (!canLeaveCurrentOperation()) {
+                    return;
+                  }
+                  setHasUnsavedChanges(false);
                   window.location.reload();
                 }}
                 className="rounded-[22px] border border-white/80 bg-white/80 p-2.5 transition-colors hover:bg-white dark:border-white/10 dark:bg-white/5 dark:hover:bg-white/10"

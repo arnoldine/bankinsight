@@ -33,6 +33,7 @@ interface SettingsProps {
     onDeleteMenu?: (id: string) => void;
     currentUserId?: string;
     pageTargets?: Array<{ id: string; label: string; helper?: string }>;
+    onDirtyChange?: (dirty: boolean) => void;
 }
 
 type SettingsTab = 'USERS' | 'ROLES' | 'MENU' | 'CONFIG' | 'AUTH' | 'ORASS' | 'BRANCHES' | 'SYSTEM_INFO';
@@ -191,6 +192,7 @@ export default function Settings({
     onDeleteMenu,
     currentUserId,
     pageTargets = [],
+    onDirtyChange,
 }: SettingsProps) {
     const [activeTab, setActiveTab] = useState<SettingsTab>('USERS');
     const [refreshKey, setRefreshKey] = useState(0);
@@ -274,12 +276,20 @@ export default function Settings({
     const branches = branchesData || [];
     const systemConfig = configData;
     const processDefinitions = processData || [];
+    const hasProcessDraft = useMemo(
+        () => JSON.stringify(processDraft) !== JSON.stringify(defaultProcessDraft),
+        [processDraft]
+    );
 
     useEffect(() => {
         if (!configDirty) {
             setLocalConfig(mergeConfig(systemConfig));
         }
     }, [systemConfig, configDirty]);
+
+    useEffect(() => {
+        onDirtyChange?.(configDirty || roleDirty || userDirty || hasProcessDraft);
+    }, [configDirty, roleDirty, userDirty, hasProcessDraft, onDirtyChange]);
 
     useEffect(() => {
         if (isCreatingUser) {
