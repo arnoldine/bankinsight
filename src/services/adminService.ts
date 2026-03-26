@@ -156,6 +156,11 @@ class AdminService {
         };
 
         for (const item of items) {
+            if (item.key === 'loan.credit_bureau_required_for_approval') {
+                config.loanCreditBureauRequiredForApproval = item.value === 'true';
+                continue;
+            }
+
             if (item.key === 'eod_scheduler_enabled') {
                 schedulerConfig.enabled = item.value === 'true';
                 continue;
@@ -203,6 +208,7 @@ class AdminService {
             }));
 
         items.push(
+            { key: 'loan.credit_bureau_required_for_approval', value: String(config.loanCreditBureauRequiredForApproval) },
             { key: 'eod_scheduler_enabled', value: String(config.eodScheduler.enabled) },
             { key: 'eod_scheduler_time_utc', value: config.eodScheduler.timeUtc },
             { key: 'eod_scheduler_last_run_date', value: config.eodScheduler.lastRunDate || '' }

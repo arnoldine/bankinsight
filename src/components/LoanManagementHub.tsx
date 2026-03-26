@@ -192,6 +192,22 @@ export default function LoanManagementHub({
     [loans, selectedReviewLoanId],
   );
 
+  const resolveCustomerId = (input: string) => {
+    const normalized = input.trim().toLowerCase();
+    if (!normalized) {
+      return null;
+    }
+
+    const exactMatch = customers.find((customer) => {
+      const customerId = String(customer.id || '').trim().toLowerCase();
+      const customerName = String(customer.name || '').trim().toLowerCase();
+      const customerCif = String(customer.cif || '').trim().toLowerCase();
+      return customerId === normalized || customerCif === normalized || customerName === normalized;
+    });
+
+    return exactMatch?.id || null;
+  };
+
   const pendingReviewLoans = useMemo(
     () => loans.filter((loan) => ['PENDING', 'PENDING_APPROVAL', 'APPRAISED', 'APPROVED'].includes(normalizeStatus(loan.status))),
     [loans],
@@ -335,7 +351,8 @@ export default function LoanManagementHub({
   };
 
   const handleCreditCheck = async () => {
-    if (!origCif) {
+    const customerId = resolveCustomerId(origCif);
+    if (!customerId) {
       setBanner({ tone: 'error', text: 'Select a customer before running a credit check.' });
       return;
     }
@@ -343,7 +360,7 @@ export default function LoanManagementHub({
     setCreditLoading(true);
     setBanner(null);
     try {
-      const result = await checkCredit({ customerId: origCif });
+      const result = await checkCredit({ customerId });
       setCreditResult(result);
       setBanner({ tone: 'info', text: `Credit check completed with ${result.decision || 'a review decision'}.` });
     } catch (creditError) {
@@ -355,12 +372,18 @@ export default function LoanManagementHub({
 
   const handleSubmitApplication = async (event: React.FormEvent) => {
     event.preventDefault();
+    const customerId = resolveCustomerId(origCif);
+    if (!customerId) {
+      setBanner({ tone: 'error', text: 'Select a valid customer ID before submitting the application.' });
+      return;
+    }
+
     setWorkflowBusy('apply');
     setBanner(null);
 
     try {
       const createdLoan = await applyLoan({
-        customerId: origCif,
+        customerId,
         loanProductId: origProduct,
         principal: Number(origPrincipal),
         clientReference: `WEB-APP-${Date.now()}`,

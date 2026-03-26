@@ -1028,8 +1028,31 @@ public class LoanService
             throw new InvalidOperationException("Concentration threshold breached for this approval");
         }
 
-        var creditResult = await CheckCreditAndPersistAsync(customer.Id, loan.Id);
-        if (string.Equals(creditResult.Decision, "FAIL", StringComparison.OrdinalIgnoreCase))
+        var requireCreditBureauCheck = await GetBoolConfigAsync("loan.credit_bureau_required_for_approval", false);
+        CreditBureauCheck? creditResult = null;
+        try
+        {
+            creditResult = await CheckCreditAndPersistAsync(customer.Id, loan.Id);
+        }
+        catch (Exception ex) when (!requireCreditBureauCheck)
+        {
+            await _auditLoggingService.LogActionAsync(
+                action: "LOAN_CREDIT_CHECK_SKIPPED",
+                entityType: "LOAN",
+                entityId: loan.Id,
+                userId: resolvedCheckerId,
+                description: $"Credit bureau check skipped because optional enforcement is disabled. Reason: {ex.Message}",
+                status: "WARNING",
+                errorMessage: ex.Message,
+                newValues: new { loan.Id, loan.CustomerId, Mandatory = false });
+        }
+
+        if (requireCreditBureauCheck && creditResult == null)
+        {
+            throw new InvalidOperationException("Credit bureau check is mandatory but could not be completed");
+        }
+
+        if (creditResult != null && requireCreditBureauCheck && string.Equals(creditResult.Decision, "FAIL", StringComparison.OrdinalIgnoreCase))
         {
             throw new InvalidOperationException("Credit bureau check failed");
         }
@@ -1207,21 +1230,29 @@ public class LoanService
 
     public async Task<CreditCheckDto> CheckCreditAsync(CheckCreditRequest request)
     {
-        var check = await CheckCreditAndPersistAsync(request.CustomerId, request.LoanId, request.ProviderName);
-
-        return new CreditCheckDto
+        var requireCreditBureauCheck = await GetBoolConfigAsync("loan.credit_bureau_required_for_approval", false);
+        try
         {
-            CustomerId = request.CustomerId,
-            LoanId = request.LoanId,
-            Score = check.Score,
-            RiskBand = check.RiskBand,
-            RiskGrade = check.RiskGrade,
-            Decision = check.Decision,
-            Recommendation = check.Recommendation,
-            ProviderName = check.ProviderName,
-            InquiryReference = check.InquiryReference,
-            CheckedAt = DateTime.UtcNow
-        };
+            var check = await CheckCreditAndPersistAsync(request.CustomerId, request.LoanId, request.ProviderName);
+
+            return new CreditCheckDto
+            {
+                CustomerId = request.CustomerId,
+                LoanId = request.LoanId,
+                Score = check.Score,
+                RiskBand = check.RiskBand,
+                RiskGrade = check.RiskGrade,
+                Decision = check.Decision,
+                Recommendation = check.Recommendation,
+                ProviderName = check.ProviderName,
+                InquiryReference = check.InquiryReference,
+                CheckedAt = DateTime.UtcNow
+            };
+        }
+        catch (Exception ex) when (!requireCreditBureauCheck)
+        {
+            return BuildSkippedCreditCheckDto(request.CustomerId, request.LoanId, ex.Message);
+        }
     }
 
     public async Task<LoanScheduleGenerationResultDto> GenerateScheduleAsync(GenerateLoanScheduleRequest request)
@@ -1305,6 +1336,23 @@ public class LoanService
         await _context.SaveChangesAsync();
 
         return check;
+    }
+
+    private static CreditCheckDto BuildSkippedCreditCheckDto(string customerId, string? loanId, string reason)
+    {
+        return new CreditCheckDto
+        {
+            CustomerId = customerId,
+            LoanId = loanId,
+            Score = 0,
+            RiskBand = "OPTIONAL",
+            RiskGrade = "N/A",
+            Decision = "SKIPPED",
+            Recommendation = $"Credit bureau check is optional and was skipped: {reason}",
+            ProviderName = "optional-bypass",
+            InquiryReference = $"SKIP-{DateTime.UtcNow:yyyyMMddHHmmss}",
+            CheckedAt = DateTime.UtcNow
+        };
     }
 
     private static List<LoanScheduleLineDto> GenerateScheduleLines(
@@ -2191,6 +2239,16 @@ public class LoanService
             .FirstOrDefaultAsync();
 
         return decimal.TryParse(value, out var parsed) ? parsed : defaultValue;
+    }
+
+    private async Task<bool> GetBoolConfigAsync(string key, bool defaultValue)
+    {
+        var value = await _context.SystemConfigs
+            .Where(c => c.Key == key)
+            .Select(c => c.Value)
+            .FirstOrDefaultAsync();
+
+        return bool.TryParse(value, out var parsed) ? parsed : defaultValue;
     }
 }
 

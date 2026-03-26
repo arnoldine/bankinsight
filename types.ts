@@ -473,6 +473,7 @@ export interface SystemConfig {
     'Tier 3': KycLimits;
   };
   amlThreshold: number;
+  loanCreditBureauRequiredForApproval: boolean;
   auth: {
     enabled: boolean;
     provider: string; // 'LOCAL', 'AZURE_AD', 'LDAP'

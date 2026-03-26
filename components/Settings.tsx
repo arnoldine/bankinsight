@@ -92,6 +92,7 @@ const defaultUserDraft: UserDraft = {
 
 const defaultConfig: SystemConfig = {
     amlThreshold: 10000,
+    loanCreditBureauRequiredForApproval: false,
     kycLimits: {
         'Tier 1': { maxBalance: 5000, dailyLimit: 1000 },
         'Tier 2': { maxBalance: 20000, dailyLimit: 5000 },
@@ -1411,6 +1412,23 @@ export default function Settings({
                             <option value="POSTGRES">PostgreSQL</option>
                         </select>
                     </label>
+                </div>
+
+                <div className="mt-6 rounded-lg border border-gray-200 bg-gray-50 p-4 dark:border-slate-700 dark:bg-slate-900/40">
+                    <div className="flex items-start justify-between gap-4">
+                        <div>
+                            <h4 className="text-sm font-semibold text-gray-900 dark:text-white">Credit Bureau Enforcement</h4>
+                            <p className="mt-1 text-sm text-gray-500 dark:text-slate-400">Super admins can decide whether loan approvals must have a successful credit bureau check or whether the check is optional when the provider is unavailable.</p>
+                        </div>
+                        <label className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-slate-300">
+                            <input
+                                type="checkbox"
+                                checked={localConfig.loanCreditBureauRequiredForApproval}
+                                onChange={(e) => updateConfig({ loanCreditBureauRequiredForApproval: e.target.checked })}
+                            />
+                            Mandatory
+                        </label>
+                    </div>
                 </div>
 
                 <div className="mt-6 rounded-lg border border-gray-200 bg-gray-50 p-4 dark:border-slate-700 dark:bg-slate-900/40">

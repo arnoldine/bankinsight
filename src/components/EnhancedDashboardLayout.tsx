@@ -397,12 +397,22 @@ export default function EnhancedDashboardLayout({
       throw new Error('The selected product is no longer available for account opening.');
     }
 
+    const normalizedType = String(selectedProduct.type || '').trim().toUpperCase();
+    if (!['SAVINGS', 'CURRENT', 'FIXED_DEPOSIT'].includes(normalizedType)) {
+      throw new Error('The selected product is not a supported deposit product.');
+    }
+
+    const normalizedCurrency = String(selectedProduct.currency || 'GHS').trim().toUpperCase();
+    if (normalizedCurrency.length !== 3) {
+      throw new Error('The selected product has an invalid currency configuration.');
+    }
+
     const createdAccount = await accountService.createAccount({
-      customerId,
-      branchId: '001',
-      type: selectedProduct.type,
-      currency: selectedProduct.currency,
-      productCode,
+      customerId: customerId.trim(),
+      branchId: 'BR001',
+      type: normalizedType,
+      currency: normalizedCurrency,
+      productCode: selectedProduct.id,
     });
     await loadRetailAccounts();
     return createdAccount.id;

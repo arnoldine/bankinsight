@@ -1,10 +1,24 @@
 import { API_CONFIG } from './apiConfig';
 
 export class ApiError extends Error {
+  private static extractValidationMessage(data?: any): string | null {
+    const errors = data?.errors;
+    if (!errors || typeof errors !== 'object') {
+      return null;
+    }
+
+    const messages = Object.values(errors)
+      .flatMap((value) => Array.isArray(value) ? value : [value])
+      .filter((value): value is string => typeof value === 'string' && value.trim().length > 0);
+
+    return messages[0] || null;
+  }
+
   private static resolveMessage(status: number, data?: any): string {
     const explicitMessage =
       (typeof data?.message === 'string' && data.message.trim()) ||
-      (typeof data?.error === 'string' && data.error.trim());
+      (typeof data?.error === 'string' && data.error.trim()) ||
+      ApiError.extractValidationMessage(data);
 
     if (explicitMessage) {
       return explicitMessage;
