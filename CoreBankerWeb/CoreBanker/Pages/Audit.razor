@@ -3,44 +3,204 @@
 
 @inject CoreBanker.Services.AuditService AuditService
 
-<MudText Typo="Typo.h4" Class="mb-4">Audit Trail Viewer</MudText>
+<MudStack Spacing="3">
+    <MudPaper Class="pa-4">
+        <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+            <div>
+                <MudText Typo="Typo.h4">Audit Trail Viewer</MudText>
+                <MudText Typo="Typo.body2" Class="mud-text-secondary">Investigate operational actions, failures, entity changes, and activity sources from the live audit stream.</MudText>
+            </div>
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="LoadAuditAsync">Refresh</MudButton>
+        </MudStack>
+    </MudPaper>
 
-<MudPaper Class="pa-4 mb-4">
-	<MudGrid>
-		<MudItem xs="12" sm="6">
-			<MudTextField @bind-Value="searchTerm" Label="Search by action or user" Variant="Variant.Outlined" />
-		</MudItem>
-	</MudGrid>
-</MudPaper>
+    @if (!string.IsNullOrWhiteSpace(_message))
+    {
+        <MudAlert Severity="Severity.Error">@_message</MudAlert>
+    }
 
-<MudTable Items="@FilteredAuditLogs" Hover="true" Dense="true">
-	<HeaderContent>
-		<MudTh>Audit ID</MudTh>
-		<MudTh>Action</MudTh>
-		<MudTh>User</MudTh>
-		<MudTh>Date</MudTh>
-		<MudTh>Details</MudTh>
-	</HeaderContent>
-	<RowTemplate>
-		<MudTd DataLabel="Audit ID">@context.Id</MudTd>
-		<MudTd DataLabel="Action">@context.Action</MudTd>
-		<MudTd DataLabel="User">@context.User</MudTd>
-		<MudTd DataLabel="Date">@context.Date.ToString("g")</MudTd>
-		<MudTd DataLabel="Details">@context.Details</MudTd>
-	</RowTemplate>
-</MudTable>
+    <MudGrid>
+        <MudItem xs="12" md="3"><MudPaper Class="pa-4"><MudText Typo="Typo.caption">Events Loaded</MudText><MudText Typo="Typo.h5">@_auditLogs.Count</MudText></MudPaper></MudItem>
+        <MudItem xs="12" md="3"><MudPaper Class="pa-4"><MudText Typo="Typo.caption">Exceptions</MudText><MudText Typo="Typo.h5">@_auditLogs.Count(log => !IsSuccess(log))</MudText></MudPaper></MudItem>
+        <MudItem xs="12" md="3"><MudPaper Class="pa-4"><MudText Typo="Typo.caption">Distinct Users</MudText><MudText Typo="Typo.h5">@FilteredAuditLogs.Select(log => log.User).Where(user => !string.IsNullOrWhiteSpace(user)).Distinct(StringComparer.OrdinalIgnoreCase).Count()</MudText></MudPaper></MudItem>
+        <MudItem xs="12" md="3"><MudPaper Class="pa-4"><MudText Typo="Typo.caption">Distinct Modules</MudText><MudText Typo="Typo.h5">@FilteredAuditLogs.Select(log => log.Module).Where(module => !string.IsNullOrWhiteSpace(module)).Distinct(StringComparer.OrdinalIgnoreCase).Count()</MudText></MudPaper></MudItem>
+    </MudGrid>
+
+    <MudPaper Class="pa-4">
+        <MudGrid>
+            <MudItem xs="12" md="5">
+                <MudTextField @bind-Value="_searchTerm" Label="Search action, user, details, entity, or IP" Variant="Variant.Outlined" Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search" />
+            </MudItem>
+            <MudItem xs="12" md="3">
+                <MudSelect T="string" @bind-Value="_statusFilter" Label="Status" Variant="Variant.Outlined">
+                    @foreach (var status in StatusOptions)
+                    {
+                        <MudSelectItem Value="@status">@status</MudSelectItem>
+                    }
+                </MudSelect>
+            </MudItem>
+            <MudItem xs="12" md="2">
+                <MudSelect T="string" @bind-Value="_moduleFilter" Label="Module" Variant="Variant.Outlined">
+                    @foreach (var module in ModuleOptions)
+                    {
+                        <MudSelectItem Value="@module">@module</MudSelectItem>
+                    }
+                </MudSelect>
+            </MudItem>
+            <MudItem xs="12" md="2">
+                <MudSelect T="string" @bind-Value="_entityFilter" Label="Entity Type" Variant="Variant.Outlined">
+                    @foreach (var entity in EntityOptions)
+                    {
+                        <MudSelectItem Value="@entity">@entity</MudSelectItem>
+                    }
+                </MudSelect>
+            </MudItem>
+        </MudGrid>
+
+        <MudStack Row="true" Spacing="2" Class="mt-3">
+            <MudCheckBox @bind-Value="_onlyFailures" Label="Only failures" />
+            <MudCheckBox @bind-Value="_onlyToday" Label="Only today" />
+            <MudButton Variant="Variant.Text" OnClick="ResetFilters">Clear Filters</MudButton>
+        </MudStack>
+    </MudPaper>
+
+    <MudGrid>
+        <MudItem xs="12" lg="8">
+            <MudPaper Class="pa-4">
+                <MudTable T="CoreBanker.Services.AuditLogDto" Items="@FilteredAuditLogs" Dense="true" Hover="true" Loading="@_isLoading">
+                    <HeaderContent>
+                        <MudTh>When</MudTh>
+                        <MudTh>Action</MudTh>
+                        <MudTh>User</MudTh>
+                        <MudTh>Module</MudTh>
+                        <MudTh>Status</MudTh>
+                    </HeaderContent>
+                    <RowTemplate>
+                        <MudTd DataLabel="When">
+                            <MudLink Href="#" OnClick="@(() => SelectLog(context))">@context.Date.ToLocalTime().ToString("dd MMM yyyy HH:mm")</MudLink>
+                        </MudTd>
+                        <MudTd DataLabel="Action">@context.Action</MudTd>
+                        <MudTd DataLabel="User">@context.User</MudTd>
+                        <MudTd DataLabel="Module">@DisplayValue(context.Module)</MudTd>
+                        <MudTd DataLabel="Status">
+                            <MudChip T="string" Color="@GetStatusColor(context)" Variant="Variant.Outlined" Size="Size.Small">@context.Status</MudChip>
+                        </MudTd>
+                    </RowTemplate>
+                </MudTable>
+            </MudPaper>
+        </MudItem>
+
+        <MudItem xs="12" lg="4">
+            <MudPaper Class="pa-4">
+                <MudText Typo="Typo.h6">Event Detail</MudText>
+                @if (_selectedLog is null)
+                {
+                    <MudText Typo="Typo.body2" Class="mud-text-secondary mt-3">Select an audit event to inspect entity references, source details, and the raw old/new payloads.</MudText>
+                }
+                else
+                {
+                    <MudStack Spacing="2" Class="mt-3">
+                        <MudText Typo="Typo.subtitle2">@_selectedLog.Action</MudText>
+                        <MudText Typo="Typo.body2">@($"User: {_selectedLog.User}")</MudText>
+                        <MudText Typo="Typo.body2">@($"Status: {_selectedLog.Status}")</MudText>
+                        <MudText Typo="Typo.body2">@($"Module: {DisplayValue(_selectedLog.Module)}")</MudText>
+                        <MudText Typo="Typo.body2">@($"Entity: {DisplayValue(_selectedLog.EntityType)} {DisplayValue(_selectedLog.EntityId)}")</MudText>
+                        <MudText Typo="Typo.body2">@($"IP Address: {DisplayValue(_selectedLog.IpAddress)}")</MudText>
+                        <MudText Typo="Typo.body2">@($"Occurred: {_selectedLog.Date.ToLocalTime():f}")</MudText>
+
+                        <MudDivider />
+                        <MudText Typo="Typo.subtitle2">Narrative</MudText>
+                        <MudText Typo="Typo.body2">@DisplayValue(_selectedLog.Details)</MudText>
+
+                        @if (!string.IsNullOrWhiteSpace(_selectedLog.ErrorMessage))
+                        {
+                            <MudAlert Severity="Severity.Error" Dense="true">@_selectedLog.ErrorMessage</MudAlert>
+                        }
+
+                        <MudText Typo="Typo.subtitle2">Old Values</MudText>
+                        <MudTextField Value="@DisplayValue(_selectedLog.OldValues)" ReadOnly="true" Variant="Variant.Outlined" Lines="5" />
+
+                        <MudText Typo="Typo.subtitle2">New Values</MudText>
+                        <MudTextField Value="@DisplayValue(_selectedLog.NewValues)" ReadOnly="true" Variant="Variant.Outlined" Lines="5" />
+                    </MudStack>
+                }
+            </MudPaper>
+        </MudItem>
+    </MudGrid>
+</MudStack>
 
 @code {
-	private List<CoreBanker.Services.AuditLogDto> AuditLogs = new();
-	private string searchTerm = string.Empty;
+    private static readonly string[] StatusOptions = ["ALL", "SUCCESS", "FAILURE", "PENDING"];
+    private List<CoreBanker.Services.AuditLogDto> _auditLogs = new();
+    private CoreBanker.Services.AuditLogDto? _selectedLog;
+    private string _searchTerm = string.Empty;
+    private string _statusFilter = "ALL";
+    private string _moduleFilter = "ALL";
+    private string _entityFilter = "ALL";
+    private string _message = string.Empty;
+    private bool _onlyFailures;
+    private bool _onlyToday;
+    private bool _isLoading;
 
-	protected override async Task OnInitializedAsync()
-	{
-		AuditLogs = await AuditService.GetAuditLogsAsync();
-	}
+    private IEnumerable<string> ModuleOptions => ["ALL", .._auditLogs.Select(log => log.Module).Where(value => !string.IsNullOrWhiteSpace(value)).Distinct(StringComparer.OrdinalIgnoreCase).OrderBy(value => value)];
+    private IEnumerable<string> EntityOptions => ["ALL", .._auditLogs.Select(log => log.EntityType).Where(value => !string.IsNullOrWhiteSpace(value)).Distinct(StringComparer.OrdinalIgnoreCase).OrderBy(value => value)];
 
-	private IEnumerable<CoreBanker.Services.AuditLogDto> FilteredAuditLogs =>
-		AuditLogs.Where(a => string.IsNullOrWhiteSpace(searchTerm)
-			|| a.Action.Contains(searchTerm, StringComparison.OrdinalIgnoreCase)
-			|| a.User.Contains(searchTerm, StringComparison.OrdinalIgnoreCase));
+    private IEnumerable<CoreBanker.Services.AuditLogDto> FilteredAuditLogs =>
+        _auditLogs.Where(log =>
+            (string.IsNullOrWhiteSpace(_searchTerm)
+                || log.Action.Contains(_searchTerm, StringComparison.OrdinalIgnoreCase)
+                || log.User.Contains(_searchTerm, StringComparison.OrdinalIgnoreCase)
+                || log.Details.Contains(_searchTerm, StringComparison.OrdinalIgnoreCase)
+                || log.EntityType.Contains(_searchTerm, StringComparison.OrdinalIgnoreCase)
+                || log.EntityId.Contains(_searchTerm, StringComparison.OrdinalIgnoreCase)
+                || log.IpAddress.Contains(_searchTerm, StringComparison.OrdinalIgnoreCase))
+            && (_statusFilter == "ALL" || string.Equals(log.Status, _statusFilter, StringComparison.OrdinalIgnoreCase))
+            && (_moduleFilter == "ALL" || string.Equals(log.Module, _moduleFilter, StringComparison.OrdinalIgnoreCase))
+            && (_entityFilter == "ALL" || string.Equals(log.EntityType, _entityFilter, StringComparison.OrdinalIgnoreCase))
+            && (!_onlyFailures || !IsSuccess(log))
+            && (!_onlyToday || log.Date.ToLocalTime().Date == DateTime.Now.Date))
+        .OrderByDescending(log => log.Date);
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAuditAsync();
+    }
+
+    private async Task LoadAuditAsync()
+    {
+        _isLoading = true;
+        _message = string.Empty;
+        try
+        {
+            _auditLogs = await AuditService.GetAuditLogsAsync(250);
+            _selectedLog = _auditLogs.OrderByDescending(log => log.Date).FirstOrDefault();
+        }
+        catch (CoreBanker.Services.ApiClientException ex)
+        {
+            _message = ex.Message;
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private void SelectLog(CoreBanker.Services.AuditLogDto log)
+    {
+        _selectedLog = log;
+    }
+
+    private void ResetFilters()
+    {
+        _searchTerm = string.Empty;
+        _statusFilter = "ALL";
+        _moduleFilter = "ALL";
+        _entityFilter = "ALL";
+        _onlyFailures = false;
+        _onlyToday = false;
+    }
+
+    private static bool IsSuccess(CoreBanker.Services.AuditLogDto log) => string.Equals(log.Status, "SUCCESS", StringComparison.OrdinalIgnoreCase);
+    private static Color GetStatusColor(CoreBanker.Services.AuditLogDto log) => IsSuccess(log) ? Color.Success : Color.Error;
+    private static string DisplayValue(string? value) => string.IsNullOrWhiteSpace(value) ? "-" : value;
 }

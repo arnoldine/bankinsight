@@ -1,14 +1,15 @@
 @page "/settings"
 @layout CoreBanker.Layouts.MainLayout
-
+@using System.Globalization
 @inject CoreBanker.Services.AdminService AdminService
+@inject CoreBanker.State.AppState AppState
 
 <MudStack Spacing="3">
     <MudPaper Class="pa-4">
         <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
             <div>
                 <MudText Typo="Typo.h4">Settings & Control Room</MudText>
-                <MudText Typo="Typo.body2" Class="mud-text-secondary">Manage platform configuration, credit-bureau policy, EOD scheduling, and ORASS readiness.</MudText>
+                <MudText Typo="Typo.body2" Class="mud-text-secondary">Manage platform policies, staff administration, branches, privilege leases, and ORASS readiness.</MudText>
             </div>
             <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="LoadWorkspaceAsync">Refresh</MudButton>
         </MudStack>
@@ -20,33 +21,13 @@
     }
 
     <MudGrid>
-        <MudItem xs="12" md="3">
-            <MudPaper Class="pa-4">
-                <MudText Typo="Typo.caption">Credit Bureau</MudText>
-                <MudText Typo="Typo.h5">@(_snapshot.LoanCreditBureauRequiredForApproval ? "Mandatory" : "Optional")</MudText>
-            </MudPaper>
-        </MudItem>
-        <MudItem xs="12" md="3">
-            <MudPaper Class="pa-4">
-                <MudText Typo="Typo.caption">EOD Scheduler</MudText>
-                <MudText Typo="Typo.h5">@(_snapshot.EodSchedulerEnabled ? _snapshot.EodSchedulerTimeUtc : "Disabled")</MudText>
-            </MudPaper>
-        </MudItem>
-        <MudItem xs="12" md="3">
-            <MudPaper Class="pa-4">
-                <MudText Typo="Typo.caption">ORASS Status</MudText>
-                <MudText Typo="Typo.h5">@(_orassReadiness?.ReadyForSubmission == true ? "Ready" : "Attention")</MudText>
-            </MudPaper>
-        </MudItem>
-        <MudItem xs="12" md="3">
-            <MudPaper Class="pa-4">
-                <MudText Typo="Typo.caption">Pending Returns</MudText>
-                <MudText Typo="Typo.h5">@(_orassReadiness?.PendingReturns ?? 0)</MudText>
-            </MudPaper>
-        </MudItem>
+        <MudItem xs="12" md="3"><MudPaper Class="pa-4"><MudText Typo="Typo.caption">Credit Bureau</MudText><MudText Typo="Typo.h5">@(_snapshot.LoanCreditBureauRequiredForApproval ? "Mandatory" : "Optional")</MudText></MudPaper></MudItem>
+        <MudItem xs="12" md="3"><MudPaper Class="pa-4"><MudText Typo="Typo.caption">Users</MudText><MudText Typo="Typo.h5">@_users.Count</MudText></MudPaper></MudItem>
+        <MudItem xs="12" md="3"><MudPaper Class="pa-4"><MudText Typo="Typo.caption">Branches</MudText><MudText Typo="Typo.h5">@_branches.Count</MudText></MudPaper></MudItem>
+        <MudItem xs="12" md="3"><MudPaper Class="pa-4"><MudText Typo="Typo.caption">ORASS Pending</MudText><MudText Typo="Typo.h5">@(_orassReadiness?.PendingReturns ?? 0)</MudText></MudPaper></MudItem>
     </MudGrid>
 
-    <MudTabs Rounded="true">
+    <MudTabs Rounded="true" Elevation="0">
         <MudTabPanel Text="Configuration">
             <MudGrid>
                 <MudItem xs="12" lg="5">
@@ -61,20 +42,169 @@
                         <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="mt-4" Disabled="@_isSavingConfig" OnClick="SaveConfigAsync">Save Configuration</MudButton>
                     </MudPaper>
                 </MudItem>
-
                 <MudItem xs="12" lg="7">
                     <MudPaper Class="pa-4">
                         <MudText Typo="Typo.h6">Raw Key/Value Store</MudText>
                         <MudTable T="CoreBanker.Services.ConfigItemDto" Items="@_configItems" Dense="true" Hover="true" Class="mt-3">
-                            <HeaderContent>
-                                <MudTh>Key</MudTh>
-                                <MudTh>Value</MudTh>
-                            </HeaderContent>
+                            <HeaderContent><MudTh>Key</MudTh><MudTh>Value</MudTh></HeaderContent>
+                            <RowTemplate><MudTd DataLabel="Key">@context.Key</MudTd><MudTd DataLabel="Value">@context.Value</MudTd></RowTemplate>
+                        </MudTable>
+                    </MudPaper>
+                </MudItem>
+            </MudGrid>
+        </MudTabPanel>
+
+        <MudTabPanel Text="Users">
+            <MudGrid>
+                <MudItem xs="12" lg="5">
+                    <MudPaper Class="pa-4">
+                        <MudText Typo="Typo.h6">@(_editingUserId is null ? "Create User" : "Edit User")</MudText>
+                        <MudTextField @bind-Value="_userForm.Name" Label="Full Name" Variant="Variant.Outlined" Class="mt-3" />
+                        <MudTextField @bind-Value="_userForm.Email" Label="Email" Variant="Variant.Outlined" Class="mt-3" />
+                        <MudTextField @bind-Value="_userForm.Phone" Label="Phone" Variant="Variant.Outlined" Class="mt-3" />
+                        <MudSelect T="string" @bind-Value="_userForm.RoleId" Label="Primary Role" Variant="Variant.Outlined" Class="mt-3">
+                            @foreach (var role in _roles) { <MudSelectItem Value="@role.Id">@role.Name</MudSelectItem> }
+                        </MudSelect>
+                        <MudSelect T="string" @bind-Value="_userForm.BranchId" Label="Branch" Variant="Variant.Outlined" Class="mt-3">
+                            @foreach (var branch in _branches) { <MudSelectItem Value="@branch.Id">@($"{branch.Code} - {branch.Name}")</MudSelectItem> }
+                        </MudSelect>
+                        <MudTextField @bind-Value="_userForm.Password" Label="Password" InputType="InputType.Password" Variant="Variant.Outlined" HelperText="Required for new users. Leave blank during edits to keep the current password." Class="mt-3" />
+                        @if (_editingUserId is not null)
+                        {
+                            <MudSelect T="string" @bind-Value="_userForm.Status" Label="Status" Variant="Variant.Outlined" Class="mt-3">
+                                @foreach (var status in UserStatuses) { <MudSelectItem Value="@status">@status</MudSelectItem> }
+                            </MudSelect>
+                        }
+                        <MudStack Row="true" Spacing="2" Class="mt-4">
+                            <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="@_isSavingUser" OnClick="SaveUserAsync">@(_editingUserId is null ? "Create User" : "Save User")</MudButton>
+                            <MudButton Variant="Variant.Text" Disabled="@_isSavingUser" OnClick="ResetUserForm">Clear</MudButton>
+                        </MudStack>
+                    </MudPaper>
+                </MudItem>
+                <MudItem xs="12" lg="7">
+                    <MudPaper Class="pa-4">
+                        <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+                            <MudText Typo="Typo.h6">User Directory</MudText>
+                            <MudTextField @bind-Value="_userFilter" Label="Search" Variant="Variant.Outlined" Margin="Margin.Dense" />
+                        </MudStack>
+                        <MudTable T="CoreBanker.Services.AdminUserDto" Items="@FilteredUsers" Dense="true" Hover="true" Class="mt-3">
+                            <HeaderContent><MudTh>Name</MudTh><MudTh>Email</MudTh><MudTh>Role</MudTh><MudTh>Status</MudTh><MudTh></MudTh></HeaderContent>
                             <RowTemplate>
-                                <MudTd DataLabel="Key">@context.Key</MudTd>
-                                <MudTd DataLabel="Value">@context.Value</MudTd>
+                                <MudTd DataLabel="Name">@context.Name</MudTd>
+                                <MudTd DataLabel="Email">@context.Email</MudTd>
+                                <MudTd DataLabel="Role">@GetRoleName(context.RoleIds.FirstOrDefault())</MudTd>
+                                <MudTd DataLabel="Status">@context.Status</MudTd>
+                                <MudTd DataLabel="Actions"><MudButton Variant="Variant.Text" Color="Color.Primary" OnClick="@(() => EditUser(context))">Edit</MudButton><MudButton Variant="Variant.Text" Color="Color.Error" Disabled="@_isSavingUser" OnClick="@(() => DeleteUserAsync(context))">Delete</MudButton></MudTd>
                             </RowTemplate>
                         </MudTable>
+                    </MudPaper>
+                </MudItem>
+            </MudGrid>
+        </MudTabPanel>
+
+        <MudTabPanel Text="Roles">
+            <MudGrid>
+                <MudItem xs="12" lg="5">
+                    <MudPaper Class="pa-4">
+                        <MudText Typo="Typo.h6">@(_editingRoleId is null ? "Create Role" : "Edit Role")</MudText>
+                        <MudTextField @bind-Value="_roleForm.Name" Label="Role Name" Variant="Variant.Outlined" Class="mt-3" />
+                        <MudTextField @bind-Value="_roleForm.Description" Label="Description" Variant="Variant.Outlined" Lines="3" Class="mt-3" />
+                        <MudTextField @bind-Value="_rolePermissionsInput" Label="Permissions" Variant="Variant.Outlined" Lines="5" HelperText="One permission per line, for example VIEW_USERS." Class="mt-3" />
+                        <MudStack Row="true" Spacing="2" Class="mt-4">
+                            <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="@_isSavingRole" OnClick="SaveRoleAsync">@(_editingRoleId is null ? "Create Role" : "Save Role")</MudButton>
+                            <MudButton Variant="Variant.Text" Disabled="@_isSavingRole" OnClick="ResetRoleForm">Clear</MudButton>
+                        </MudStack>
+                    </MudPaper>
+                </MudItem>
+                <MudItem xs="12" lg="7">
+                    <MudPaper Class="pa-4">
+                        <MudText Typo="Typo.h6">Role Catalog</MudText>
+                        <MudTable T="CoreBanker.Services.RoleSummaryDto" Items="@_roles" Dense="true" Hover="true" Class="mt-3">
+                            <HeaderContent><MudTh>Role</MudTh><MudTh>Users</MudTh><MudTh>Permissions</MudTh><MudTh></MudTh></HeaderContent>
+                            <RowTemplate>
+                                <MudTd DataLabel="Role"><MudText Typo="Typo.body2">@context.Name</MudText><MudText Typo="Typo.caption" Class="mud-text-secondary">@context.Description</MudText></MudTd>
+                                <MudTd DataLabel="Users">@context.UserCount</MudTd>
+                                <MudTd DataLabel="Permissions">@string.Join(", ", context.Permissions.Take(4))@(context.Permissions.Count > 4 ? "..." : string.Empty)</MudTd>
+                                <MudTd DataLabel="Actions"><MudButton Variant="Variant.Text" Color="Color.Primary" OnClick="@(() => EditRole(context))">Edit</MudButton></MudTd>
+                            </RowTemplate>
+                        </MudTable>
+                    </MudPaper>
+                </MudItem>
+            </MudGrid>
+        </MudTabPanel>
+
+        <MudTabPanel Text="Branches">
+            <MudGrid>
+                <MudItem xs="12" lg="4">
+                    <MudPaper Class="pa-4">
+                        <MudText Typo="Typo.h6">@(_editingBranchId is null ? "Create Branch" : "Edit Branch")</MudText>
+                        <MudTextField @bind-Value="_branchForm.Code" Label="Branch Code" Variant="Variant.Outlined" Class="mt-3" />
+                        <MudTextField @bind-Value="_branchForm.Name" Label="Branch Name" Variant="Variant.Outlined" Class="mt-3" />
+                        <MudTextField @bind-Value="_branchForm.Location" Label="Location" Variant="Variant.Outlined" Class="mt-3" />
+                        <MudSelect T="string" @bind-Value="_branchForm.Status" Label="Status" Variant="Variant.Outlined" Class="mt-3">
+                            @foreach (var status in UserStatuses) { <MudSelectItem Value="@status">@status</MudSelectItem> }
+                        </MudSelect>
+                        <MudStack Row="true" Spacing="2" Class="mt-4">
+                            <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="@_isSavingBranch" OnClick="SaveBranchAsync">@(_editingBranchId is null ? "Create Branch" : "Save Branch")</MudButton>
+                            <MudButton Variant="Variant.Text" Disabled="@_isSavingBranch" OnClick="ResetBranchForm">Clear</MudButton>
+                        </MudStack>
+                    </MudPaper>
+                </MudItem>
+                <MudItem xs="12" lg="8">
+                    <MudPaper Class="pa-4">
+                        <MudText Typo="Typo.h6">Branch Registry</MudText>
+                        <MudTable T="CoreBanker.Services.BranchDto" Items="@_branches" Dense="true" Hover="true" Class="mt-3">
+                            <HeaderContent><MudTh>Code</MudTh><MudTh>Name</MudTh><MudTh>Location</MudTh><MudTh>Status</MudTh><MudTh></MudTh></HeaderContent>
+                            <RowTemplate>
+                                <MudTd DataLabel="Code">@context.Code</MudTd>
+                                <MudTd DataLabel="Name">@context.Name</MudTd>
+                                <MudTd DataLabel="Location">@context.Location</MudTd>
+                                <MudTd DataLabel="Status">@context.Status</MudTd>
+                                <MudTd DataLabel="Actions"><MudButton Variant="Variant.Text" Color="Color.Primary" OnClick="@(() => EditBranch(context))">Edit</MudButton><MudButton Variant="Variant.Text" Color="Color.Error" Disabled="@_isSavingBranch" OnClick="@(() => DeleteBranchAsync(context))">Delete</MudButton></MudTd>
+                            </RowTemplate>
+                        </MudTable>
+                    </MudPaper>
+                </MudItem>
+            </MudGrid>
+        </MudTabPanel>
+
+        <MudTabPanel Text="Privilege Leases">
+            <MudGrid>
+                <MudItem xs="12" lg="5">
+                    <MudPaper Class="pa-4">
+                        <MudText Typo="Typo.h6">Grant Temporary Privilege</MudText>
+                        <MudSelect T="string" @bind-Value="_leaseForm.StaffId" Label="Staff Member" Variant="Variant.Outlined" Class="mt-3" OnClosed="LoadSelectedUserLeasesAsync">
+                            @foreach (var user in _users) { <MudSelectItem Value="@user.Id">@($"{user.Name} ({user.Email})")</MudSelectItem> }
+                        </MudSelect>
+                        <MudTextField @bind-Value="_leaseForm.Permission" Label="Permission" Variant="Variant.Outlined" Class="mt-3" />
+                        <MudTextField @bind-Value="_leaseForm.Reason" Label="Reason" Variant="Variant.Outlined" Lines="3" Class="mt-3" />
+                        <MudDatePicker @bind-Date="_leaseStartDate" Label="Starts On" Class="mt-3" />
+                        <MudDatePicker @bind-Date="_leaseExpiryDate" Label="Expires On" Class="mt-3" />
+                        <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="@_isSavingLease" Class="mt-4" OnClick="SaveLeaseAsync">Grant Privilege</MudButton>
+                    </MudPaper>
+                </MudItem>
+                <MudItem xs="12" lg="7">
+                    <MudPaper Class="pa-4">
+                        <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+                            <MudText Typo="Typo.h6">Active Leases</MudText>
+                            <MudButton Variant="Variant.Outlined" Disabled="@string.IsNullOrWhiteSpace(_leaseForm.StaffId)" OnClick="LoadSelectedUserLeasesAsync">Refresh Staff Leases</MudButton>
+                        </MudStack>
+                        @if (string.IsNullOrWhiteSpace(_leaseForm.StaffId))
+                        {
+                            <MudText Typo="Typo.body2" Class="mud-text-secondary mt-3">Select a staff member to inspect or revoke temporary privileges.</MudText>
+                        }
+                        else
+                        {
+                            <MudTable T="CoreBanker.Services.PrivilegeLeaseDto" Items="@_selectedUserLeases" Dense="true" Hover="true" Class="mt-3">
+                                <HeaderContent><MudTh>Permission</MudTh><MudTh>Window</MudTh><MudTh>Status</MudTh><MudTh></MudTh></HeaderContent>
+                                <RowTemplate>
+                                    <MudTd DataLabel="Permission"><MudText Typo="Typo.body2">@context.Permission</MudText><MudText Typo="Typo.caption" Class="mud-text-secondary">@context.Reason</MudText></MudTd>
+                                    <MudTd DataLabel="Window">@($"{context.StartsAt:g} - {context.ExpiresAt:g}")</MudTd>
+                                    <MudTd DataLabel="Status">@GetLeaseStatus(context)</MudTd>
+                                    <MudTd DataLabel="Actions"><MudButton Variant="Variant.Text" Color="Color.Error" Disabled="@_isSavingLease" OnClick="@(() => RevokeLeaseAsync(context))">Revoke</MudButton></MudTd>
+                                </RowTemplate>
+                            </MudTable>
+                        }
                     </MudPaper>
                 </MudItem>
             </MudGrid>
@@ -85,10 +215,7 @@
                 <MudItem xs="12" lg="4">
                     <MudPaper Class="pa-4">
                         <MudText Typo="Typo.h6">Profile</MudText>
-                        @if (_orassProfile is null)
-                        {
-                            <MudText Typo="Typo.body2" Class="mud-text-secondary mt-3">ORASS profile details are unavailable for this environment.</MudText>
-                        }
+                        @if (_orassProfile is null) { <MudText Typo="Typo.body2" Class="mud-text-secondary mt-3">ORASS profile details are unavailable for this environment.</MudText> }
                         else
                         {
                             <MudText Typo="Typo.body2" Class="mt-3">@_orassProfile.InstitutionCode</MudText>
@@ -101,48 +228,30 @@
                 <MudItem xs="12" lg="8">
                     <MudPaper Class="pa-4">
                         <MudText Typo="Typo.h6">Readiness</MudText>
-                        @if (_orassReadiness is null)
-                        {
-                            <MudText Typo="Typo.body2" Class="mud-text-secondary mt-3">Regulatory readiness data is not available.</MudText>
-                        }
+                        @if (_orassReadiness is null) { <MudText Typo="Typo.body2" Class="mud-text-secondary mt-3">Regulatory readiness data is not available.</MudText> }
                         else
                         {
                             <MudText Typo="Typo.body2" Class="mt-2">@($"Submission mode {_orassReadiness.SubmissionMode} | Source {_orassReadiness.SourceReportCode}")</MudText>
                             <MudText Typo="Typo.body2">@($"Pending {_orassReadiness.PendingReturns} | Ready {_orassReadiness.ReturnsReadyForSubmission}")</MudText>
-                            @if (_orassReadiness.MissingRequirements.Length > 0)
-                            {
-                                <MudAlert Severity="Severity.Warning" Dense="true" Class="mt-3">@string.Join(" | ", _orassReadiness.MissingRequirements)</MudAlert>
-                            }
-                            @if (_orassReadiness.Notes.Length > 0)
-                            {
-                                <MudAlert Severity="Severity.Info" Dense="true" Class="mt-2">@string.Join(" | ", _orassReadiness.Notes)</MudAlert>
-                            }
+                            @if (_orassReadiness.MissingRequirements.Length > 0) { <MudAlert Severity="Severity.Warning" Dense="true" Class="mt-3">@string.Join(" | ", _orassReadiness.MissingRequirements)</MudAlert> }
+                            @if (_orassReadiness.Notes.Length > 0) { <MudAlert Severity="Severity.Info" Dense="true" Class="mt-2">@string.Join(" | ", _orassReadiness.Notes)</MudAlert> }
                             <MudButton Variant="Variant.Outlined" Color="Color.Primary" Class="mt-3" Disabled="@_isActingOnOrass" OnClick="ReconcileAsync">Reconcile Acknowledgements</MudButton>
                         }
                     </MudPaper>
                 </MudItem>
             </MudGrid>
-
             <MudGrid Class="mt-1">
                 <MudItem xs="12" lg="7">
                     <MudPaper Class="pa-4">
                         <MudText Typo="Typo.h6">Submission Queue</MudText>
                         <MudTable T="CoreBanker.Services.OrassQueueItemDto" Items="@_queueItems" Dense="true" Hover="true" Class="mt-3">
-                            <HeaderContent>
-                                <MudTh>Return</MudTh>
-                                <MudTh>Date</MudTh>
-                                <MudTh>Status</MudTh>
-                                <MudTh>Records</MudTh>
-                                <MudTh></MudTh>
-                            </HeaderContent>
+                            <HeaderContent><MudTh>Return</MudTh><MudTh>Date</MudTh><MudTh>Status</MudTh><MudTh>Records</MudTh><MudTh></MudTh></HeaderContent>
                             <RowTemplate>
                                 <MudTd DataLabel="Return">@context.ReturnType</MudTd>
                                 <MudTd DataLabel="Date">@context.ReturnDate</MudTd>
                                 <MudTd DataLabel="Status">@context.SubmissionStatus</MudTd>
                                 <MudTd DataLabel="Records">@context.TotalRecords</MudTd>
-                                <MudTd DataLabel="Actions">
-                                    <MudButton Variant="Variant.Text" Color="Color.Primary" Disabled="@(!context.IsReadyForSubmission || _isActingOnOrass)" OnClick="@(() => SubmitReturnAsync(context.Id))">Submit</MudButton>
-                                </MudTd>
+                                <MudTd DataLabel="Actions"><MudButton Variant="Variant.Text" Color="Color.Primary" Disabled="@(!context.IsReadyForSubmission || _isActingOnOrass)" OnClick="@(() => SubmitReturnAsync(context.Id))">Submit</MudButton></MudTd>
                             </RowTemplate>
                         </MudTable>
                     </MudPaper>
@@ -151,20 +260,13 @@
                     <MudPaper Class="pa-4">
                         <MudText Typo="Typo.h6">History & Evidence</MudText>
                         <MudTable T="CoreBanker.Services.OrassSubmissionHistoryItemDto" Items="@_historyItems" Dense="true" Hover="true" Class="mt-3">
-                            <HeaderContent>
-                                <MudTh>Return</MudTh>
-                                <MudTh>Status</MudTh>
-                                <MudTh></MudTh>
-                            </HeaderContent>
+                            <HeaderContent><MudTh>Return</MudTh><MudTh>Status</MudTh><MudTh></MudTh></HeaderContent>
                             <RowTemplate>
                                 <MudTd DataLabel="Return">@context.ReturnType</MudTd>
                                 <MudTd DataLabel="Status">@context.SubmissionStatus</MudTd>
-                                <MudTd DataLabel="Actions">
-                                    <MudButton Variant="Variant.Text" Color="Color.Primary" Disabled="@_isActingOnOrass" OnClick="@(() => LoadEvidenceAsync(context.Id))">Inspect</MudButton>
-                                </MudTd>
+                                <MudTd DataLabel="Actions"><MudButton Variant="Variant.Text" Color="Color.Primary" Disabled="@_isActingOnOrass" OnClick="@(() => LoadEvidenceAsync(context.Id))">Inspect</MudButton></MudTd>
                             </RowTemplate>
                         </MudTable>
-
                         @if (_selectedEvidence is not null)
                         {
                             <MudDivider Class="my-3" />
@@ -188,8 +290,13 @@
 </MudStack>
 
 @code {
+    private static readonly string[] UserStatuses = ["ACTIVE", "INACTIVE", "SUSPENDED"];
     private List<CoreBanker.Services.ConfigItemDto> _configItems = new();
     private CoreBanker.Services.ConfigSnapshotDto _snapshot = new();
+    private List<CoreBanker.Services.AdminUserDto> _users = new();
+    private List<CoreBanker.Services.RoleSummaryDto> _roles = new();
+    private List<CoreBanker.Services.BranchDto> _branches = new();
+    private List<CoreBanker.Services.PrivilegeLeaseDto> _selectedUserLeases = new();
     private CoreBanker.Services.OrassProfileDto? _orassProfile;
     private CoreBanker.Services.OrassReadinessDto? _orassReadiness;
     private List<CoreBanker.Services.OrassQueueItemDto> _queueItems = new();
@@ -201,12 +308,26 @@
     private string _message = string.Empty;
     private bool _success;
     private bool _isSavingConfig;
+    private bool _isSavingUser;
+    private bool _isSavingRole;
+    private bool _isSavingBranch;
+    private bool _isSavingLease;
     private bool _isActingOnOrass;
+    private string _userFilter = string.Empty;
+    private string? _editingUserId;
+    private string? _editingRoleId;
+    private string? _editingBranchId;
+    private UserFormModel _userForm = new();
+    private RoleFormModel _roleForm = new();
+    private BranchFormModel _branchForm = new();
+    private LeaseFormModel _leaseForm = new();
+    private string _rolePermissionsInput = string.Empty;
+    private DateTime? _leaseStartDate = DateTime.Today;
+    private DateTime? _leaseExpiryDate = DateTime.Today.AddDays(7);
 
-    protected override async Task OnInitializedAsync()
-    {
-        await LoadWorkspaceAsync();
-    }
+    private IEnumerable<CoreBanker.Services.AdminUserDto> FilteredUsers => _users.Where(user => string.IsNullOrWhiteSpace(_userFilter) || user.Name.Contains(_userFilter, StringComparison.OrdinalIgnoreCase) || user.Email.Contains(_userFilter, StringComparison.OrdinalIgnoreCase));
+
+    protected override async Task OnInitializedAsync() => await LoadWorkspaceAsync();
 
     private async Task LoadWorkspaceAsync()
     {
@@ -214,23 +335,33 @@
         try
         {
             var configTask = AdminService.GetConfigAsync();
+            var usersTask = AdminService.GetUsersAsync();
+            var rolesTask = AdminService.GetRolesAsync();
+            var branchesTask = AdminService.GetBranchesAsync();
             var profileTask = AdminService.GetOrassProfileAsync();
             var readinessTask = AdminService.GetOrassReadinessAsync();
             var queueTask = AdminService.GetOrassQueueAsync();
             var historyTask = AdminService.GetOrassHistoryAsync();
-            await Task.WhenAll(configTask, profileTask, readinessTask, queueTask, historyTask);
-
+            await Task.WhenAll(configTask, usersTask, rolesTask, branchesTask, profileTask, readinessTask, queueTask, historyTask);
             _configItems = configTask.Result;
+            _users = usersTask.Result.OrderBy(user => user.Name).ToList();
+            _roles = rolesTask.Result.OrderBy(role => role.Name).ToList();
+            _branches = branchesTask.Result.OrderBy(branch => branch.Code).ToList();
             _orassProfile = profileTask.Result;
             _orassReadiness = readinessTask.Result;
             _queueItems = queueTask.Result;
             _historyItems = historyTask.Result;
             _snapshot = BuildSnapshot(_configItems);
+            if (string.IsNullOrWhiteSpace(_leaseForm.StaffId) && _users.Count > 0)
+            {
+                _leaseForm.StaffId = _users[0].Id;
+            }
+
+            await LoadSelectedUserLeasesAsync();
         }
         catch (CoreBanker.Services.ApiClientException ex)
         {
-            _success = false;
-            _message = ex.Message;
+            ShowError(ex.Message);
         }
     }
 
@@ -245,22 +376,360 @@
             UpsertConfig("CreditBureau__ActiveProvider", _snapshot.ActiveCreditProvider);
             if (_snapshot.DefaultTransactionLimit.HasValue)
             {
-                UpsertConfig("transactions.default_limit", _snapshot.DefaultTransactionLimit.Value.ToString(System.Globalization.CultureInfo.InvariantCulture));
+                UpsertConfig("transactions.default_limit", _snapshot.DefaultTransactionLimit.Value.ToString(CultureInfo.InvariantCulture));
             }
 
             await AdminService.UpdateConfigAsync(_configItems);
-            _success = true;
-            _message = "Configuration updated successfully.";
+            ShowSuccess("Configuration updated successfully.");
             await LoadWorkspaceAsync();
         }
         catch (CoreBanker.Services.ApiClientException ex)
         {
-            _success = false;
-            _message = ex.Message;
+            ShowError(ex.Message);
         }
         finally
         {
             _isSavingConfig = false;
+        }
+    }
+
+    private async Task SaveUserAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_userForm.Name) || string.IsNullOrWhiteSpace(_userForm.Email))
+        {
+            ShowError("Name and email are required.");
+            return;
+        }
+
+        if (_editingUserId is null && string.IsNullOrWhiteSpace(_userForm.Password))
+        {
+            ShowError("A password is required when creating a user.");
+            return;
+        }
+
+        _isSavingUser = true;
+        try
+        {
+            if (_editingUserId is null)
+            {
+                await AdminService.CreateUserAsync(new CoreBanker.Services.CreateAdminUserRequest
+                {
+                    Name = _userForm.Name.Trim(),
+                    Email = _userForm.Email.Trim(),
+                    Phone = NormalizeOptional(_userForm.Phone),
+                    RoleId = NormalizeOptional(_userForm.RoleId),
+                    BranchId = NormalizeOptional(_userForm.BranchId),
+                    Password = _userForm.Password
+                });
+                ShowSuccess("User created successfully.");
+            }
+            else
+            {
+                await AdminService.UpdateUserAsync(_editingUserId, new CoreBanker.Services.UpdateAdminUserRequest
+                {
+                    Name = _userForm.Name.Trim(),
+                    Email = _userForm.Email.Trim(),
+                    Phone = NormalizeOptional(_userForm.Phone),
+                    RoleId = NormalizeOptional(_userForm.RoleId),
+                    BranchId = NormalizeOptional(_userForm.BranchId),
+                    Status = NormalizeOptional(_userForm.Status),
+                    Password = NormalizeOptional(_userForm.Password)
+                });
+                ShowSuccess("User updated successfully.");
+            }
+
+            ResetUserForm();
+            await LoadWorkspaceAsync();
+        }
+        catch (CoreBanker.Services.ApiClientException ex)
+        {
+            ShowError(ex.Message);
+        }
+        finally
+        {
+            _isSavingUser = false;
+        }
+    }
+
+    private async Task DeleteUserAsync(CoreBanker.Services.AdminUserDto user)
+    {
+        _isSavingUser = true;
+        try
+        {
+            await AdminService.DeleteUserAsync(user.Id);
+            ShowSuccess($"{user.Name} deleted.");
+            if (_editingUserId == user.Id)
+            {
+                ResetUserForm();
+            }
+
+            await LoadWorkspaceAsync();
+        }
+        catch (CoreBanker.Services.ApiClientException ex)
+        {
+            ShowError(ex.Message);
+        }
+        finally
+        {
+            _isSavingUser = false;
+        }
+    }
+
+    private void EditUser(CoreBanker.Services.AdminUserDto user)
+    {
+        _editingUserId = user.Id;
+        _userForm = new UserFormModel
+        {
+            Name = user.Name,
+            Email = user.Email,
+            Phone = user.Phone ?? string.Empty,
+            BranchId = user.BranchId ?? string.Empty,
+            RoleId = user.RoleIds.FirstOrDefault() ?? string.Empty,
+            Status = string.IsNullOrWhiteSpace(user.Status) ? "ACTIVE" : user.Status,
+            Password = string.Empty
+        };
+    }
+
+    private void ResetUserForm()
+    {
+        _editingUserId = null;
+        _userForm = new UserFormModel();
+    }
+
+    private async Task SaveRoleAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_roleForm.Name))
+        {
+            ShowError("Role name is required.");
+            return;
+        }
+
+        _isSavingRole = true;
+        try
+        {
+            var permissions = ParsePermissions(_rolePermissionsInput);
+            if (_editingRoleId is null)
+            {
+                await AdminService.CreateRoleAsync(new CoreBanker.Services.CreateRoleRequest
+                {
+                    Name = _roleForm.Name.Trim(),
+                    Description = NormalizeOptional(_roleForm.Description),
+                    Permissions = permissions
+                });
+                ShowSuccess("Role created successfully.");
+            }
+            else
+            {
+                await AdminService.UpdateRoleAsync(_editingRoleId, new CoreBanker.Services.UpdateRoleRequest
+                {
+                    Name = _roleForm.Name.Trim(),
+                    Description = NormalizeOptional(_roleForm.Description),
+                    Permissions = permissions
+                });
+                ShowSuccess("Role updated successfully.");
+            }
+
+            ResetRoleForm();
+            await LoadWorkspaceAsync();
+        }
+        catch (CoreBanker.Services.ApiClientException ex)
+        {
+            ShowError(ex.Message);
+        }
+        finally
+        {
+            _isSavingRole = false;
+        }
+    }
+
+    private void EditRole(CoreBanker.Services.RoleSummaryDto role)
+    {
+        _editingRoleId = role.Id;
+        _roleForm = new RoleFormModel
+        {
+            Name = role.Name,
+            Description = role.Description ?? string.Empty
+        };
+        _rolePermissionsInput = string.Join(Environment.NewLine, role.Permissions);
+    }
+
+    private void ResetRoleForm()
+    {
+        _editingRoleId = null;
+        _roleForm = new RoleFormModel();
+        _rolePermissionsInput = string.Empty;
+    }
+
+    private async Task SaveBranchAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_branchForm.Name) || string.IsNullOrWhiteSpace(_branchForm.Code))
+        {
+            ShowError("Branch code and branch name are required.");
+            return;
+        }
+
+        _isSavingBranch = true;
+        try
+        {
+            if (_editingBranchId is null)
+            {
+                await AdminService.CreateBranchAsync(new CoreBanker.Services.CreateBranchRequest
+                {
+                    Code = _branchForm.Code.Trim(),
+                    Name = _branchForm.Name.Trim(),
+                    Location = NormalizeOptional(_branchForm.Location),
+                    Status = string.IsNullOrWhiteSpace(_branchForm.Status) ? "ACTIVE" : _branchForm.Status
+                });
+                ShowSuccess("Branch created successfully.");
+            }
+            else
+            {
+                await AdminService.UpdateBranchAsync(new CoreBanker.Services.BranchDto
+                {
+                    Id = _editingBranchId,
+                    Code = _branchForm.Code.Trim(),
+                    Name = _branchForm.Name.Trim(),
+                    Location = NormalizeOptional(_branchForm.Location),
+                    Status = string.IsNullOrWhiteSpace(_branchForm.Status) ? "ACTIVE" : _branchForm.Status
+                });
+                ShowSuccess("Branch updated successfully.");
+            }
+
+            ResetBranchForm();
+            await LoadWorkspaceAsync();
+        }
+        catch (CoreBanker.Services.ApiClientException ex)
+        {
+            ShowError(ex.Message);
+        }
+        finally
+        {
+            _isSavingBranch = false;
+        }
+    }
+
+    private async Task DeleteBranchAsync(CoreBanker.Services.BranchDto branch)
+    {
+        _isSavingBranch = true;
+        try
+        {
+            await AdminService.DeleteBranchAsync(branch.Id);
+            ShowSuccess($"{branch.Name} deleted.");
+            if (_editingBranchId == branch.Id)
+            {
+                ResetBranchForm();
+            }
+
+            await LoadWorkspaceAsync();
+        }
+        catch (CoreBanker.Services.ApiClientException ex)
+        {
+            ShowError(ex.Message);
+        }
+        finally
+        {
+            _isSavingBranch = false;
+        }
+    }
+
+    private void EditBranch(CoreBanker.Services.BranchDto branch)
+    {
+        _editingBranchId = branch.Id;
+        _branchForm = new BranchFormModel
+        {
+            Code = branch.Code,
+            Name = branch.Name,
+            Location = branch.Location ?? string.Empty,
+            Status = branch.Status
+        };
+    }
+
+    private void ResetBranchForm()
+    {
+        _editingBranchId = null;
+        _branchForm = new BranchFormModel();
+    }
+
+    private async Task SaveLeaseAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_leaseForm.StaffId) || string.IsNullOrWhiteSpace(_leaseForm.Permission) || string.IsNullOrWhiteSpace(_leaseForm.Reason))
+        {
+            ShowError("Staff member, permission, and reason are required.");
+            return;
+        }
+
+        if (!_leaseExpiryDate.HasValue)
+        {
+            ShowError("An expiry date is required.");
+            return;
+        }
+
+        _isSavingLease = true;
+        try
+        {
+            await AdminService.CreatePrivilegeLeaseAsync(new CoreBanker.Services.CreatePrivilegeLeaseRequest
+            {
+                StaffId = _leaseForm.StaffId,
+                Permission = _leaseForm.Permission.Trim().ToUpperInvariant(),
+                Reason = _leaseForm.Reason.Trim(),
+                ApprovedBy = AppState.UserId ?? AppState.UserEmail ?? "system",
+                StartsAt = _leaseStartDate?.Date,
+                ExpiresAt = _leaseExpiryDate.Value.Date.AddHours(23).AddMinutes(59)
+            });
+            ShowSuccess("Privilege lease granted.");
+            _leaseForm.Permission = string.Empty;
+            _leaseForm.Reason = string.Empty;
+            _leaseStartDate = DateTime.Today;
+            _leaseExpiryDate = DateTime.Today.AddDays(7);
+            await LoadSelectedUserLeasesAsync();
+        }
+        catch (CoreBanker.Services.ApiClientException ex)
+        {
+            ShowError(ex.Message);
+        }
+        finally
+        {
+            _isSavingLease = false;
+        }
+    }
+
+    private async Task LoadSelectedUserLeasesAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_leaseForm.StaffId))
+        {
+            _selectedUserLeases = new List<CoreBanker.Services.PrivilegeLeaseDto>();
+            return;
+        }
+
+        try
+        {
+            _selectedUserLeases = await AdminService.GetPrivilegeLeasesAsync(_leaseForm.StaffId);
+        }
+        catch (CoreBanker.Services.ApiClientException ex)
+        {
+            ShowError(ex.Message);
+        }
+    }
+
+    private async Task RevokeLeaseAsync(CoreBanker.Services.PrivilegeLeaseDto lease)
+    {
+        _isSavingLease = true;
+        try
+        {
+            await AdminService.RevokePrivilegeLeaseAsync(lease.Id, new CoreBanker.Services.RevokePrivilegeLeaseRequest
+            {
+                RevokedBy = AppState.UserId ?? AppState.UserEmail ?? "system"
+            });
+            ShowSuccess("Privilege lease revoked.");
+            await LoadSelectedUserLeasesAsync();
+        }
+        catch (CoreBanker.Services.ApiClientException ex)
+        {
+            ShowError(ex.Message);
+        }
+        finally
+        {
+            _isSavingLease = false;
         }
     }
 
@@ -270,14 +739,12 @@
         try
         {
             await AdminService.SubmitOrassReturnAsync(returnId);
-            _success = true;
-            _message = $"ORASS return {returnId} submitted.";
+            ShowSuccess($"ORASS return {returnId} submitted.");
             await LoadWorkspaceAsync();
         }
         catch (CoreBanker.Services.ApiClientException ex)
         {
-            _success = false;
-            _message = ex.Message;
+            ShowError(ex.Message);
         }
         finally
         {
@@ -296,8 +763,7 @@
         }
         catch (CoreBanker.Services.ApiClientException ex)
         {
-            _success = false;
-            _message = ex.Message;
+            ShowError(ex.Message);
         }
     }
 
@@ -317,15 +783,12 @@
                 AcknowledgementReference = _acknowledgementReference,
                 Message = _acknowledgementMessage
             });
-
-            _success = true;
-            _message = $"Return {_selectedReturnId.Value} marked {status}.";
+            ShowSuccess($"Return {_selectedReturnId.Value} marked {status}.");
             await LoadWorkspaceAsync();
         }
         catch (CoreBanker.Services.ApiClientException ex)
         {
-            _success = false;
-            _message = ex.Message;
+            ShowError(ex.Message);
         }
         finally
         {
@@ -339,20 +802,30 @@
         try
         {
             var result = await AdminService.ReconcileOrassAcknowledgementsAsync();
-            _success = true;
-            _message = result is null ? "ORASS reconciliation completed." : $"Reconciliation scanned {result.ScannedCount} return(s) and updated {result.UpdatedCount}.";
+            ShowSuccess(result is null ? "ORASS reconciliation completed." : $"Reconciliation scanned {result.ScannedCount} return(s) and updated {result.UpdatedCount}.");
             await LoadWorkspaceAsync();
         }
         catch (CoreBanker.Services.ApiClientException ex)
         {
-            _success = false;
-            _message = ex.Message;
+            ShowError(ex.Message);
         }
         finally
         {
             _isActingOnOrass = false;
         }
     }
+
+    private string GetRoleName(string? roleId)
+    {
+        if (string.IsNullOrWhiteSpace(roleId))
+        {
+            return "-";
+        }
+
+        return _roles.FirstOrDefault(role => role.Id == roleId)?.Name ?? roleId;
+    }
+
+    private static string GetLeaseStatus(CoreBanker.Services.PrivilegeLeaseDto lease) => lease.IsRevoked ? "Revoked" : lease.IsActive ? "Active" : "Expired";
 
     private void UpsertConfig(string key, string value)
     {
@@ -366,16 +839,50 @@
         existing.Value = value;
     }
 
-    private static CoreBanker.Services.ConfigSnapshotDto BuildSnapshot(List<CoreBanker.Services.ConfigItemDto> items)
+    private static List<string> ParsePermissions(string input) => input.Split(["\r\n", "\n", ","], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+    private static string? NormalizeOptional(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+    private void ShowSuccess(string message) { _success = true; _message = message; }
+    private void ShowError(string message) { _success = false; _message = message; }
+
+    private static CoreBanker.Services.ConfigSnapshotDto BuildSnapshot(List<CoreBanker.Services.ConfigItemDto> items) => new()
     {
-        return new CoreBanker.Services.ConfigSnapshotDto
-        {
-            LoanCreditBureauRequiredForApproval = CoreBanker.Services.AdminService.GetBoolConfig(items, "loan.credit_bureau_required_for_approval"),
-            EodSchedulerEnabled = CoreBanker.Services.AdminService.GetBoolConfig(items, "eod_scheduler_enabled"),
-            EodSchedulerTimeUtc = CoreBanker.Services.AdminService.GetStringConfig(items, "eod_scheduler_time_utc", "23:00"),
-            EodSchedulerLastRunDate = CoreBanker.Services.AdminService.GetStringConfig(items, "eod_scheduler_last_run_date"),
-            ActiveCreditProvider = CoreBanker.Services.AdminService.GetStringConfig(items, "CreditBureau__ActiveProvider"),
-            DefaultTransactionLimit = CoreBanker.Services.AdminService.GetDecimalConfig(items, "transactions.default_limit")
-        };
+        LoanCreditBureauRequiredForApproval = CoreBanker.Services.AdminService.GetBoolConfig(items, "loan.credit_bureau_required_for_approval"),
+        EodSchedulerEnabled = CoreBanker.Services.AdminService.GetBoolConfig(items, "eod_scheduler_enabled"),
+        EodSchedulerTimeUtc = CoreBanker.Services.AdminService.GetStringConfig(items, "eod_scheduler_time_utc", "23:00"),
+        EodSchedulerLastRunDate = CoreBanker.Services.AdminService.GetStringConfig(items, "eod_scheduler_last_run_date"),
+        ActiveCreditProvider = CoreBanker.Services.AdminService.GetStringConfig(items, "CreditBureau__ActiveProvider"),
+        DefaultTransactionLimit = CoreBanker.Services.AdminService.GetDecimalConfig(items, "transactions.default_limit")
+    };
+
+    private sealed class UserFormModel
+    {
+        public string Name { get; set; } = string.Empty;
+        public string Email { get; set; } = string.Empty;
+        public string Phone { get; set; } = string.Empty;
+        public string RoleId { get; set; } = string.Empty;
+        public string BranchId { get; set; } = string.Empty;
+        public string Status { get; set; } = "ACTIVE";
+        public string Password { get; set; } = string.Empty;
+    }
+
+    private sealed class RoleFormModel
+    {
+        public string Name { get; set; } = string.Empty;
+        public string Description { get; set; } = string.Empty;
+    }
+
+    private sealed class BranchFormModel
+    {
+        public string Code { get; set; } = string.Empty;
+        public string Name { get; set; } = string.Empty;
+        public string Location { get; set; } = string.Empty;
+        public string Status { get; set; } = "ACTIVE";
+    }
+
+    private sealed class LeaseFormModel
+    {
+        public string StaffId { get; set; } = string.Empty;
+        public string Permission { get; set; } = string.Empty;
+        public string Reason { get; set; } = string.Empty;
     }
 }

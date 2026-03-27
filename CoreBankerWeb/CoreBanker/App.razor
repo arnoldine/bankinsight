@@ -4,15 +4,13 @@
 
 @if (AuthStateProvider.IsInitializing)
 {
-    <MudThemeProvider>
-        <MudContainer MaxWidth="MaxWidth.Small" Class="mt-16">
-            <MudPaper Class="pa-6 text-center" Elevation="4">
-                <MudProgressCircular Indeterminate="true" Color="Color.Primary" Size="Size.Large" />
-                <MudText Typo="Typo.h6" Class="mt-4">Restoring your session</MudText>
-                <MudText Typo="Typo.body2" Color="Color.Secondary">Checking saved credentials and loading the CoreBanker workspace.</MudText>
-            </MudPaper>
-        </MudContainer>
-    </MudThemeProvider>
+    <MudContainer MaxWidth="MaxWidth.Small" Class="mt-16">
+        <MudPaper Class="pa-6 text-center" Elevation="4">
+            <MudProgressCircular Indeterminate="true" Color="Color.Primary" Size="Size.Large" />
+            <MudText Typo="Typo.h6" Class="mt-4">Restoring your session</MudText>
+            <MudText Typo="Typo.body2" Color="Color.Secondary">Checking saved credentials and loading the CoreBanker workspace.</MudText>
+        </MudPaper>
+    </MudContainer>
 }
 else
 {

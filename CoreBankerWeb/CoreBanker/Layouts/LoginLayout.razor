@@ -1,6 +1,24 @@
 @inherits LayoutComponentBase
-<MudPaper Class="login-layout" Elevation="4">
-    <MudContainer MaxWidth="MaxWidth.Small">
-        @Body
+<MudThemeProvider />
+<MudPopoverProvider />
+<MudDialogProvider />
+<MudSnackbarProvider />
+
+<div class="login-shell">
+    <MudContainer MaxWidth="MaxWidth.Medium" Class="h-100">
+        <MudGrid AlignItems="AlignItems.Center" Justify="Justify.Center" Class="login-grid">
+            <MudItem xs="12" md="5">
+                <div class="login-copy">
+                    <MudText Typo="Typo.overline" Class="login-kicker">BankInsight Replatform</MudText>
+                    <MudText Typo="Typo.h2">CoreBanker</MudText>
+                    <MudText Typo="Typo.body1" Class="mt-3">
+                        Live operational banking workspace for front office, lending, treasury, control, and reporting teams.
+                    </MudText>
+                </div>
+            </MudItem>
+            <MudItem xs="12" md="7" lg="6">
+                @Body
+            </MudItem>
+        </MudGrid>
     </MudContainer>
-</MudPaper>
+</div>

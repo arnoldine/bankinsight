@@ -49,6 +49,12 @@ namespace CoreBanker.Services
             return await response.Content.ReadFromJsonAsync<TResponse>(JsonOptions, cancellationToken);
         }
 
+        protected async Task DeleteAsync(string requestUri, CancellationToken cancellationToken = default)
+        {
+            using var response = await _httpClient.DeleteAsync(requestUri, cancellationToken);
+            await EnsureSuccessAsync(response, cancellationToken);
+        }
+
         protected async Task EnsureSuccessAsync(HttpResponseMessage response, CancellationToken cancellationToken = default)
         {
             if (response.IsSuccessStatusCode)

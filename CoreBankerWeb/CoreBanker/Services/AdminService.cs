@@ -6,6 +6,62 @@ namespace CoreBanker.Services
     {
         public AdminService(HttpClient httpClient) : base(httpClient) { }
 
+        public async Task<List<AdminUserDto>> GetUsersAsync(CancellationToken cancellationToken = default)
+        {
+            var result = await GetAsync<List<AdminUserDto>>("/api/users", cancellationToken);
+            return result ?? new List<AdminUserDto>();
+        }
+
+        public Task<AdminUserDto?> CreateUserAsync(CreateAdminUserRequest request, CancellationToken cancellationToken = default)
+            => PostAsync<CreateAdminUserRequest, AdminUserDto>("/api/users", request, cancellationToken);
+
+        public Task<AdminUserDto?> UpdateUserAsync(string id, UpdateAdminUserRequest request, CancellationToken cancellationToken = default)
+            => PutAsync<UpdateAdminUserRequest, AdminUserDto>($"/api/users/{id}", request, cancellationToken);
+
+        public Task DeleteUserAsync(string id, CancellationToken cancellationToken = default)
+            => DeleteAsync($"/api/users/{id}", cancellationToken);
+
+        public async Task<List<RoleSummaryDto>> GetRolesAsync(CancellationToken cancellationToken = default)
+        {
+            var result = await GetAsync<List<RoleSummaryDto>>("/api/roles", cancellationToken);
+            return result ?? new List<RoleSummaryDto>();
+        }
+
+        public Task<RoleSummaryDto?> CreateRoleAsync(CreateRoleRequest request, CancellationToken cancellationToken = default)
+            => PostAsync<CreateRoleRequest, RoleSummaryDto>("/api/roles", request, cancellationToken);
+
+        public Task<RoleSummaryDto?> UpdateRoleAsync(string id, UpdateRoleRequest request, CancellationToken cancellationToken = default)
+            => PutAsync<UpdateRoleRequest, RoleSummaryDto>($"/api/roles/{id}", request, cancellationToken);
+
+        public async Task<List<BranchDto>> GetBranchesAsync(CancellationToken cancellationToken = default)
+        {
+            var result = await GetAsync<List<BranchDto>>("/api/branch", cancellationToken);
+            return result ?? new List<BranchDto>();
+        }
+
+        public Task<BranchDto?> CreateBranchAsync(CreateBranchRequest request, CancellationToken cancellationToken = default)
+            => PostAsync<CreateBranchRequest, BranchDto>("/api/branch", request, cancellationToken);
+
+        public async Task UpdateBranchAsync(BranchDto request, CancellationToken cancellationToken = default)
+        {
+            await PutAsync<BranchDto, object>($"/api/branch/{request.Id}", request, cancellationToken);
+        }
+
+        public Task DeleteBranchAsync(string id, CancellationToken cancellationToken = default)
+            => DeleteAsync($"/api/branch/{id}", cancellationToken);
+
+        public async Task<List<PrivilegeLeaseDto>> GetPrivilegeLeasesAsync(string staffId, CancellationToken cancellationToken = default)
+        {
+            var result = await GetAsync<List<PrivilegeLeaseDto>>($"/api/privilege-leases/{staffId}", cancellationToken);
+            return result ?? new List<PrivilegeLeaseDto>();
+        }
+
+        public Task<PrivilegeLeaseDto?> CreatePrivilegeLeaseAsync(CreatePrivilegeLeaseRequest request, CancellationToken cancellationToken = default)
+            => PostAsync<CreatePrivilegeLeaseRequest, PrivilegeLeaseDto>("/api/privilege-leases", request, cancellationToken);
+
+        public Task RevokePrivilegeLeaseAsync(string leaseId, RevokePrivilegeLeaseRequest request, CancellationToken cancellationToken = default)
+            => PostAsync<RevokePrivilegeLeaseRequest, object>($"/api/privilege-leases/{leaseId}/revoke", request, cancellationToken);
+
         public async Task<List<ConfigItemDto>> GetConfigAsync(CancellationToken cancellationToken = default)
         {
             var result = await GetAsync<List<ConfigItemDto>>("/api/config", cancellationToken);
@@ -69,6 +125,115 @@ namespace CoreBanker.Services
     {
         public string Key { get; set; } = string.Empty;
         public string Value { get; set; } = string.Empty;
+    }
+
+    public class AdminUserDto
+    {
+        public string Id { get; set; } = string.Empty;
+        public string Name { get; set; } = string.Empty;
+        public string Email { get; set; } = string.Empty;
+        public string? Phone { get; set; }
+        public string? BranchId { get; set; }
+        public string Status { get; set; } = string.Empty;
+        public string? AvatarInitials { get; set; }
+        public string? AccessScopeType { get; set; }
+        public DateTime? LastLogin { get; set; }
+        public string? ClerkUserId { get; set; }
+        public DateTime CreatedAt { get; set; }
+        public List<string> RoleIds { get; set; } = new();
+    }
+
+    public class CreateAdminUserRequest
+    {
+        public string Name { get; set; } = string.Empty;
+        public string Email { get; set; } = string.Empty;
+        public string? Phone { get; set; }
+        public string? RoleId { get; set; }
+        public string? BranchId { get; set; }
+        public string? AvatarInitials { get; set; }
+        public string Password { get; set; } = string.Empty;
+    }
+
+    public class UpdateAdminUserRequest
+    {
+        public string? Name { get; set; }
+        public string? Email { get; set; }
+        public string? Phone { get; set; }
+        public string? RoleId { get; set; }
+        public string? BranchId { get; set; }
+        public string? Status { get; set; }
+        public string? Password { get; set; }
+    }
+
+    public class RoleSummaryDto
+    {
+        public string Id { get; set; } = string.Empty;
+        public string Name { get; set; } = string.Empty;
+        public string? Description { get; set; }
+        public bool IsSystemRole { get; set; }
+        public bool IsActive { get; set; }
+        public int UserCount { get; set; }
+        public List<string> Permissions { get; set; } = new();
+    }
+
+    public class CreateRoleRequest
+    {
+        public string Name { get; set; } = string.Empty;
+        public string? Description { get; set; }
+        public List<string> Permissions { get; set; } = new();
+    }
+
+    public class UpdateRoleRequest
+    {
+        public string Name { get; set; } = string.Empty;
+        public string? Description { get; set; }
+        public List<string> Permissions { get; set; } = new();
+    }
+
+    public class BranchDto
+    {
+        public string Id { get; set; } = string.Empty;
+        public string Name { get; set; } = string.Empty;
+        public string Code { get; set; } = string.Empty;
+        public string? Location { get; set; }
+        public string Status { get; set; } = "ACTIVE";
+    }
+
+    public class CreateBranchRequest
+    {
+        public string Name { get; set; } = string.Empty;
+        public string Code { get; set; } = string.Empty;
+        public string? Location { get; set; }
+        public string Status { get; set; } = "ACTIVE";
+    }
+
+    public class CreatePrivilegeLeaseRequest
+    {
+        public string StaffId { get; set; } = string.Empty;
+        public string Permission { get; set; } = string.Empty;
+        public string Reason { get; set; } = string.Empty;
+        public string ApprovedBy { get; set; } = string.Empty;
+        public DateTime? StartsAt { get; set; }
+        public DateTime ExpiresAt { get; set; }
+    }
+
+    public class RevokePrivilegeLeaseRequest
+    {
+        public string RevokedBy { get; set; } = string.Empty;
+    }
+
+    public class PrivilegeLeaseDto
+    {
+        public string Id { get; set; } = string.Empty;
+        public string StaffId { get; set; } = string.Empty;
+        public string Permission { get; set; } = string.Empty;
+        public string Reason { get; set; } = string.Empty;
+        public string ApprovedBy { get; set; } = string.Empty;
+        public DateTime ApprovedAt { get; set; }
+        public DateTime StartsAt { get; set; }
+        public DateTime ExpiresAt { get; set; }
+        public bool IsRevoked { get; set; }
+        public bool IsActive { get; set; }
     }
 
     public class ConfigSnapshotDto

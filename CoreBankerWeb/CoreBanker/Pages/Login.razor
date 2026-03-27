@@ -4,9 +4,10 @@
 @inject CoreBanker.State.AppState AppState
 @inject NavigationManager Navigation
 
-<MudPaper Class="pa-6 mt-12" Elevation="6">
-    <MudText Typo="Typo.h5" Class="mb-2">Sign in to CoreBanker</MudText>
-    <MudText Typo="Typo.body2" Class="mb-4">Use your BankInsight operator credentials to open the banking workspace.</MudText>
+<MudPaper Class="login-card pa-6" Elevation="8">
+    <MudText Typo="Typo.overline" Class="login-eyebrow">CoreBanker</MudText>
+    <MudText Typo="Typo.h4" Class="mb-2">Sign in to your banking workspace</MudText>
+    <MudText Typo="Typo.body1" Class="mb-4">Use your BankInsight operator credentials to open the live operational console.</MudText>
 
     @if (!string.IsNullOrWhiteSpace(statusMessage))
     {
@@ -15,10 +16,10 @@
 
     @if (!mfaRequired)
     {
-        <MudForm @ref="form" OnValidSubmit="HandleLogin">
-            <MudTextField @bind-Value="Email" Label="Email" Required="true" For="@(() => Email)" Immediate="true" />
-            <MudTextField @bind-Value="Password" Label="Password" InputType="InputType.Password" Required="true" For="@(() => Password)" Immediate="true" />
-            <MudButton Type="ButtonType.Submit" Color="Color.Primary" Variant="Variant.Filled" Class="mt-4" Disabled="@loading" FullWidth="true">Login</MudButton>
+        <MudForm @ref="form">
+            <MudTextField @bind-Value="Email" Label="Email" Required="true" For="@(() => Email)" Immediate="true" Variant="Variant.Outlined" />
+            <MudTextField @bind-Value="Password" Label="Password" InputType="InputType.Password" Required="true" For="@(() => Password)" Immediate="true" Variant="Variant.Outlined" Class="mt-3" />
+            <MudButton OnClick="HandleLogin" Color="Color.Primary" Variant="Variant.Filled" Class="mt-4" Disabled="@loading" FullWidth="true">Login</MudButton>
         </MudForm>
         <MudProgressLinear Indeterminate="true" Visible="@loading" Class="mt-3" />
         @if (!string.IsNullOrEmpty(error))
@@ -36,9 +37,9 @@
             }
         </MudAlert>
 
-        <MudForm OnValidSubmit="HandleMfa">
-            <MudTextField @bind-Value="MfaCode" Label="MFA Code" Required="true" For="@(() => MfaCode)" Immediate="true" />
-            <MudButton Type="ButtonType.Submit" Color="Color.Primary" Variant="Variant.Filled" Class="mt-4" Disabled="@mfaLoading" FullWidth="true">Verify</MudButton>
+        <MudForm @ref="mfaForm">
+            <MudTextField @bind-Value="MfaCode" Label="MFA Code" Required="true" For="@(() => MfaCode)" Immediate="true" Variant="Variant.Outlined" />
+            <MudButton OnClick="HandleMfa" Color="Color.Primary" Variant="Variant.Filled" Class="mt-4" Disabled="@mfaLoading" FullWidth="true">Verify</MudButton>
         </MudForm>
         <MudProgressLinear Indeterminate="true" Visible="@mfaLoading" Class="mt-3" />
         @if (!string.IsNullOrEmpty(mfaError))
@@ -52,6 +53,7 @@
 
 @code {
     private MudForm? form;
+    private MudForm? mfaForm;
     private string Email = string.Empty;
     private string Password = string.Empty;
     private bool loading;
@@ -75,6 +77,15 @@
 
     private async Task HandleLogin()
     {
+        if (form is not null)
+        {
+            await form.ValidateAsync();
+            if (!form.IsValid)
+            {
+                return;
+            }
+        }
+
         loading = true;
         error = null;
         statusMessage = null;
@@ -107,6 +118,15 @@
 
     private async Task HandleMfa()
     {
+        if (mfaForm is not null)
+        {
+            await mfaForm.ValidateAsync();
+            if (!mfaForm.IsValid)
+            {
+                return;
+            }
+        }
+
         if (string.IsNullOrWhiteSpace(mfaToken))
         {
             mfaError = "Your verification session has expired. Please sign in again.";
