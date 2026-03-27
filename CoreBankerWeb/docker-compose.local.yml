@@ -1,0 +1,11 @@
+services:
+  corebanker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        API_BASE_URL: http://localhost:5176/
+    container_name: corebanker-frontend-local
+    ports:
+      - "3003:80"
+    restart: unless-stopped

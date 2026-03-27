@@ -1,116 +1,299 @@
 @page "/reporting"
 @layout CoreBanker.Layouts.MainLayout
 
-<MudText Typo="Typo.h4">Reporting</MudText>
+@inject CoreBanker.Services.ReportingService ReportingService
 
-<MudPaper Class="pa-4">
-	<MudTextField @bind-Value="_search" Label="Search reports..." Variant="Variant.Outlined" Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search" Immediate="true" />
-	<MudTable T="CoreBanker.Services.ReportCatalogItemDto" Items="@FilteredCatalog" Hover="true" Dense="true">
-		<HeaderContent>
-			<MudTh>Name</MudTh>
-			<MudTh>Category</MudTh>
-			<MudTh>Description</MudTh>
-			<MudTh></MudTh>
-		</HeaderContent>
-		<RowTemplate>
-			<MudTd DataLabel="Name">@context.Name</MudTd>
-			<MudTd DataLabel="Category">@context.Category</MudTd>
-			<MudTd DataLabel="Description">@context.Description</MudTd>
-			<MudTd>
-				<MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="@(() => SelectReport(context))">Preview</MudButton>
-			</MudTd>
-		</RowTemplate>
-	</MudTable>
-</MudPaper>
+<MudGrid>
+    <MudItem xs="12" lg="7">
+        <MudStack Spacing="3">
+            <MudPaper Class="pa-4">
+                <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+                    <div>
+                        <MudText Typo="Typo.h4">Reporting Hub</MudText>
+                        <MudText Typo="Typo.body2" Class="mud-text-secondary">Browse report definitions, filter by report type, and generate new runs from the live reporting engine.</MudText>
+                    </div>
+                    <MudButton Variant="Variant.Outlined" Color="Color.Secondary" OnClick="LoadCatalogAsync">Refresh</MudButton>
+                </MudStack>
+            </MudPaper>
 
-<MudDialog @bind-IsOpen="_previewOpen" MaxWidth="MaxWidth.ExtraLarge">
-	<DialogContent>
-		<MudText Typo="Typo.h6">@_selectedReport?.Name</MudText>
-		<MudText Typo="Typo.subtitle2">@_selectedReport?.Description</MudText>
-		<MudDivider Class="my-2" />
-		@if (_reportResult != null && _reportResult.Columns != null && _reportResult.Rows != null)
-		{
-			<div class="overflow-auto">
-				<table class="mud-table-root w-100">
-					<thead>
-						<tr>
-							@foreach (var column in _reportResult.Columns)
-							{
-								<th class="pa-2 text-left">@column</th>
-							}
-						</tr>
-					</thead>
-					<tbody>
-						@foreach (var row in _reportResult.Rows)
-						{
-							<tr>
-								@foreach (var cell in row)
-								{
-									<td class="pa-2">@cell</td>
-								}
-							</tr>
-						}
-					</tbody>
-				</table>
-			</div>
-			<MudDivider Class="my-2" />
-			@if (!string.IsNullOrEmpty(_reportResult.ExportUrl))
-			{
-				<MudButton Variant="Variant.Filled" Color="Color.Secondary" Href="@_reportResult.ExportUrl" Target="_blank">Export</MudButton>
-			}
-		}
-		else if (_loadingPreview)
-		{
-			<MudProgressCircular Indeterminate="true" />
-		}
-		else
-		{
-			<MudText>No preview available.</MudText>
-		}
-	</DialogContent>
-	<DialogActions>
-		<MudButton OnClick="@(() => _previewOpen = false)">Close</MudButton>
-	</DialogActions>
-</MudDialog>
+            <MudPaper Class="pa-4">
+                <MudGrid>
+                    <MudItem xs="12" md="7">
+                        <MudTextField @bind-Value="_search" Label="Search reports" Variant="Variant.Outlined" Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search" Immediate="true" />
+                    </MudItem>
+                    <MudItem xs="12" md="3">
+                        <MudSelect @bind-Value="_reportTypeFilter" Label="Report type" Variant="Variant.Outlined" @bind-Value:after="ReloadForReportTypeAsync">
+                            <MudSelectItem Value="@string.Empty">All types</MudSelectItem>
+                            @foreach (var reportType in _catalog.Select(item => item.ReportType).Where(type => !string.IsNullOrWhiteSpace(type)).Distinct().OrderBy(type => type))
+                            {
+                                <MudSelectItem Value="@reportType">@reportType</MudSelectItem>
+                            }
+                        </MudSelect>
+                    </MudItem>
+                    <MudItem xs="12" md="2">
+                        <MudSwitch @bind-Value="_activeOnly" Color="Color.Primary" Label="Active only" />
+                    </MudItem>
+                </MudGrid>
+            </MudPaper>
+
+            @if (!string.IsNullOrWhiteSpace(_loadError))
+            {
+                <MudAlert Severity="Severity.Error">@_loadError</MudAlert>
+            }
+
+            <MudTable T="CoreBanker.Services.ReportDefinitionDto" Items="@FilteredCatalog" Hover="true" Dense="true" Loading="@_isLoadingCatalog">
+                <HeaderContent>
+                    <MudTh>Name</MudTh>
+                    <MudTh>Code</MudTh>
+                    <MudTh>Type</MudTh>
+                    <MudTh>Frequency</MudTh>
+                    <MudTh></MudTh>
+                </HeaderContent>
+                <RowTemplate>
+                    <MudTd DataLabel="Name">
+                        <MudText Typo="Typo.body2">@context.ReportName</MudText>
+                        <MudText Typo="Typo.caption" Class="mud-text-secondary">@context.Description</MudText>
+                    </MudTd>
+                    <MudTd DataLabel="Code">@context.ReportCode</MudTd>
+                    <MudTd DataLabel="Type">@context.ReportType</MudTd>
+                    <MudTd DataLabel="Frequency">@context.Frequency</MudTd>
+                    <MudTd DataLabel="Actions">
+                        <MudButton Variant="Variant.Text" Color="Color.Primary" OnClick="@(() => SelectReportAsync(context))">Open</MudButton>
+                    </MudTd>
+                </RowTemplate>
+            </MudTable>
+        </MudStack>
+    </MudItem>
+
+    <MudItem xs="12" lg="5">
+        <MudStack Spacing="3">
+            <MudPaper Class="pa-4">
+                <MudText Typo="Typo.h5">Report Workspace</MudText>
+                <MudText Typo="Typo.body2" Class="mud-text-secondary">Generate a run, track status, and review recent execution history for the selected report.</MudText>
+            </MudPaper>
+
+            @if (_selectedReport is null)
+            {
+                <MudPaper Class="pa-6">
+                    <MudText Typo="Typo.body1">Select a report definition to view details and run history.</MudText>
+                </MudPaper>
+            }
+            else
+            {
+                <MudPaper Class="pa-4">
+                    <MudText Typo="Typo.h6">@_selectedReport.ReportName</MudText>
+                    <MudText Typo="Typo.body2" Class="mud-text-secondary">@($"{_selectedReport.ReportCode} | {_selectedReport.ReportType}")</MudText>
+                    <MudDivider Class="my-3" />
+                    <MudText Typo="Typo.body2">Frequency: @DisplayValue(_selectedReport.Frequency)</MudText>
+                    <MudText Typo="Typo.body2">Format: @DisplayValue(_selectedReport.TemplateFormat)</MudText>
+                    <MudText Typo="Typo.body2">Approval Required: @(_selectedReport.RequiresApproval ? "Yes" : "No")</MudText>
+                    <MudText Typo="Typo.body2">Created: @_selectedReport.CreatedAt.ToLocalTime().ToString("dd MMM yyyy HH:mm")</MudText>
+                </MudPaper>
+
+                <MudPaper Class="pa-4">
+                    <MudText Typo="Typo.subtitle1">Generate Report</MudText>
+                    <MudSelect @bind-Value="_selectedFormat" Label="Output format" Variant="Variant.Outlined" Class="mt-2">
+                        <MudSelectItem Value="@("JSON")">JSON</MudSelectItem>
+                        <MudSelectItem Value="@("CSV")">CSV</MudSelectItem>
+                        <MudSelectItem Value="@("PDF")">PDF</MudSelectItem>
+                        <MudSelectItem Value="@("EXCEL")">Excel</MudSelectItem>
+                    </MudSelect>
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="mt-3" Disabled="@_isGenerating" OnClick="GenerateReportAsync">Generate Run</MudButton>
+                </MudPaper>
+
+                @if (!string.IsNullOrWhiteSpace(_workspaceMessage))
+                {
+                    <MudAlert Severity="@(_workspaceSuccess ? Severity.Success : Severity.Error)">@_workspaceMessage</MudAlert>
+                }
+
+                <MudPaper Class="pa-4">
+                    <MudText Typo="Typo.subtitle1">Latest Run</MudText>
+                    @if (_selectedRun is null)
+                    {
+                        <MudText Typo="Typo.body2" Class="mud-text-secondary">No run selected yet.</MudText>
+                    }
+                    else
+                    {
+                        <MudText Typo="Typo.body2">Status: @_selectedRun.Status</MudText>
+                        <MudText Typo="Typo.body2">Started: @_selectedRun.StartedAt.ToLocalTime().ToString("dd MMM yyyy HH:mm")</MudText>
+                        <MudText Typo="Typo.body2">Completed: @(_selectedRun.CompletedAt?.ToLocalTime().ToString("dd MMM yyyy HH:mm") ?? "Still running")</MudText>
+                        <MudText Typo="Typo.body2">Rows: @_selectedRun.RowCount</MudText>
+                        <MudText Typo="Typo.body2">Format: @_selectedRun.Format</MudText>
+                        <MudText Typo="Typo.body2">File: @DisplayValue(_selectedRun.FileName)</MudText>
+                        <MudButton Variant="Variant.Outlined" Color="Color.Primary" Class="mt-3" OnClick="RefreshSelectedRunAsync">Refresh Run Status</MudButton>
+                    }
+                </MudPaper>
+
+                <MudPaper Class="pa-4">
+                    <MudText Typo="Typo.subtitle1">Run History</MudText>
+                    <MudTable T="CoreBanker.Services.ReportRunDto" Items="@_history" Dense="true" Hover="true" Loading="@_isLoadingHistory" Class="mt-2">
+                        <HeaderContent>
+                            <MudTh>Status</MudTh>
+                            <MudTh>Started</MudTh>
+                            <MudTh>Rows</MudTh>
+                            <MudTh>Format</MudTh>
+                        </HeaderContent>
+                        <RowTemplate>
+                            <MudTd DataLabel="Status"><MudButton Variant="Variant.Text" Color="Color.Primary" OnClick="@(() => SelectRunAsync(context.Id))">@context.Status</MudButton></MudTd>
+                            <MudTd DataLabel="Started">@context.StartedAt.ToLocalTime().ToString("dd MMM HH:mm")</MudTd>
+                            <MudTd DataLabel="Rows">@context.RowCount</MudTd>
+                            <MudTd DataLabel="Format">@context.Format</MudTd>
+                        </RowTemplate>
+                    </MudTable>
+                </MudPaper>
+            }
+        </MudStack>
+    </MudItem>
+</MudGrid>
 
 @code {
-	[Inject] private CoreBanker.Services.ReportingService? ReportingService { get; set; }
+    private List<CoreBanker.Services.ReportDefinitionDto> _catalog = new();
+    private List<CoreBanker.Services.ReportRunDto> _history = new();
+    private CoreBanker.Services.ReportDefinitionDto? _selectedReport;
+    private CoreBanker.Services.ReportRunDto? _selectedRun;
+    private string _search = string.Empty;
+    private string _reportTypeFilter = string.Empty;
+    private string _selectedFormat = "JSON";
+    private bool _activeOnly = true;
+    private string _loadError = string.Empty;
+    private string _workspaceMessage = string.Empty;
+    private bool _workspaceSuccess;
+    private bool _isLoadingCatalog;
+    private bool _isLoadingHistory;
+    private bool _isGenerating;
 
-	private List<CoreBanker.Services.ReportCatalogItemDto> _catalog = new();
-	private string _search = string.Empty;
-	private CoreBanker.Services.ReportCatalogItemDto? _selectedReport;
-	private CoreBanker.Services.ReportResultDto? _reportResult;
-	private bool _previewOpen;
-	private bool _loadingPreview;
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadCatalogAsync();
+    }
 
-	private IEnumerable<CoreBanker.Services.ReportCatalogItemDto> FilteredCatalog =>
-		string.IsNullOrWhiteSpace(_search)
-			? _catalog
-			: _catalog.Where(r =>
-				(r.Name ?? string.Empty).Contains(_search, StringComparison.OrdinalIgnoreCase) ||
-				(r.Description ?? string.Empty).Contains(_search, StringComparison.OrdinalIgnoreCase) ||
-				(r.Category ?? string.Empty).Contains(_search, StringComparison.OrdinalIgnoreCase));
+    private async Task LoadCatalogAsync()
+    {
+        _isLoadingCatalog = true;
+        _loadError = string.Empty;
 
-	protected override async Task OnInitializedAsync()
-	{
-		if (ReportingService != null)
-		{
-			_catalog = await ReportingService.GetReportCatalogAsync();
-		}
-	}
+        try
+        {
+            _catalog = await ReportingService.GetReportCatalogAsync(string.IsNullOrWhiteSpace(_reportTypeFilter) ? null : _reportTypeFilter);
+            if (_selectedReport is not null)
+            {
+                _selectedReport = _catalog.FirstOrDefault(item => item.Id == _selectedReport.Id);
+            }
+        }
+        catch (CoreBanker.Services.ApiClientException ex)
+        {
+            _loadError = ex.Message;
+        }
+        finally
+        {
+            _isLoadingCatalog = false;
+        }
+    }
 
-	private async Task SelectReport(CoreBanker.Services.ReportCatalogItemDto report)
-	{
-		_selectedReport = report;
-		_previewOpen = true;
-		_loadingPreview = true;
-		_reportResult = null;
-		StateHasChanged();
-		if (ReportingService != null && report.Id != null)
-		{
-			_reportResult = await ReportingService.RunReportAsync(report.Id, new Dictionary<string, object>());
-		}
-		_loadingPreview = false;
-		StateHasChanged();
-	}
+    private Task ReloadForReportTypeAsync()
+    {
+        return LoadCatalogAsync();
+    }
+
+    private async Task SelectReportAsync(CoreBanker.Services.ReportDefinitionDto report)
+    {
+        _selectedReport = report;
+        _selectedRun = null;
+        _workspaceMessage = string.Empty;
+        await LoadHistoryAsync();
+    }
+
+    private async Task LoadHistoryAsync()
+    {
+        if (_selectedReport is null)
+        {
+            return;
+        }
+
+        _isLoadingHistory = true;
+
+        try
+        {
+            _history = await ReportingService.GetReportHistoryAsync(_selectedReport.Id);
+            _selectedRun = _history.OrderByDescending(item => item.StartedAt).FirstOrDefault();
+        }
+        catch (CoreBanker.Services.ApiClientException ex)
+        {
+            _workspaceSuccess = false;
+            _workspaceMessage = ex.Message;
+        }
+        finally
+        {
+            _isLoadingHistory = false;
+        }
+    }
+
+    private async Task GenerateReportAsync()
+    {
+        if (_selectedReport is null)
+        {
+            return;
+        }
+
+        _isGenerating = true;
+        _workspaceMessage = string.Empty;
+
+        try
+        {
+            _selectedRun = await ReportingService.GenerateReportAsync(_selectedReport.Id, _selectedFormat);
+            _workspaceSuccess = true;
+            _workspaceMessage = _selectedRun is null
+                ? "Report generation submitted."
+                : $"Report run {_selectedRun.Id} started with status {_selectedRun.Status}.";
+            await LoadHistoryAsync();
+        }
+        catch (CoreBanker.Services.ApiClientException ex)
+        {
+            _workspaceSuccess = false;
+            _workspaceMessage = ex.Message;
+        }
+        finally
+        {
+            _isGenerating = false;
+        }
+    }
+
+    private async Task SelectRunAsync(int runId)
+    {
+        try
+        {
+            _selectedRun = await ReportingService.GetReportRunAsync(runId);
+        }
+        catch (CoreBanker.Services.ApiClientException ex)
+        {
+            _workspaceSuccess = false;
+            _workspaceMessage = ex.Message;
+        }
+    }
+
+    private async Task RefreshSelectedRunAsync()
+    {
+        if (_selectedRun is null)
+        {
+            return;
+        }
+
+        await SelectRunAsync(_selectedRun.Id);
+        await LoadHistoryAsync();
+    }
+
+    private IEnumerable<CoreBanker.Services.ReportDefinitionDto> FilteredCatalog =>
+        string.IsNullOrWhiteSpace(_search)
+            ? (_activeOnly ? _catalog.Where(report => report.IsActive) : _catalog)
+            : _catalog.Where(report =>
+                (!_activeOnly || report.IsActive)
+                && (report.ReportName.Contains(_search, StringComparison.OrdinalIgnoreCase)
+                || report.ReportCode.Contains(_search, StringComparison.OrdinalIgnoreCase)
+                || report.Description.Contains(_search, StringComparison.OrdinalIgnoreCase)
+                || report.ReportType.Contains(_search, StringComparison.OrdinalIgnoreCase)));
+
+    private static string DisplayValue(string? value)
+    {
+        return string.IsNullOrWhiteSpace(value) ? "Not provided" : value;
+    }
 }

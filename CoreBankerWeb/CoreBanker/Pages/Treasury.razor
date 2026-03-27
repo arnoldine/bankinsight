@@ -1,5 +1,533 @@
 @page "/treasury"
 @layout CoreBanker.Layouts.MainLayout
 
-<MudText Typo="Typo.h4">Treasury</MudText>
-<!-- TODO: Implement positions, FX trades, investments, fixed deposits -->
+@inject CoreBanker.Services.TreasuryService TreasuryService
+
+<MudStack Spacing="3">
+    <MudPaper Class="pa-4">
+        <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+            <div>
+                <MudText Typo="Typo.h4">Treasury</MudText>
+                <MudText Typo="Typo.body2" Class="mud-text-secondary">Manage live treasury positions, utilization limits, reconciliations, and closeouts.</MudText>
+            </div>
+            <MudButton Variant="Variant.Outlined" Color="Color.Secondary" Disabled="@_isBusy" OnClick="LoadWorkspaceAsync">Refresh</MudButton>
+        </MudStack>
+    </MudPaper>
+
+    @if (!string.IsNullOrWhiteSpace(_message))
+    {
+        <MudAlert Severity="@(_isSuccess ? Severity.Success : Severity.Error)">@_message</MudAlert>
+    }
+
+    <MudGrid>
+        @foreach (var summary in _summary)
+        {
+            <MudItem xs="12" sm="6" md="3">
+                <MudPaper Class="pa-4">
+                    <MudText Typo="Typo.caption">@summary.Currency</MudText>
+                    <MudText Typo="Typo.h6">@FormatCurrency(summary.CurrentBalance)</MudText>
+                    <MudText Typo="Typo.body2" Class="mud-text-secondary">@($"{summary.UtilizationPercent:N1}% of limit")</MudText>
+                </MudPaper>
+            </MudItem>
+        }
+    </MudGrid>
+
+    <MudTabs Rounded="true">
+        <MudTabPanel Text="Positions">
+            <MudPaper Class="pa-4">
+                <MudTable T="CoreBanker.Services.TreasuryPositionDto" Items="@_positions" Dense="true" Hover="true" Loading="@_isBusy">
+                    <HeaderContent>
+                        <MudTh>Date</MudTh>
+                        <MudTh>Currency</MudTh>
+                        <MudTh>Opening</MudTh>
+                        <MudTh>Closing</MudTh>
+                        <MudTh>Status</MudTh>
+                        <MudTh></MudTh>
+                    </HeaderContent>
+                    <RowTemplate>
+                        <MudTd DataLabel="Date">@context.PositionDate.ToString("dd MMM yyyy")</MudTd>
+                        <MudTd DataLabel="Currency">@context.Currency</MudTd>
+                        <MudTd DataLabel="Opening">@FormatCurrency(context.OpeningBalance)</MudTd>
+                        <MudTd DataLabel="Closing">@FormatCurrency(context.ClosingBalance)</MudTd>
+                        <MudTd DataLabel="Status">@context.PositionStatus</MudTd>
+                        <MudTd DataLabel="Actions"><MudButton Variant="Variant.Text" Color="Color.Primary" OnClick="@(() => SelectPosition(context))">Manage</MudButton></MudTd>
+                    </RowTemplate>
+                </MudTable>
+            </MudPaper>
+        </MudTabPanel>
+
+        <MudTabPanel Text="Create Position">
+            <MudPaper Class="pa-4">
+                <MudGrid>
+                    <MudItem xs="12" md="6"><MudDatePicker Label="Position Date" Variant="Variant.Outlined" Date="@_createDateTime" DateChanged="OnCreateDateChanged" /></MudItem>
+                    <MudItem xs="12" md="6"><MudTextField @bind-Value="_newCurrency" Label="Currency" Variant="Variant.Outlined" /></MudItem>
+                    <MudItem xs="12" md="6"><MudNumericField T="decimal" @bind-Value="_newOpeningBalance" Label="Opening Balance" Variant="Variant.Outlined" /></MudItem>
+                    <MudItem xs="12" md="6"><MudNumericField T="decimal?" @bind-Value="_newExposureLimit" Label="Exposure Limit" Variant="Variant.Outlined" /></MudItem>
+                </MudGrid>
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="mt-4" Disabled="@(_isBusy || _newOpeningBalance < 0m || string.IsNullOrWhiteSpace(_newCurrency))" OnClick="CreatePositionAsync">Create Position</MudButton>
+            </MudPaper>
+        </MudTabPanel>
+
+        <MudTabPanel Text="Manage Position">
+            <MudGrid>
+                <MudItem xs="12" lg="6">
+                    <MudPaper Class="pa-4">
+                        <MudText Typo="Typo.h6">Adjust Position</MudText>
+                        @if (_selectedPosition is null)
+                        {
+                            <MudText Typo="Typo.body2" Class="mud-text-secondary mt-2">Select a treasury position from the positions tab to manage it.</MudText>
+                        }
+                        else
+                        {
+                            <MudText Typo="Typo.body2" Class="mt-2">@($"{_selectedPosition.Currency} | {_selectedPosition.PositionDate:dd MMM yyyy} | {_selectedPosition.PositionStatus}")</MudText>
+                            <MudGrid Class="mt-2">
+                                <MudItem xs="12" md="6"><MudNumericField T="decimal?" @bind-Value="_deposits" Label="Deposits" Variant="Variant.Outlined" /></MudItem>
+                                <MudItem xs="12" md="6"><MudNumericField T="decimal?" @bind-Value="_withdrawals" Label="Withdrawals" Variant="Variant.Outlined" /></MudItem>
+                                <MudItem xs="12" md="6"><MudNumericField T="decimal?" @bind-Value="_fxGainsLosses" Label="FX Gains/Losses" Variant="Variant.Outlined" /></MudItem>
+                                <MudItem xs="12" md="6"><MudNumericField T="decimal?" @bind-Value="_otherMovements" Label="Other Movements" Variant="Variant.Outlined" /></MudItem>
+                                <MudItem xs="12" md="6"><MudNumericField T="decimal?" @bind-Value="_nostroBalance" Label="Nostro Balance" Variant="Variant.Outlined" /></MudItem>
+                                <MudItem xs="12" md="6"><MudNumericField T="decimal?" @bind-Value="_vaultBalance" Label="Vault Balance" Variant="Variant.Outlined" /></MudItem>
+                                <MudItem xs="12" md="6"><MudNumericField T="decimal?" @bind-Value="_overnightPlacement" Label="Overnight Placement" Variant="Variant.Outlined" /></MudItem>
+                                <MudItem xs="12"><MudTextField @bind-Value="_updateNotes" Label="Notes" Variant="Variant.Outlined" Lines="3" /></MudItem>
+                            </MudGrid>
+                            <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="mt-4" Disabled="@_isBusy" OnClick="UpdateSelectedPositionAsync">Save Adjustments</MudButton>
+                        }
+                    </MudPaper>
+                </MudItem>
+                <MudItem xs="12" lg="6">
+                    <MudStack Spacing="3">
+                        <MudPaper Class="pa-4">
+                            <MudText Typo="Typo.h6">Reconcile</MudText>
+                            <MudNumericField T="decimal" @bind-Value="_reconcileActualBalance" Label="Actual Balance" Variant="Variant.Outlined" Class="mt-2" />
+                            <MudTextField @bind-Value="_reconcileNotes" Label="Notes" Variant="Variant.Outlined" Lines="3" Class="mt-3" />
+                            <MudButton Variant="Variant.Filled" Color="Color.Success" Class="mt-4" Disabled="@(_isBusy || _selectedPosition is null)" OnClick="ReconcileSelectedPositionAsync">Reconcile Position</MudButton>
+                        </MudPaper>
+                        <MudPaper Class="pa-4">
+                            <MudText Typo="Typo.h6">Close Position</MudText>
+                            <MudNumericField T="decimal" @bind-Value="_closeBalance" Label="Closing Balance" Variant="Variant.Outlined" Class="mt-2" />
+                            <MudButton Variant="Variant.Filled" Color="Color.Error" Class="mt-4" Disabled="@(_isBusy || _selectedPosition is null)" OnClick="CloseSelectedPositionAsync">Close Position</MudButton>
+                        </MudPaper>
+                    </MudStack>
+                </MudItem>
+            </MudGrid>
+        </MudTabPanel>
+
+        <MudTabPanel Text="FX Trades">
+            <MudGrid>
+                <MudItem xs="12" lg="7">
+                    <MudPaper Class="pa-4">
+                        <MudText Typo="Typo.h6">Trade Blotter</MudText>
+                        <MudTable T="CoreBanker.Services.FxTradeDto" Items="@_fxTrades" Dense="true" Hover="true" Class="mt-3">
+                            <HeaderContent>
+                                <MudTh>Deal</MudTh>
+                                <MudTh>Pair</MudTh>
+                                <MudTh>Trade Date</MudTh>
+                                <MudTh>Status</MudTh>
+                                <MudTh></MudTh>
+                            </HeaderContent>
+                            <RowTemplate>
+                                <MudTd DataLabel="Deal">@context.DealNumber</MudTd>
+                                <MudTd DataLabel="Pair">@($"{context.BaseCurrency}/{context.CounterCurrency}")</MudTd>
+                                <MudTd DataLabel="Trade Date">@context.TradeDate.ToString("dd MMM yyyy")</MudTd>
+                                <MudTd DataLabel="Status">@context.Status</MudTd>
+                                <MudTd DataLabel="Actions"><MudButton Variant="Variant.Text" Color="Color.Primary" OnClick="@(() => SelectTrade(context))">Manage</MudButton></MudTd>
+                            </RowTemplate>
+                        </MudTable>
+                    </MudPaper>
+                </MudItem>
+                <MudItem xs="12" lg="5">
+                    <MudPaper Class="pa-4">
+                        <MudText Typo="Typo.h6">Create Trade</MudText>
+                        <MudGrid Class="mt-2">
+                            <MudItem xs="12" md="6"><MudDatePicker Label="Trade Date" Variant="Variant.Outlined" Date="@_tradeDateTime" DateChanged="OnTradeDateChanged" /></MudItem>
+                            <MudItem xs="12" md="6"><MudDatePicker Label="Value Date" Variant="Variant.Outlined" Date="@_valueDateTime" DateChanged="OnValueDateChanged" /></MudItem>
+                            <MudItem xs="12" md="6"><MudTextField @bind-Value="_tradeType" Label="Trade Type" Variant="Variant.Outlined" /></MudItem>
+                            <MudItem xs="12" md="6"><MudTextField @bind-Value="_tradeDirection" Label="Direction" Variant="Variant.Outlined" /></MudItem>
+                            <MudItem xs="12" md="6"><MudTextField @bind-Value="_baseCurrency" Label="Base Currency" Variant="Variant.Outlined" /></MudItem>
+                            <MudItem xs="12" md="6"><MudNumericField T="decimal" @bind-Value="_baseAmount" Label="Base Amount" Variant="Variant.Outlined" /></MudItem>
+                            <MudItem xs="12" md="6"><MudTextField @bind-Value="_counterCurrency" Label="Counter Currency" Variant="Variant.Outlined" /></MudItem>
+                            <MudItem xs="12" md="6"><MudNumericField T="decimal" @bind-Value="_counterAmount" Label="Counter Amount" Variant="Variant.Outlined" /></MudItem>
+                            <MudItem xs="12" md="6"><MudNumericField T="decimal" @bind-Value="_exchangeRate" Label="Exchange Rate" Variant="Variant.Outlined" /></MudItem>
+                            <MudItem xs="12" md="6"><MudTextField @bind-Value="_tradeCounterparty" Label="Counterparty" Variant="Variant.Outlined" /></MudItem>
+                        </MudGrid>
+                        <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="mt-4" Disabled="@(_isBusy || _baseAmount <= 0m || _counterAmount <= 0m)" OnClick="CreateTradeAsync">Create Trade</MudButton>
+                    </MudPaper>
+                    @if (_selectedTrade is not null)
+                    {
+                        <MudPaper Class="pa-4 mt-3">
+                            <MudText Typo="Typo.h6">@($"Manage Trade {_selectedTrade.DealNumber}")</MudText>
+                            <MudTextField @bind-Value="_tradeRejectionReason" Label="Approval/Rejection Notes" Variant="Variant.Outlined" Class="mt-3" />
+                            <MudNumericField T="decimal?" @bind-Value="_settlementRate" Label="Settlement Rate" Variant="Variant.Outlined" Class="mt-3" />
+                            <MudTextField @bind-Value="_settlementNotes" Label="Settlement Notes" Variant="Variant.Outlined" Class="mt-3" />
+                            <MudStack Row="true" Spacing="2" Class="mt-4">
+                                <MudButton Variant="Variant.Filled" Color="Color.Success" Disabled="@_isBusy" OnClick="ApproveSelectedTradeAsync">Approve</MudButton>
+                                <MudButton Variant="Variant.Filled" Color="Color.Error" Disabled="@_isBusy" OnClick="RejectSelectedTradeAsync">Reject</MudButton>
+                                <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="@_isBusy" OnClick="SettleSelectedTradeAsync">Settle</MudButton>
+                            </MudStack>
+                        </MudPaper>
+                    }
+                </MudItem>
+            </MudGrid>
+        </MudTabPanel>
+
+        <MudTabPanel Text="Investments">
+            <MudGrid>
+                <MudItem xs="12" lg="7">
+                    <MudGrid>
+                        <MudItem xs="12" md="4"><MudPaper Class="pa-4"><MudText Typo="Typo.caption">Principal</MudText><MudText Typo="Typo.h6">@FormatCurrency(_portfolio?.TotalPrincipal ?? 0m)</MudText></MudPaper></MudItem>
+                        <MudItem xs="12" md="4"><MudPaper Class="pa-4"><MudText Typo="Typo.caption">Accrued Interest</MudText><MudText Typo="Typo.h6">@FormatCurrency(_portfolio?.TotalAccruedInterest ?? 0m)</MudText></MudPaper></MudItem>
+                        <MudItem xs="12" md="4"><MudPaper Class="pa-4"><MudText Typo="Typo.caption">Maturity Value</MudText><MudText Typo="Typo.h6">@FormatCurrency(_portfolio?.TotalMaturityValue ?? 0m)</MudText></MudPaper></MudItem>
+                    </MudGrid>
+                    <MudPaper Class="pa-4 mt-3">
+                        <MudText Typo="Typo.h6">Investment Book</MudText>
+                        <MudTable T="CoreBanker.Services.InvestmentDto" Items="@_investments" Dense="true" Hover="true" Class="mt-3">
+                            <HeaderContent><MudTh>Number</MudTh><MudTh>Type</MudTh><MudTh>Principal</MudTh><MudTh>Status</MudTh><MudTh></MudTh></HeaderContent>
+                            <RowTemplate>
+                                <MudTd DataLabel="Number">@context.InvestmentNumber</MudTd>
+                                <MudTd DataLabel="Type">@context.InvestmentType</MudTd>
+                                <MudTd DataLabel="Principal">@FormatCurrency(context.PrincipalAmount)</MudTd>
+                                <MudTd DataLabel="Status">@context.Status</MudTd>
+                                <MudTd DataLabel="Actions"><MudButton Variant="Variant.Text" Color="Color.Primary" OnClick="@(() => _selectedInvestment = context)">Manage</MudButton></MudTd>
+                            </RowTemplate>
+                        </MudTable>
+                    </MudPaper>
+                </MudItem>
+                <MudItem xs="12" lg="5">
+                    <MudPaper Class="pa-4">
+                        <MudText Typo="Typo.h6">Create Investment</MudText>
+                        <MudGrid Class="mt-2">
+                            <MudItem xs="12" md="6"><MudTextField @bind-Value="_investmentType" Label="Investment Type" Variant="Variant.Outlined" /></MudItem>
+                            <MudItem xs="12" md="6"><MudTextField @bind-Value="_investmentInstrument" Label="Instrument" Variant="Variant.Outlined" /></MudItem>
+                            <MudItem xs="12" md="6"><MudTextField @bind-Value="_investmentCounterparty" Label="Counterparty" Variant="Variant.Outlined" /></MudItem>
+                            <MudItem xs="12" md="6"><MudTextField @bind-Value="_investmentCurrency" Label="Currency" Variant="Variant.Outlined" /></MudItem>
+                            <MudItem xs="12" md="6"><MudNumericField T="decimal" @bind-Value="_investmentPrincipal" Label="Principal Amount" Variant="Variant.Outlined" /></MudItem>
+                            <MudItem xs="12" md="6"><MudNumericField T="decimal" @bind-Value="_investmentRate" Label="Interest Rate" Variant="Variant.Outlined" /></MudItem>
+                            <MudItem xs="12" md="6"><MudDatePicker Label="Placement Date" Variant="Variant.Outlined" Date="@_placementDateTime" DateChanged="OnPlacementDateChanged" /></MudItem>
+                            <MudItem xs="12" md="6"><MudDatePicker Label="Maturity Date" Variant="Variant.Outlined" Date="@_maturityDateTime" DateChanged="OnMaturityDateChanged" /></MudItem>
+                        </MudGrid>
+                        <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="mt-4" Disabled="@(_isBusy || _investmentPrincipal <= 0m)" OnClick="CreateInvestmentAsync">Create Investment</MudButton>
+                    </MudPaper>
+                    @if (_selectedInvestment is not null)
+                    {
+                        <MudPaper Class="pa-4 mt-3">
+                            <MudText Typo="Typo.h6">@($"Manage Investment {_selectedInvestment.InvestmentNumber}")</MudText>
+                            <MudNumericField T="decimal?" @bind-Value="_rolloverRate" Label="New Interest Rate" Variant="Variant.Outlined" Class="mt-3" />
+                            <MudDatePicker Label="New Maturity Date" Variant="Variant.Outlined" Date="@_rolloverDateTime" DateChanged="OnRolloverDateChanged" Class="mt-3" />
+                            <MudNumericField T="decimal?" @bind-Value="_liquidationPenalty" Label="Liquidation Penalty" Variant="Variant.Outlined" Class="mt-3" />
+                            <MudTextField @bind-Value="_investmentActionNotes" Label="Notes / Reason" Variant="Variant.Outlined" Class="mt-3" />
+                            <MudStack Row="true" Spacing="2" Class="mt-4">
+                                <MudButton Variant="Variant.Filled" Color="Color.Success" Disabled="@_isBusy" OnClick="ApproveSelectedInvestmentAsync">Approve</MudButton>
+                                <MudButton Variant="Variant.Filled" Color="Color.Secondary" Disabled="@_isBusy" OnClick="RolloverSelectedInvestmentAsync">Rollover</MudButton>
+                                <MudButton Variant="Variant.Filled" Color="Color.Error" Disabled="@_isBusy" OnClick="LiquidateSelectedInvestmentAsync">Liquidate</MudButton>
+                            </MudStack>
+                        </MudPaper>
+                    }
+                </MudItem>
+            </MudGrid>
+        </MudTabPanel>
+    </MudTabs>
+</MudStack>
+
+@code {
+    private List<CoreBanker.Services.TreasuryPositionDto> _positions = new();
+    private List<CoreBanker.Services.PositionSummaryDto> _summary = new();
+    private List<CoreBanker.Services.FxTradeDto> _fxTrades = new();
+    private List<CoreBanker.Services.InvestmentDto> _investments = new();
+    private CoreBanker.Services.TreasuryPositionDto? _selectedPosition;
+    private CoreBanker.Services.FxTradeDto? _selectedTrade;
+    private CoreBanker.Services.InvestmentDto? _selectedInvestment;
+    private CoreBanker.Services.InvestmentPortfolioDto? _portfolio;
+    private DateTime? _createDateTime = DateTime.Today;
+    private string _newCurrency = "GHS";
+    private decimal _newOpeningBalance;
+    private decimal? _newExposureLimit;
+    private decimal? _deposits;
+    private decimal? _withdrawals;
+    private decimal? _fxGainsLosses;
+    private decimal? _otherMovements;
+    private decimal? _nostroBalance;
+    private decimal? _vaultBalance;
+    private decimal? _overnightPlacement;
+    private string? _updateNotes;
+    private decimal _reconcileActualBalance;
+    private string _reconcileNotes = string.Empty;
+    private decimal _closeBalance;
+    private DateTime? _tradeDateTime = DateTime.Today;
+    private DateTime? _valueDateTime = DateTime.Today.AddDays(2);
+    private string _tradeType = "SPOT";
+    private string _tradeDirection = "BUY";
+    private string _baseCurrency = "USD";
+    private decimal _baseAmount;
+    private string _counterCurrency = "GHS";
+    private decimal _counterAmount;
+    private decimal _exchangeRate;
+    private string? _tradeCounterparty;
+    private string? _tradeRejectionReason;
+    private decimal? _settlementRate;
+    private string? _settlementNotes;
+    private string _investmentType = "BOND";
+    private string _investmentInstrument = string.Empty;
+    private string _investmentCounterparty = string.Empty;
+    private string _investmentCurrency = "GHS";
+    private decimal _investmentPrincipal;
+    private decimal _investmentRate;
+    private DateTime? _placementDateTime = DateTime.Today;
+    private DateTime? _maturityDateTime = DateTime.Today.AddMonths(6);
+    private decimal? _rolloverRate;
+    private DateTime? _rolloverDateTime = DateTime.Today.AddMonths(12);
+    private decimal? _liquidationPenalty;
+    private string? _investmentActionNotes;
+    private string _message = string.Empty;
+    private bool _isSuccess;
+    private bool _isBusy;
+
+    protected override async Task OnInitializedAsync() => await LoadWorkspaceAsync();
+
+    private async Task LoadWorkspaceAsync()
+    {
+        _isBusy = true;
+        try
+        {
+            var positionsTask = TreasuryService.GetPositionsAsync();
+            var summaryTask = TreasuryService.GetSummaryAsync();
+            var tradesTask = TreasuryService.GetTradesAsync();
+            var investmentsTask = TreasuryService.GetInvestmentsAsync();
+            var portfolioTask = TreasuryService.GetInvestmentPortfolioAsync();
+            await Task.WhenAll(positionsTask, summaryTask, tradesTask, investmentsTask, portfolioTask);
+            _positions = positionsTask.Result.OrderByDescending(item => item.PositionDate).ToList();
+            _summary = summaryTask.Result;
+            _fxTrades = tradesTask.Result.OrderByDescending(item => item.TradeDate).ToList();
+            _investments = investmentsTask.Result.OrderByDescending(item => item.PlacementDate).ToList();
+            _portfolio = portfolioTask.Result;
+            if (_selectedPosition is not null)
+            {
+                _selectedPosition = _positions.FirstOrDefault(item => item.Id == _selectedPosition.Id);
+            }
+            if (_selectedTrade is not null)
+            {
+                _selectedTrade = _fxTrades.FirstOrDefault(item => item.Id == _selectedTrade.Id);
+            }
+            if (_selectedInvestment is not null)
+            {
+                _selectedInvestment = _investments.FirstOrDefault(item => item.Id == _selectedInvestment.Id);
+            }
+        }
+        catch (CoreBanker.Services.ApiClientException ex)
+        {
+            _isSuccess = false;
+            _message = ex.Message;
+        }
+        finally
+        {
+            _isBusy = false;
+        }
+    }
+
+    private void SelectPosition(CoreBanker.Services.TreasuryPositionDto position)
+    {
+        _selectedPosition = position;
+        _deposits = position.Deposits;
+        _withdrawals = position.Withdrawals;
+        _fxGainsLosses = position.FxGainsLosses;
+        _otherMovements = position.OtherMovements;
+        _nostroBalance = position.NostroBalance;
+        _vaultBalance = position.VaultBalance;
+        _overnightPlacement = position.OvernightPlacement;
+        _updateNotes = position.Notes;
+        _reconcileActualBalance = position.ClosingBalance;
+        _closeBalance = position.ClosingBalance;
+    }
+
+    private void OnCreateDateChanged(DateTime? value) => _createDateTime = value;
+    private void OnTradeDateChanged(DateTime? value) => _tradeDateTime = value;
+    private void OnValueDateChanged(DateTime? value) => _valueDateTime = value;
+    private void OnPlacementDateChanged(DateTime? value) => _placementDateTime = value;
+    private void OnMaturityDateChanged(DateTime? value) => _maturityDateTime = value;
+    private void OnRolloverDateChanged(DateTime? value) => _rolloverDateTime = value;
+
+    private async Task CreatePositionAsync()
+    {
+        await RunAsync(async () =>
+        {
+            var created = await TreasuryService.CreatePositionAsync(new CoreBanker.Services.CreateTreasuryPositionRequest((_createDateTime ?? DateTime.Today).Date, _newCurrency, _newOpeningBalance, _newExposureLimit));
+            _message = created is null ? "Treasury position created." : $"Treasury position {created.Id} created.";
+            _createDateTime = DateTime.Today;
+            _newCurrency = "GHS";
+            _newOpeningBalance = 0m;
+            _newExposureLimit = null;
+            await LoadWorkspaceAsync();
+        });
+    }
+
+    private async Task UpdateSelectedPositionAsync()
+    {
+        if (_selectedPosition is null) return;
+        await RunAsync(async () =>
+        {
+            _selectedPosition = await TreasuryService.UpdatePositionAsync(_selectedPosition.Id, new CoreBanker.Services.UpdateTreasuryPositionRequest(_deposits, _withdrawals, _fxGainsLosses, _otherMovements, _nostroBalance, _vaultBalance, _overnightPlacement, _updateNotes));
+            _message = $"Treasury position {_selectedPosition?.Id} updated.";
+            await LoadWorkspaceAsync();
+        });
+    }
+
+    private async Task ReconcileSelectedPositionAsync()
+    {
+        if (_selectedPosition is null) return;
+        await RunAsync(async () =>
+        {
+            _selectedPosition = await TreasuryService.ReconcilePositionAsync(_selectedPosition.Id, new CoreBanker.Services.ReconcilePositionRequest(_reconcileActualBalance, _reconcileNotes));
+            _message = $"Treasury position {_selectedPosition?.Id} reconciled.";
+            await LoadWorkspaceAsync();
+        });
+    }
+
+    private async Task CloseSelectedPositionAsync()
+    {
+        if (_selectedPosition is null) return;
+        await RunAsync(async () =>
+        {
+            _selectedPosition = await TreasuryService.ClosePositionAsync(_selectedPosition.Id, _closeBalance);
+            _message = $"Treasury position {_selectedPosition?.Id} closed.";
+            await LoadWorkspaceAsync();
+        });
+    }
+
+    private void SelectTrade(CoreBanker.Services.FxTradeDto trade)
+    {
+        _selectedTrade = trade;
+        _settlementRate = trade.ExchangeRate;
+    }
+
+    private async Task CreateTradeAsync()
+    {
+        await RunAsync(async () =>
+        {
+            var created = await TreasuryService.CreateTradeAsync(new CoreBanker.Services.CreateFxTradeRequest(
+                (_tradeDateTime ?? DateTime.Today).Date,
+                (_valueDateTime ?? DateTime.Today).Date,
+                _tradeType,
+                _tradeDirection,
+                _baseCurrency,
+                _baseAmount,
+                _counterCurrency,
+                _counterAmount,
+                _exchangeRate,
+                null,
+                null,
+                _tradeCounterparty,
+                null,
+                null));
+            _message = created is null ? "FX trade created." : $"FX trade {created.DealNumber} created.";
+            await LoadWorkspaceAsync();
+        });
+    }
+
+    private async Task ApproveSelectedTradeAsync()
+    {
+        if (_selectedTrade is null) return;
+        await RunAsync(async () =>
+        {
+            _selectedTrade = await TreasuryService.ApproveTradeAsync(new CoreBanker.Services.ApproveFxTradeRequest(_selectedTrade.Id, true, _tradeRejectionReason));
+            _message = $"FX trade {_selectedTrade?.DealNumber} approved.";
+            await LoadWorkspaceAsync();
+        });
+    }
+
+    private async Task RejectSelectedTradeAsync()
+    {
+        if (_selectedTrade is null) return;
+        await RunAsync(async () =>
+        {
+            _selectedTrade = await TreasuryService.ApproveTradeAsync(new CoreBanker.Services.ApproveFxTradeRequest(_selectedTrade.Id, false, _tradeRejectionReason));
+            _message = $"FX trade {_selectedTrade?.DealNumber} rejected.";
+            await LoadWorkspaceAsync();
+        });
+    }
+
+    private async Task SettleSelectedTradeAsync()
+    {
+        if (_selectedTrade is null) return;
+        await RunAsync(async () =>
+        {
+            _selectedTrade = await TreasuryService.SettleTradeAsync(new CoreBanker.Services.SettleFxTradeRequest(_selectedTrade.Id, DateTime.Today, _settlementRate, _settlementNotes));
+            _message = $"FX trade {_selectedTrade?.DealNumber} settled.";
+            await LoadWorkspaceAsync();
+        });
+    }
+
+    private async Task CreateInvestmentAsync()
+    {
+        await RunAsync(async () =>
+        {
+            var created = await TreasuryService.CreateInvestmentAsync(new CoreBanker.Services.CreateInvestmentRequest(
+                _investmentType,
+                _investmentInstrument,
+                _investmentCounterparty,
+                _investmentCurrency,
+                _investmentPrincipal,
+                _investmentRate,
+                null,
+                (_placementDateTime ?? DateTime.Today).Date,
+                (_maturityDateTime ?? DateTime.Today).Date,
+                null,
+                null,
+                null));
+            _message = created is null ? "Investment created." : $"Investment {created.InvestmentNumber} created.";
+            await LoadWorkspaceAsync();
+        });
+    }
+
+    private async Task ApproveSelectedInvestmentAsync()
+    {
+        if (_selectedInvestment is null) return;
+        await RunAsync(async () =>
+        {
+            _selectedInvestment = await TreasuryService.ApproveInvestmentAsync(_selectedInvestment.Id);
+            _message = $"Investment {_selectedInvestment?.InvestmentNumber} approved.";
+            await LoadWorkspaceAsync();
+        });
+    }
+
+    private async Task RolloverSelectedInvestmentAsync()
+    {
+        if (_selectedInvestment is null) return;
+        await RunAsync(async () =>
+        {
+            _selectedInvestment = await TreasuryService.RolloverInvestmentAsync(new CoreBanker.Services.RolloverInvestmentRequest(_selectedInvestment.Id, (_rolloverDateTime ?? DateTime.Today).Date, _rolloverRate, _investmentActionNotes));
+            _message = $"Investment {_selectedInvestment?.InvestmentNumber} rolled over.";
+            await LoadWorkspaceAsync();
+        });
+    }
+
+    private async Task LiquidateSelectedInvestmentAsync()
+    {
+        if (_selectedInvestment is null) return;
+        await RunAsync(async () =>
+        {
+            _selectedInvestment = await TreasuryService.LiquidateInvestmentAsync(new CoreBanker.Services.LiquidateInvestmentRequest(_selectedInvestment.Id, DateTime.Today, _liquidationPenalty, _investmentActionNotes));
+            _message = $"Investment {_selectedInvestment?.InvestmentNumber} liquidated.";
+            await LoadWorkspaceAsync();
+        });
+    }
+
+    private async Task RunAsync(Func<Task> action)
+    {
+        _isBusy = true;
+        try
+        {
+            await action();
+            _isSuccess = true;
+        }
+        catch (CoreBanker.Services.ApiClientException ex)
+        {
+            _isSuccess = false;
+            _message = ex.Message;
+        }
+        finally
+        {
+            _isBusy = false;
+        }
+    }
+
+    private static string FormatCurrency(decimal value) => value.ToString("C");
+}

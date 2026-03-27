@@ -1,5 +1,210 @@
 @page "/operations-risk"
 @layout CoreBanker.Layouts.MainLayout
 
-<MudText Typo="Typo.h4">Operations and Risk</MudText>
-<!-- TODO: Implement fees, penalties, NPL, risk dashboard, operations hub -->
+@inject CoreBanker.Services.RiskService RiskService
+@inject CoreBanker.Services.LoanService LoanService
+@inject CoreBanker.Services.AccountService AccountService
+
+<MudStack Spacing="3">
+    <MudPaper Class="pa-4">
+        <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+            <div>
+                <MudText Typo="Typo.h4">Operations And Risk</MudText>
+                <MudText Typo="Typo.body2" Class="mud-text-secondary">Manage fees, penalties, NPL classification, and treasury risk metrics from one operational control page.</MudText>
+            </div>
+            <MudButton Variant="Variant.Outlined" Color="Color.Secondary" Disabled="@_isBusy" OnClick="LoadWorkspaceAsync">Refresh</MudButton>
+        </MudStack>
+    </MudPaper>
+
+    @if (!string.IsNullOrWhiteSpace(_message))
+    {
+        <MudAlert Severity="@(_isSuccess ? Severity.Success : Severity.Error)">@_message</MudAlert>
+    }
+
+    <MudGrid>
+        <MudItem xs="12" md="3"><MudPaper Class="pa-4"><MudText Typo="Typo.caption">VaR</MudText><MudText Typo="Typo.h6">@FormatCurrency(_dashboard?.VaRValue ?? 0m)</MudText></MudPaper></MudItem>
+        <MudItem xs="12" md="3"><MudPaper Class="pa-4"><MudText Typo="Typo.caption">LCR</MudText><MudText Typo="Typo.h6">@($"{_dashboard?.LcrValue ?? 0m:N2}")</MudText></MudPaper></MudItem>
+        <MudItem xs="12" md="3"><MudPaper Class="pa-4"><MudText Typo="Typo.caption">Alerts</MudText><MudText Typo="Typo.h6">@_alerts.Count</MudText></MudPaper></MudItem>
+        <MudItem xs="12" md="3"><MudPaper Class="pa-4"><MudText Typo="Typo.caption">Loans</MudText><MudText Typo="Typo.h6">@_loans.Count</MudText></MudPaper></MudItem>
+    </MudGrid>
+
+    <MudTabs Rounded="true">
+        <MudTabPanel Text="Risk Dashboard">
+            <MudGrid>
+                <MudItem xs="12" lg="6">
+                    <MudPaper Class="pa-4">
+                        <MudText Typo="Typo.h6">Currency Exposure</MudText>
+                        <MudTable T="KeyValuePair<string, decimal>" Items="@CurrencyExposureRows" Dense="true" Hover="true" Class="mt-3">
+                            <HeaderContent><MudTh>Currency</MudTh><MudTh>Exposure</MudTh></HeaderContent>
+                            <RowTemplate><MudTd DataLabel="Currency">@context.Key</MudTd><MudTd DataLabel="Exposure">@FormatCurrency(context.Value)</MudTd></RowTemplate>
+                        </MudTable>
+                    </MudPaper>
+                </MudItem>
+                <MudItem xs="12" lg="6">
+                    <MudPaper Class="pa-4">
+                        <MudText Typo="Typo.h6">Recent Alerts</MudText>
+                        <MudTable T="CoreBanker.Services.RiskMetricDto" Items="@_alerts" Dense="true" Hover="true" Class="mt-3">
+                            <HeaderContent><MudTh>Metric</MudTh><MudTh>Value</MudTh><MudTh>Status</MudTh></HeaderContent>
+                            <RowTemplate><MudTd DataLabel="Metric">@context.MetricType</MudTd><MudTd DataLabel="Value">@FormatCurrency(context.MetricValue)</MudTd><MudTd DataLabel="Status">@context.Status</MudTd></RowTemplate>
+                        </MudTable>
+                    </MudPaper>
+                </MudItem>
+            </MudGrid>
+            <MudPaper Class="pa-4 mt-3">
+                <MudText Typo="Typo.h6">Run Calculations</MudText>
+                <MudGrid Class="mt-2">
+                    <MudItem xs="12" md="4"><MudDatePicker Label="Metric Date" Variant="Variant.Outlined" Date="@_metricDateTime" DateChanged="OnMetricDateChanged" /></MudItem>
+                    <MudItem xs="12" md="4"><MudTextField @bind-Value="_metricCurrency" Label="Currency" Variant="Variant.Outlined" /></MudItem>
+                    <MudItem xs="12" md="4"><MudNumericField T="decimal" @bind-Value="_metricConfidence" Label="Confidence %" Variant="Variant.Outlined" /></MudItem>
+                </MudGrid>
+                <MudStack Row="true" Spacing="2" Class="mt-4">
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="@_isBusy" OnClick="CalculateVarAsync">Calculate VaR</MudButton>
+                    <MudButton Variant="Variant.Filled" Color="Color.Secondary" Disabled="@_isBusy" OnClick="CalculateLcrAsync">Calculate LCR</MudButton>
+                    <MudButton Variant="Variant.Filled" Color="Color.Info" Disabled="@_isBusy" OnClick="CalculateCurrencyExposureAsync">Currency Exposure</MudButton>
+                    <MudButton Variant="Variant.Outlined" Color="Color.Success" Disabled="@_isBusy" OnClick="RunDailyCalculationsAsync">Daily Calculations</MudButton>
+                </MudStack>
+            </MudPaper>
+        </MudTabPanel>
+
+        <MudTabPanel Text="Fee Assessment">
+            <MudPaper Class="pa-4">
+                <MudSelect T="string" @bind-Value="_feeRequest.AccountId" Label="Account" Variant="Variant.Outlined">
+                    @foreach (var account in _accounts)
+                    {
+                        <MudSelectItem T="string" Value="@account.Id">@($"{account.Id} | {account.CustomerId} | {FormatCurrency(account.AvailableBalance)}")</MudSelectItem>
+                    }
+                </MudSelect>
+                <MudTextField @bind-Value="_feeRequest.FeeCode" Label="Fee Code" Variant="Variant.Outlined" Class="mt-3" />
+                <MudNumericField T="decimal" @bind-Value="_feeRequest.Amount" Label="Amount" Variant="Variant.Outlined" Class="mt-3" />
+                <MudTextField @bind-Value="_feeRequest.Narration" Label="Narration" Variant="Variant.Outlined" Class="mt-3" />
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="mt-4" Disabled="@(_isBusy || string.IsNullOrWhiteSpace(_feeRequest.AccountId) || string.IsNullOrWhiteSpace(_feeRequest.FeeCode) || _feeRequest.Amount <= 0m)" OnClick="AssessFeeAsync">Assess Fee</MudButton>
+                @if (_lastFee is not null)
+                {
+                    <MudText Typo="Typo.body2" Class="mt-3">@($"Last fee transaction: {_lastFee.TransactionId} at {_lastFee.PostedAt:dd MMM yyyy HH:mm}")</MudText>
+                }
+            </MudPaper>
+        </MudTabPanel>
+
+        <MudTabPanel Text="Penalties / NPL">
+            <MudGrid>
+                <MudItem xs="12" lg="6">
+                    <MudPaper Class="pa-4">
+                        <MudText Typo="Typo.h6">Assess Penalty</MudText>
+                        <MudSelect T="string" @bind-Value="_selectedLoanId" Label="Loan" Variant="Variant.Outlined" Class="mt-2">
+                            @foreach (var loan in _loans)
+                            {
+                                <MudSelectItem T="string" Value="@loan.Id">@($"{loan.Id} | {loan.Cif} | {FormatCurrency(loan.OutstandingBalance ?? 0m)}")</MudSelectItem>
+                            }
+                        </MudSelect>
+                        <MudNumericField T="decimal" @bind-Value="_penaltyRequest.PenaltyRate" Label="Penalty Rate %" Variant="Variant.Outlined" Class="mt-3" />
+                        <MudTextField @bind-Value="_penaltyRequest.Reason" Label="Reason" Variant="Variant.Outlined" Class="mt-3" />
+                        <MudButton Variant="Variant.Filled" Color="Color.Error" Class="mt-4" Disabled="@(_isBusy || string.IsNullOrWhiteSpace(_selectedLoanId))" OnClick="AssessPenaltyAsync">Assess Penalty</MudButton>
+                        @if (_lastPenalty is not null)
+                        {
+                            <MudText Typo="Typo.body2" Class="mt-3">@($"Penalty: {FormatCurrency(_lastPenalty.PenaltyAmount)} | DPD {_lastPenalty.DaysPastDue}")</MudText>
+                        }
+                    </MudPaper>
+                </MudItem>
+                <MudItem xs="12" lg="6">
+                    <MudPaper Class="pa-4">
+                        <MudText Typo="Typo.h6">NPL Classification</MudText>
+                        <MudText Typo="Typo.body2" Class="mud-text-secondary mt-2">Use the selected loan above to classify and provision the account.</MudText>
+                        <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="mt-4" Disabled="@(_isBusy || string.IsNullOrWhiteSpace(_selectedLoanId))" OnClick="ClassifyLoanAsync">Classify Loan</MudButton>
+                        @if (_lastClassification is not null)
+                        {
+                            <MudDivider Class="my-3" />
+                            <MudText Typo="Typo.body2">@($"Tier: {_lastClassification.BogTier}")</MudText>
+                            <MudText Typo="Typo.body2">@($"Provision: {FormatCurrency(_lastClassification.ProvisioningAmount)}")</MudText>
+                            <MudText Typo="Typo.body2">@($"Outstanding Principal: {FormatCurrency(_lastClassification.OutstandingPrincipal)}")</MudText>
+                        }
+                    </MudPaper>
+                </MudItem>
+            </MudGrid>
+        </MudTabPanel>
+    </MudTabs>
+</MudStack>
+
+@code {
+    private CoreBanker.Services.RiskDashboardDto? _dashboard;
+    private List<CoreBanker.Services.RiskMetricDto> _alerts = new();
+    private List<CoreBanker.Services.LoanDto> _loans = new();
+    private List<CoreBanker.Services.AccountDto> _accounts = new();
+    private CoreBanker.Services.AssessAccountFeeRequest _feeRequest = new();
+    private CoreBanker.Services.AssessLoanPenaltyRequest _penaltyRequest = new();
+    private CoreBanker.Services.AccountFeeDto? _lastFee;
+    private CoreBanker.Services.LoanPenaltyDto? _lastPenalty;
+    private CoreBanker.Services.LoanClassificationDto? _lastClassification;
+    private DateOnly _metricDate = DateOnly.FromDateTime(DateTime.Today);
+    private DateTime? _metricDateTime = DateTime.Today;
+    private string _metricCurrency = "GHS";
+    private decimal _metricConfidence = 95m;
+    private string _selectedLoanId = string.Empty;
+    private string _message = string.Empty;
+    private bool _isSuccess;
+    private bool _isBusy;
+
+    private IEnumerable<KeyValuePair<string, decimal>> CurrencyExposureRows => _dashboard?.CurrencyExposure ?? new Dictionary<string, decimal>();
+
+    protected override async Task OnInitializedAsync() => await LoadWorkspaceAsync();
+
+    private async Task LoadWorkspaceAsync()
+    {
+        _isBusy = true;
+        try
+        {
+            var dashboardTask = RiskService.GetDashboardAsync();
+            var alertsTask = RiskService.GetAlertsAsync();
+            var loansTask = LoanService.GetLoansAsync();
+            var accountsTask = AccountService.GetAccountsAsync();
+            await Task.WhenAll(dashboardTask, alertsTask, loansTask, accountsTask);
+            _dashboard = dashboardTask.Result;
+            _alerts = alertsTask.Result;
+            _loans = loansTask.Result;
+            _accounts = accountsTask.Result;
+        }
+        catch (CoreBanker.Services.ApiClientException ex)
+        {
+            _isSuccess = false;
+            _message = ex.Message;
+        }
+        finally
+        {
+            _isBusy = false;
+        }
+    }
+
+    private void OnMetricDateChanged(DateTime? value)
+    {
+        _metricDateTime = value;
+        _metricDate = DateOnly.FromDateTime((value ?? DateTime.Today).Date);
+    }
+
+    private async Task CalculateVarAsync() => await RunAsync(async () => { var result = await RiskService.CalculateVarAsync(_metricDate.ToDateTime(TimeOnly.MinValue), _metricCurrency, _metricConfidence); _message = $"VaR calculated: {FormatCurrency(result?.MetricValue ?? 0m)}."; await LoadWorkspaceAsync(); });
+    private async Task CalculateLcrAsync() => await RunAsync(async () => { var result = await RiskService.CalculateLcrAsync(_metricDate.ToDateTime(TimeOnly.MinValue)); _message = $"LCR calculated: {result?.MetricValue ?? 0m:N2}."; await LoadWorkspaceAsync(); });
+    private async Task CalculateCurrencyExposureAsync() => await RunAsync(async () => { var result = await RiskService.CalculateCurrencyExposureAsync(_metricDate.ToDateTime(TimeOnly.MinValue), _metricCurrency); _message = $"Currency exposure calculated: {FormatCurrency(result?.MetricValue ?? 0m)}."; await LoadWorkspaceAsync(); });
+    private async Task RunDailyCalculationsAsync() => await RunAsync(async () => { await RiskService.RunDailyCalculationsAsync(); _message = "Daily risk calculations completed."; await LoadWorkspaceAsync(); });
+    private async Task AssessFeeAsync() => await RunAsync(async () => { _lastFee = await RiskService.AssessAccountFeeAsync(_feeRequest); _message = $"Fee {_feeRequest.FeeCode} assessed on {_feeRequest.AccountId}."; });
+    private async Task AssessPenaltyAsync() => await RunAsync(async () => { _lastPenalty = await LoanService.AssessPenaltyAsync(_selectedLoanId, _penaltyRequest); _message = $"Penalty assessed for loan {_selectedLoanId}."; });
+    private async Task ClassifyLoanAsync() => await RunAsync(async () => { _lastClassification = await LoanService.ClassifyLoanAsync(_selectedLoanId); _message = $"Loan {_selectedLoanId} classified."; });
+
+    private async Task RunAsync(Func<Task> action)
+    {
+        _isBusy = true;
+        try
+        {
+            await action();
+            _isSuccess = true;
+        }
+        catch (CoreBanker.Services.ApiClientException ex)
+        {
+            _isSuccess = false;
+            _message = ex.Message;
+        }
+        finally
+        {
+            _isBusy = false;
+        }
+    }
+
+    private static string FormatCurrency(decimal value) => value.ToString("C");
+}

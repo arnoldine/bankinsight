@@ -1,5 +1,423 @@
 @page "/bankingos"
 @layout CoreBanker.Layouts.MainLayout
 
-<MudText Typo="Typo.h4">BankingOS Control Center</MudText>
-<!-- TODO: Implement process catalog, forms, themes, product config, runtime workbench -->
+@inject CoreBanker.Services.ExtensibilityService ExtensibilityService
+@inject CoreBanker.Services.LoanService LoanService
+@inject CoreBanker.State.AppState AppState
+
+<MudStack Spacing="3">
+    <MudPaper Class="pa-4">
+        <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+            <div>
+                <MudText Typo="Typo.h4">BankingOS Control Center</MudText>
+                <MudText Typo="Typo.body2" Class="mud-text-secondary">Process, form, theme, and publish-bundle control plane backed by the BankingOS metadata APIs.</MudText>
+            </div>
+            <MudButton Variant="Variant.Outlined" Color="Color.Secondary" OnClick="LoadWorkspaceAsync">Refresh</MudButton>
+        </MudStack>
+    </MudPaper>
+
+    @if (!string.IsNullOrWhiteSpace(_message))
+    {
+        <MudAlert Severity="@(_success ? Severity.Success : Severity.Error)">@_message</MudAlert>
+    }
+
+    <MudTabs Rounded="true">
+        <MudTabPanel Text="Processes">
+            <MudTable T="CoreBanker.Services.BankingOSProcessCatalogItemDto" Items="@_processes" Dense="true" Hover="true" Loading="@_isLoading">
+                <HeaderContent>
+                    <MudTh>Code</MudTh>
+                    <MudTh>Name</MudTh>
+                    <MudTh>Module</MudTh>
+                    <MudTh>Status</MudTh>
+                    <MudTh>Stages</MudTh>
+                </HeaderContent>
+                <RowTemplate>
+                    <MudTd DataLabel="Code">@context.Code</MudTd>
+                    <MudTd DataLabel="Name">@context.Name</MudTd>
+                    <MudTd DataLabel="Module">@context.Module</MudTd>
+                    <MudTd DataLabel="Status">@context.Status</MudTd>
+                    <MudTd DataLabel="Stages">@context.StageCount</MudTd>
+                </RowTemplate>
+            </MudTable>
+        </MudTabPanel>
+
+        <MudTabPanel Text="Forms">
+            <MudGrid>
+                <MudItem xs="12" lg="7">
+                    <MudTable T="CoreBanker.Services.BankingOSFormCatalogItemDto" Items="@_forms" Dense="true" Hover="true" Loading="@_isLoading">
+                        <HeaderContent>
+                            <MudTh>Code</MudTh>
+                            <MudTh>Name</MudTh>
+                            <MudTh>Module</MudTh>
+                            <MudTh>Status</MudTh>
+                            <MudTh></MudTh>
+                        </HeaderContent>
+                        <RowTemplate>
+                            <MudTd DataLabel="Code">@context.Code</MudTd>
+                            <MudTd DataLabel="Name">@context.Name</MudTd>
+                            <MudTd DataLabel="Module">@context.Module</MudTd>
+                            <MudTd DataLabel="Status">@context.Status</MudTd>
+                            <MudTd DataLabel="Actions"><MudButton Variant="Variant.Text" Color="Color.Primary" OnClick="@(() => LoadSeedFormAsync(context.Code))">Preview</MudButton></MudTd>
+                        </RowTemplate>
+                    </MudTable>
+                </MudItem>
+                <MudItem xs="12" lg="5">
+                    <MudPaper Class="pa-4">
+                        <MudText Typo="Typo.subtitle1">Form Preview</MudText>
+                        @if (_selectedForm is null)
+                        {
+                            <MudText Typo="Typo.body2" Class="mud-text-secondary">Select a BankingOS form to inspect its field schema.</MudText>
+                        }
+                        else
+                        {
+                            <MudText Typo="Typo.body2">@_selectedForm.Name</MudText>
+                            <MudText Typo="Typo.caption" Class="mud-text-secondary">@($"{_selectedForm.Code} | {_selectedForm.Module}")</MudText>
+                            <MudText Typo="Typo.body2" Class="mt-2">@($"Version {_selectedForm.Version} | {_selectedForm.Status} | {_selectedForm.Fields.Count} field(s)")</MudText>
+                            <MudTable T="CoreBanker.Services.BankingOSSeedFieldDto" Items="@_selectedForm.Fields" Dense="true" Hover="true" Class="mt-3">
+                                <HeaderContent>
+                                    <MudTh>Field</MudTh>
+                                    <MudTh>Type</MudTh>
+                                    <MudTh>Required</MudTh>
+                                </HeaderContent>
+                                <RowTemplate>
+                                    <MudTd DataLabel="Field">@context.Label</MudTd>
+                                    <MudTd DataLabel="Type">@context.Type</MudTd>
+                                    <MudTd DataLabel="Required">@(context.Required ? "Yes" : "No")</MudTd>
+                                </RowTemplate>
+                            </MudTable>
+                        }
+                    </MudPaper>
+                </MudItem>
+            </MudGrid>
+        </MudTabPanel>
+
+        <MudTabPanel Text="Themes">
+            <MudTable T="CoreBanker.Services.BankingOSThemeCatalogItemDto" Items="@_themes" Dense="true" Hover="true" Loading="@_isLoading">
+                <HeaderContent>
+                    <MudTh>Code</MudTh>
+                    <MudTh>Name</MudTh>
+                    <MudTh>Status</MudTh>
+                    <MudTh>Version</MudTh>
+                    <MudTh>Tokens</MudTh>
+                </HeaderContent>
+                <RowTemplate>
+                    <MudTd DataLabel="Code">@context.Code</MudTd>
+                    <MudTd DataLabel="Name">@context.Name</MudTd>
+                    <MudTd DataLabel="Status">@context.Status</MudTd>
+                    <MudTd DataLabel="Version">@context.Version</MudTd>
+                    <MudTd DataLabel="Tokens">@context.TokenCount</MudTd>
+                </RowTemplate>
+            </MudTable>
+        </MudTabPanel>
+
+        <MudTabPanel Text="Bundles">
+            <MudGrid>
+                <MudItem xs="12" lg="7">
+                    <MudTable T="CoreBanker.Services.BankingOSPublishBundleDto" Items="@_bundles" Dense="true" Hover="true" Loading="@_isLoading">
+                        <HeaderContent>
+                            <MudTh>Code</MudTh>
+                            <MudTh>Name</MudTh>
+                            <MudTh>Status</MudTh>
+                            <MudTh>Channel</MudTh>
+                            <MudTh></MudTh>
+                        </HeaderContent>
+                        <RowTemplate>
+                            <MudTd DataLabel="Code">@context.Code</MudTd>
+                            <MudTd DataLabel="Name">@context.Name</MudTd>
+                            <MudTd DataLabel="Status">@context.Status</MudTd>
+                            <MudTd DataLabel="Channel">@context.ReleaseChannel</MudTd>
+                            <MudTd DataLabel="Actions"><MudButton Variant="Variant.Text" Color="Color.Primary" OnClick="@(() => _selectedBundle = context)">Manage</MudButton></MudTd>
+                        </RowTemplate>
+                    </MudTable>
+                </MudItem>
+                <MudItem xs="12" lg="5">
+                    <MudPaper Class="pa-4">
+                        <MudText Typo="Typo.subtitle1">Bundle Action</MudText>
+                        @if (_selectedBundle is null)
+                        {
+                            <MudText Typo="Typo.body2" Class="mud-text-secondary">Select a publish bundle to submit, approve, reject, or promote it.</MudText>
+                        }
+                        else
+                        {
+                            <MudText Typo="Typo.body2">@_selectedBundle.Name</MudText>
+                            <MudText Typo="Typo.caption" Class="mud-text-secondary">@($"{_selectedBundle.Code} | {_selectedBundle.Status}")</MudText>
+                            <MudText Typo="Typo.body2" Class="mt-2">@($"Channel {_selectedBundle.ReleaseChannel} | Approval {(_selectedBundle.RequiresApproval ? "Required" : "Not required")}")</MudText>
+                            <MudText Typo="Typo.body2">@($"Processes {_selectedBundle.Processes.Count} | Forms {_selectedBundle.Forms.Count} | Themes {_selectedBundle.Themes.Count}")</MudText>
+                            <MudTextField @bind-Value="_bundleNotes" Label="Notes" Variant="Variant.Outlined" Lines="3" Class="mt-3" />
+                            <MudStack Row="true" Spacing="2" Class="mt-3">
+                                <MudButton Variant="Variant.Filled" Color="Color.Info" Disabled="@_isActing" OnClick="@(() => ActOnBundleAsync("submit"))">Submit</MudButton>
+                                <MudButton Variant="Variant.Filled" Color="Color.Success" Disabled="@_isActing" OnClick="@(() => ActOnBundleAsync("approve"))">Approve</MudButton>
+                                <MudButton Variant="Variant.Filled" Color="Color.Error" Disabled="@_isActing" OnClick="@(() => ActOnBundleAsync("reject"))">Reject</MudButton>
+                                <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="@_isActing" OnClick="@(() => ActOnBundleAsync("promote"))">Promote</MudButton>
+                            </MudStack>
+                            <MudDivider Class="my-3" />
+                            <MudText Typo="Typo.subtitle2">Bundle Contents</MudText>
+                            <MudList T="string" Dense="true" Class="mt-2">
+                                @foreach (var process in _selectedBundle.Processes)
+                                {
+                                    <MudListItem T="string" Text="@($"Process: {process}")" />
+                                }
+                                @foreach (var form in _selectedBundle.Forms)
+                                {
+                                    <MudListItem T="string" Text="@($"Form: {form}")" />
+                                }
+                                @foreach (var theme in _selectedBundle.Themes)
+                                {
+                                    <MudListItem T="string" Text="@($"Theme: {theme}")" />
+                                }
+                            </MudList>
+                        }
+                    </MudPaper>
+                </MudItem>
+            </MudGrid>
+        </MudTabPanel>
+
+        <MudTabPanel Text="Product Rules">
+            <MudGrid>
+                <MudItem xs="12" lg="4">
+                    <MudPaper Class="pa-4">
+                        <MudText Typo="Typo.h6">Loan Product</MudText>
+                        <MudSelect T="string" Value="@_selectedProductId" Label="Group Product" Variant="Variant.Outlined" Class="mt-2" ValueChanged="OnProductSelectedAsync">
+                            @foreach (var product in GroupLoanProducts)
+                            {
+                                <MudSelectItem T="string" Value="@product.Id">@($"{product.Name} ({product.Code})")</MudSelectItem>
+                            }
+                        </MudSelect>
+
+                        @if (_selectedProduct is not null)
+                        {
+                            <MudText Typo="Typo.body2" Class="mt-3">@_selectedProduct.Name</MudText>
+                            <MudText Typo="Typo.caption" Class="mud-text-secondary">@($"{_selectedProduct.Code} | {_selectedProduct.ProductType} | {_selectedProduct.RepaymentFrequency}")</MudText>
+                        }
+                    </MudPaper>
+                </MudItem>
+
+                <MudItem xs="12" lg="4">
+                    <MudPaper Class="pa-4">
+                        <MudText Typo="Typo.h6">Group Rules</MudText>
+                        @if (_groupRules is null)
+                        {
+                            <MudText Typo="Typo.body2" Class="mud-text-secondary mt-3">Select a product to load its group design rules.</MudText>
+                        }
+                        else
+                        {
+                            <MudNumericField T="int" @bind-Value="_groupRules.MinMembersRequired" Label="Minimum Members" Variant="Variant.Outlined" Class="mt-2" />
+                            <MudNumericField T="int" @bind-Value="_groupRules.MaxMembersAllowed" Label="Maximum Members" Variant="Variant.Outlined" Class="mt-3" />
+                            <MudNumericField T="int?" @bind-Value="_groupRules.MinWeeks" Label="Minimum Weeks" Variant="Variant.Outlined" Class="mt-3" />
+                            <MudNumericField T="int?" @bind-Value="_groupRules.MaxWeeks" Label="Maximum Weeks" Variant="Variant.Outlined" Class="mt-3" />
+                            <MudNumericField T="decimal?" @bind-Value="_groupRules.MinSavingsToLoanRatio" Label="Savings to Loan Ratio" Variant="Variant.Outlined" Class="mt-3" />
+                            <MudNumericField T="int?" @bind-Value="_groupRules.MaxCycleNumber" Label="Maximum Cycle Number" Variant="Variant.Outlined" Class="mt-3" />
+                            <MudTextField @bind-Value="_groupRules.DefaultRepaymentFrequency" Label="Default Repayment Frequency" Variant="Variant.Outlined" Class="mt-3" />
+                            <MudTextField @bind-Value="_groupRules.DefaultInterestMethod" Label="Default Interest Method" Variant="Variant.Outlined" Class="mt-3" />
+                            <MudCheckBox @bind-Value="_groupRules.RequiresCompulsorySavings" Label="Require compulsory savings" Class="mt-2" />
+                            <MudCheckBox @bind-Value="_groupRules.RequiresGroupApprovalMeeting" Label="Require approval meeting" />
+                            <MudCheckBox @bind-Value="_groupRules.RequiresJointLiability" Label="Require joint liability" />
+                            <MudCheckBox @bind-Value="_groupRules.AllowTopUp" Label="Allow top up" />
+                            <MudCheckBox @bind-Value="_groupRules.AllowReschedule" Label="Allow reschedule" />
+                            <MudTextField @bind-Value="_groupRules.AttendanceRuleJson" Label="Attendance Rule JSON" Variant="Variant.Outlined" Lines="3" Class="mt-3" />
+                            <MudTextField @bind-Value="_groupRules.MeetingCollectionRuleJson" Label="Meeting Collection Rule JSON" Variant="Variant.Outlined" Lines="3" Class="mt-3" />
+                            <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="mt-4" Disabled="@(_isActing || string.IsNullOrWhiteSpace(_selectedProductId))" OnClick="SaveProductRulesAsync">Save Product Rules</MudButton>
+                        }
+                    </MudPaper>
+                </MudItem>
+
+                <MudItem xs="12" lg="4">
+                    <MudPaper Class="pa-4">
+                        <MudText Typo="Typo.h6">Eligibility Rules</MudText>
+                        @if (_eligibilityRules is null)
+                        {
+                            <MudText Typo="Typo.body2" Class="mud-text-secondary mt-3">Eligibility gating will appear here after a product is selected.</MudText>
+                        }
+                        else
+                        {
+                            <MudNumericField T="decimal?" @bind-Value="_eligibilityRules.MaxAllowedExposure" Label="Maximum Exposure" Variant="Variant.Outlined" Class="mt-2" />
+                            <MudNumericField T="int?" @bind-Value="_eligibilityRules.MinMembershipDays" Label="Minimum Membership Days" Variant="Variant.Outlined" Class="mt-3" />
+                            <MudNumericField T="decimal?" @bind-Value="_eligibilityRules.MinAttendanceRate" Label="Minimum Attendance Rate" Variant="Variant.Outlined" Class="mt-3" />
+                            <MudNumericField T="int?" @bind-Value="_eligibilityRules.MinimumCreditScore" Label="Minimum Credit Score" Variant="Variant.Outlined" Class="mt-3" />
+                            <MudTextField @bind-Value="_eligibilityRules.CreditBureauProvider" Label="Credit Bureau Provider" Variant="Variant.Outlined" Class="mt-3" />
+                            <MudCheckBox @bind-Value="_eligibilityRules.RequiresKycComplete" Label="Require complete KYC" Class="mt-2" />
+                            <MudCheckBox @bind-Value="_eligibilityRules.BlockOnSevereArrears" Label="Block severe arrears" />
+                            <MudCheckBox @bind-Value="_eligibilityRules.RequireCreditBureauCheck" Label="Require credit bureau check" />
+                            <MudTextField @bind-Value="_eligibilityRules.RuleJson" Label="Eligibility Rule JSON" Variant="Variant.Outlined" Lines="6" Class="mt-3" />
+                        }
+                    </MudPaper>
+                </MudItem>
+            </MudGrid>
+        </MudTabPanel>
+    </MudTabs>
+</MudStack>
+
+@code {
+    private List<CoreBanker.Services.LoanProductDefinitionDto> _loanProducts = new();
+    private List<CoreBanker.Services.BankingOSProcessCatalogItemDto> _processes = new();
+    private List<CoreBanker.Services.BankingOSFormCatalogItemDto> _forms = new();
+    private List<CoreBanker.Services.BankingOSThemeCatalogItemDto> _themes = new();
+    private List<CoreBanker.Services.BankingOSPublishBundleDto> _bundles = new();
+    private CoreBanker.Services.BankingOSSeedFormDto? _selectedForm;
+    private CoreBanker.Services.BankingOSPublishBundleDto? _selectedBundle;
+    private CoreBanker.Services.LoanProductDefinitionDto? _selectedProduct;
+    private CoreBanker.Services.ProductGroupRulesDto? _groupRules;
+    private CoreBanker.Services.ProductEligibilityRulesDto? _eligibilityRules;
+    private string _selectedProductId = string.Empty;
+    private string _bundleNotes = string.Empty;
+    private string _message = string.Empty;
+    private bool _success;
+    private bool _isLoading;
+    private bool _isActing;
+
+    private IEnumerable<CoreBanker.Services.LoanProductDefinitionDto> GroupLoanProducts =>
+        _loanProducts.Where(product => product.IsActive && (product.ProductType.Contains("Group", StringComparison.OrdinalIgnoreCase) || product.Code.Contains("GROUP", StringComparison.OrdinalIgnoreCase) || product.RepaymentFrequency.Equals("Weekly", StringComparison.OrdinalIgnoreCase)));
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadWorkspaceAsync();
+    }
+
+    private async Task LoadWorkspaceAsync()
+    {
+        _isLoading = true;
+        _message = string.Empty;
+        try
+        {
+            var processesTask = ExtensibilityService.GetProcessCatalogAsync();
+            var formsTask = ExtensibilityService.GetFormCatalogAsync();
+            var themesTask = ExtensibilityService.GetThemeCatalogAsync();
+            var bundlesTask = ExtensibilityService.GetPublishBundlesAsync();
+            var productsTask = LoanService.GetLoanProductsAsync();
+            await Task.WhenAll(processesTask, formsTask, themesTask, bundlesTask, productsTask);
+            _processes = processesTask.Result;
+            _forms = formsTask.Result;
+            _themes = themesTask.Result;
+            _bundles = bundlesTask.Result;
+            _loanProducts = productsTask.Result;
+            if (_selectedBundle is not null)
+            {
+                _selectedBundle = _bundles.FirstOrDefault(bundle => bundle.Code == _selectedBundle.Code);
+            }
+            if (!string.IsNullOrWhiteSpace(_selectedProductId))
+            {
+                _selectedProduct = _loanProducts.FirstOrDefault(product => product.Id == _selectedProductId);
+            }
+        }
+        catch (CoreBanker.Services.ApiClientException ex)
+        {
+            _success = false;
+            _message = ex.Message;
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private async Task LoadSeedFormAsync(string code)
+    {
+        try
+        {
+            _selectedForm = await ExtensibilityService.GetSeedFormAsync(code);
+        }
+        catch (CoreBanker.Services.ApiClientException ex)
+        {
+            _success = false;
+            _message = ex.Message;
+        }
+    }
+
+    private async Task ActOnBundleAsync(string action)
+    {
+        if (_selectedBundle is null)
+        {
+            return;
+        }
+
+        _isActing = true;
+        try
+        {
+            var request = new CoreBanker.Services.BankingOSBundleActionRequest
+            {
+                Actor = string.IsNullOrWhiteSpace(AppState.UserEmail) ? "system" : AppState.UserEmail,
+                Notes = _bundleNotes
+            };
+
+            CoreBanker.Services.BankingOSPublishBundleDto? updated = action switch
+            {
+                "submit" => await ExtensibilityService.SubmitBundleAsync(_selectedBundle.Code, request),
+                "approve" => await ExtensibilityService.ApproveBundleAsync(_selectedBundle.Code, request),
+                "reject" => await ExtensibilityService.RejectBundleAsync(_selectedBundle.Code, request),
+                _ => await ExtensibilityService.PromoteBundleAsync(_selectedBundle.Code, request)
+            };
+
+            _success = true;
+            _message = updated is null ? "Bundle action completed." : $"Bundle {_selectedBundle.Code} moved to {updated.Status}.";
+            _bundleNotes = string.Empty;
+            await LoadWorkspaceAsync();
+        }
+        catch (CoreBanker.Services.ApiClientException ex)
+        {
+            _success = false;
+            _message = ex.Message;
+        }
+        finally
+        {
+            _isActing = false;
+        }
+    }
+
+    private async Task OnProductSelectedAsync(string productId)
+    {
+        _selectedProductId = productId;
+        _selectedProduct = _loanProducts.FirstOrDefault(product => product.Id == productId);
+        _groupRules = null;
+        _eligibilityRules = null;
+
+        if (string.IsNullOrWhiteSpace(productId))
+        {
+            return;
+        }
+
+        try
+        {
+            var groupRulesTask = ExtensibilityService.GetProductGroupRulesAsync(productId);
+            var eligibilityTask = ExtensibilityService.GetProductEligibilityRulesAsync(productId);
+            await Task.WhenAll(groupRulesTask, eligibilityTask);
+            _groupRules = groupRulesTask.Result ?? new CoreBanker.Services.ProductGroupRulesDto { ProductId = productId, MinMembersRequired = 5, MaxMembersAllowed = 30 };
+            _eligibilityRules = eligibilityTask.Result ?? new CoreBanker.Services.ProductEligibilityRulesDto { ProductId = productId };
+        }
+        catch (CoreBanker.Services.ApiClientException ex)
+        {
+            _success = false;
+            _message = ex.Message;
+        }
+    }
+
+    private async Task SaveProductRulesAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_selectedProductId) || _groupRules is null || _eligibilityRules is null)
+        {
+            return;
+        }
+
+        _isActing = true;
+        try
+        {
+            _groupRules.ProductId = _selectedProductId;
+            _eligibilityRules.ProductId = _selectedProductId;
+            var groupRulesTask = ExtensibilityService.SaveProductGroupRulesAsync(_selectedProductId, _groupRules);
+            var eligibilityTask = ExtensibilityService.SaveProductEligibilityRulesAsync(_selectedProductId, _eligibilityRules);
+            await Task.WhenAll(groupRulesTask, eligibilityTask);
+            _groupRules = groupRulesTask.Result ?? _groupRules;
+            _eligibilityRules = eligibilityTask.Result ?? _eligibilityRules;
+            _success = true;
+            _message = $"Product rules saved for {_selectedProduct?.Name ?? _selectedProductId}.";
+        }
+        catch (CoreBanker.Services.ApiClientException ex)
+        {
+            _success = false;
+            _message = ex.Message;
+        }
+        finally
+        {
+            _isActing = false;
+        }
+    }
+}

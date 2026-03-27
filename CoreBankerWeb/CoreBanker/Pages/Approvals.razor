@@ -3,51 +3,225 @@
 
 @inject CoreBanker.Services.ApprovalService ApprovalService
 
-<MudText Typo="Typo.h4" Class="mb-4">Approval Inbox</MudText>
+<MudGrid>
+    <MudItem xs="12" lg="7">
+        <MudStack Spacing="3">
+            <MudPaper Class="pa-4">
+                <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+                    <div>
+                        <MudText Typo="Typo.h4">Approval Inbox</MudText>
+                        <MudText Typo="Typo.body2" Class="mud-text-secondary">Review workflow items and action pending requests directly from the banking workspace.</MudText>
+                    </div>
+                    <MudButton Variant="Variant.Outlined" Color="Color.Secondary" OnClick="LoadApprovalsAsync">Refresh</MudButton>
+                </MudStack>
+            </MudPaper>
 
-<MudPaper Class="pa-4 mb-4">
-	<MudGrid>
-		<MudItem xs="12" sm="6">
-			<MudTextField @bind-Value="searchTerm" Label="Search by type or reference" Variant="Variant.Outlined" />
-		</MudItem>
-		<MudItem xs="12" sm="3">
-			<MudSelect @bind-Value="statusFilter" Label="Status" Variant="Variant.Outlined">
-				<MudSelectItem Value="@string.Empty">All</MudSelectItem>
-				<MudSelectItem Value="@("Pending")">Pending</MudSelectItem>
-				<MudSelectItem Value="@("Approved")">Approved</MudSelectItem>
-			</MudSelect>
-		</MudItem>
-	</MudGrid>
-</MudPaper>
+            <MudPaper Class="pa-4">
+                <MudGrid>
+                    <MudItem xs="12" md="7">
+                        <MudTextField @bind-Value="_searchTerm" Label="Search by type, reference, requester, or entity" Variant="Variant.Outlined" Immediate="true" />
+                    </MudItem>
+                    <MudItem xs="12" md="5">
+                        <MudSelect @bind-Value="_statusFilter" Label="Status" Variant="Variant.Outlined">
+                            <MudSelectItem Value="@string.Empty">All</MudSelectItem>
+                            <MudSelectItem Value="@("Pending")">Pending</MudSelectItem>
+                            <MudSelectItem Value="@("Approved")">Approved</MudSelectItem>
+                            <MudSelectItem Value="@("Rejected")">Rejected</MudSelectItem>
+                        </MudSelect>
+                    </MudItem>
+                </MudGrid>
+            </MudPaper>
 
-<MudTable Items="@FilteredApprovals" Hover="true" Dense="true">
-	<HeaderContent>
-		<MudTh>Approval ID</MudTh>
-		<MudTh>Type</MudTh>
-		<MudTh>Reference</MudTh>
-		<MudTh>Status</MudTh>
-		<MudTh>Requested By</MudTh>
-	</HeaderContent>
-	<RowTemplate>
-		<MudTd DataLabel="Approval ID">@context.Id</MudTd>
-		<MudTd DataLabel="Type">@context.Type</MudTd>
-		<MudTd DataLabel="Reference">@context.Reference</MudTd>
-		<MudTd DataLabel="Status">@context.Status</MudTd>
-		<MudTd DataLabel="Requested By">@context.RequestedBy</MudTd>
-	</RowTemplate>
-</MudTable>
+            @if (!string.IsNullOrWhiteSpace(_loadError))
+            {
+                <MudAlert Severity="Severity.Error">@_loadError</MudAlert>
+            }
+
+            <MudTable Items="@FilteredApprovals" Hover="true" Dense="true" Loading="@_isLoading">
+                <HeaderContent>
+                    <MudTh>Type</MudTh>
+                    <MudTh>Reference</MudTh>
+                    <MudTh>Requester</MudTh>
+                    <MudTh>Status</MudTh>
+                    <MudTh>Created</MudTh>
+                    <MudTh></MudTh>
+                </HeaderContent>
+                <RowTemplate>
+                    <MudTd DataLabel="Type">@context.Type</MudTd>
+                    <MudTd DataLabel="Reference">
+                        <MudText Typo="Typo.body2">@context.Reference</MudText>
+                        <MudText Typo="Typo.caption" Class="mud-text-secondary">@context.EntityId</MudText>
+                    </MudTd>
+                    <MudTd DataLabel="Requester">@DisplayValue(context.RequestedBy)</MudTd>
+                    <MudTd DataLabel="Status">@context.Status</MudTd>
+                    <MudTd DataLabel="Created">@context.CreatedAt.ToLocalTime().ToString("dd MMM yyyy HH:mm")</MudTd>
+                    <MudTd DataLabel="Actions">
+                        <MudButton Variant="Variant.Text" Color="Color.Primary" OnClick="@(() => SelectApproval(context))">Inspect</MudButton>
+                    </MudTd>
+                </RowTemplate>
+            </MudTable>
+        </MudStack>
+    </MudItem>
+
+    <MudItem xs="12" lg="5">
+        <MudStack Spacing="3">
+            <MudPaper Class="pa-4">
+                <MudText Typo="Typo.h5">Approval Workspace</MudText>
+                <MudText Typo="Typo.body2" Class="mud-text-secondary">Loan details, remarks, and decision controls for the selected workflow item.</MudText>
+            </MudPaper>
+
+            @if (_selectedApproval is null)
+            {
+                <MudPaper Class="pa-6">
+                    <MudText Typo="Typo.body1">Select an approval to inspect and action it.</MudText>
+                </MudPaper>
+            }
+            else
+            {
+                <MudPaper Class="pa-4">
+                    <MudText Typo="Typo.h6">@_selectedApproval.Type</MudText>
+                    <MudText Typo="Typo.body2" Class="mud-text-secondary">@_selectedApproval.Reference</MudText>
+                    <MudDivider Class="my-3" />
+                    <MudText Typo="Typo.body2">Workflow: @DisplayValue(_selectedApproval.WorkflowName)</MudText>
+                    <MudText Typo="Typo.body2">Requester: @DisplayValue(_selectedApproval.RequestedBy)</MudText>
+                    <MudText Typo="Typo.body2">Status: @_selectedApproval.Status</MudText>
+                    <MudText Typo="Typo.body2">Created: @_selectedApproval.CreatedAt.ToLocalTime().ToString("dd MMM yyyy HH:mm")</MudText>
+                    <MudText Typo="Typo.body2">Remarks: @DisplayValue(_selectedApproval.Remarks)</MudText>
+                </MudPaper>
+
+                @if (_selectedApproval.LoanDetails is not null)
+                {
+                    <MudPaper Class="pa-4">
+                        <MudText Typo="Typo.subtitle1">Loan Context</MudText>
+                        <MudText Typo="Typo.body2">Customer: @DisplayValue(_selectedApproval.LoanDetails.CustomerName) (@_selectedApproval.LoanDetails.CustomerId)</MudText>
+                        <MudText Typo="Typo.body2">Product: @DisplayValue(_selectedApproval.LoanDetails.ProductName)</MudText>
+                        <MudText Typo="Typo.body2">Principal: @FormatAmount(_selectedApproval.LoanDetails.Principal)</MudText>
+                        <MudText Typo="Typo.body2">Outstanding: @FormatAmount(_selectedApproval.LoanDetails.OutstandingBalance)</MudText>
+                        <MudText Typo="Typo.body2">Rate / Term: @_selectedApproval.LoanDetails.Rate% / @_selectedApproval.LoanDetails.TermMonths months</MudText>
+                        <MudText Typo="Typo.body2">Collateral: @DisplayValue(_selectedApproval.LoanDetails.CollateralType) @(_selectedApproval.LoanDetails.CollateralValue > 0 ? $"({FormatAmount(_selectedApproval.LoanDetails.CollateralValue)})" : string.Empty)</MudText>
+                        <MudText Typo="Typo.body2">Portfolio Bucket: @DisplayValue(_selectedApproval.LoanDetails.ParBucket)</MudText>
+                    </MudPaper>
+                }
+
+                <MudPaper Class="pa-4">
+                    <MudText Typo="Typo.subtitle1">Decision</MudText>
+                    <MudTextField @bind-Value="_decisionRemarks" Label="Decision remarks" Variant="Variant.Outlined" Lines="3" />
+                    <MudStack Row="true" Spacing="2" Class="mt-3">
+                        <MudButton Variant="Variant.Filled" Color="Color.Success" Disabled="@(_isSubmitting || _selectedApproval.Status != "Pending")" OnClick="@(() => UpdateApprovalAsync("APPROVED"))">Approve</MudButton>
+                        <MudButton Variant="Variant.Filled" Color="Color.Error" Disabled="@(_isSubmitting || _selectedApproval.Status != "Pending")" OnClick="@(() => UpdateApprovalAsync("REJECTED"))">Reject</MudButton>
+                    </MudStack>
+                </MudPaper>
+
+                @if (!string.IsNullOrWhiteSpace(_workspaceMessage))
+                {
+                    <MudAlert Severity="@(_workspaceSuccess ? Severity.Success : Severity.Error)">@_workspaceMessage</MudAlert>
+                }
+            }
+        </MudStack>
+    </MudItem>
+</MudGrid>
 
 @code {
-	private List<CoreBanker.Services.ApprovalDto> approvalItems = new();
-	private string searchTerm = string.Empty;
-	private string statusFilter = string.Empty;
+    private List<CoreBanker.Services.ApprovalDto> _approvalItems = new();
+    private CoreBanker.Services.ApprovalDto? _selectedApproval;
+    private string _searchTerm = string.Empty;
+    private string _statusFilter = string.Empty;
+    private string _decisionRemarks = string.Empty;
+    private string _loadError = string.Empty;
+    private string _workspaceMessage = string.Empty;
+    private bool _workspaceSuccess;
+    private bool _isLoading;
+    private bool _isSubmitting;
 
-	protected override async Task OnInitializedAsync()
-	{
-		approvalItems = await ApprovalService.GetApprovalsAsync();
-	}
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadApprovalsAsync();
+    }
 
-	private IEnumerable<CoreBanker.Services.ApprovalDto> FilteredApprovals =>
-		approvalItems.Where(a => (string.IsNullOrWhiteSpace(searchTerm) || a.Type.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) || a.Reference.Contains(searchTerm, StringComparison.OrdinalIgnoreCase))
-			&& (string.IsNullOrWhiteSpace(statusFilter) || a.Status == statusFilter));
+    private async Task LoadApprovalsAsync()
+    {
+        _isLoading = true;
+        _loadError = string.Empty;
+
+        try
+        {
+            _approvalItems = await ApprovalService.GetApprovalsAsync();
+            if (_selectedApproval is not null)
+            {
+                _selectedApproval = _approvalItems.FirstOrDefault(item => item.Id == _selectedApproval.Id);
+            }
+        }
+        catch (CoreBanker.Services.ApiClientException ex)
+        {
+            _loadError = ex.Message;
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private void SelectApproval(CoreBanker.Services.ApprovalDto approval)
+    {
+        _selectedApproval = approval;
+        _decisionRemarks = approval.Remarks;
+        _workspaceMessage = string.Empty;
+    }
+
+    private async Task UpdateApprovalAsync(string status)
+    {
+        if (_selectedApproval is null)
+        {
+            return;
+        }
+
+        _isSubmitting = true;
+        _workspaceMessage = string.Empty;
+
+        try
+        {
+            var updated = await ApprovalService.UpdateApprovalAsync(_selectedApproval.Id, new CoreBanker.Services.UpdateApprovalRequest
+            {
+                Status = status,
+                CurrentStep = status == "APPROVED" ? 1 : 0,
+                Remarks = _decisionRemarks
+            });
+
+            _workspaceSuccess = true;
+            _workspaceMessage = updated is null ? "Approval updated." : $"Approval marked as {updated.Status}.";
+            await LoadApprovalsAsync();
+            if (updated is not null)
+            {
+                _selectedApproval = _approvalItems.FirstOrDefault(item => item.Id == updated.Id);
+            }
+        }
+        catch (CoreBanker.Services.ApiClientException ex)
+        {
+            _workspaceSuccess = false;
+            _workspaceMessage = ex.Message;
+        }
+        finally
+        {
+            _isSubmitting = false;
+        }
+    }
+
+    private IEnumerable<CoreBanker.Services.ApprovalDto> FilteredApprovals =>
+        _approvalItems.Where(approval =>
+            (string.IsNullOrWhiteSpace(_searchTerm)
+             || approval.Type.Contains(_searchTerm, StringComparison.OrdinalIgnoreCase)
+             || approval.Reference.Contains(_searchTerm, StringComparison.OrdinalIgnoreCase)
+             || approval.RequestedBy.Contains(_searchTerm, StringComparison.OrdinalIgnoreCase)
+             || approval.EntityId.Contains(_searchTerm, StringComparison.OrdinalIgnoreCase))
+            && (string.IsNullOrWhiteSpace(_statusFilter) || approval.Status == _statusFilter));
+
+    private static string DisplayValue(string? value)
+    {
+        return string.IsNullOrWhiteSpace(value) ? "Not provided" : value;
+    }
+
+    private static string FormatAmount(decimal amount)
+    {
+        return amount.ToString("C", System.Globalization.CultureInfo.GetCultureInfo("en-GH"));
+    }
 }

@@ -1,156 +1,288 @@
 @page "/accounting"
 @layout CoreBanker.Layouts.MainLayout
 
-<MudText Typo="Typo.h4">Accounting</MudText>
+@inject CoreBanker.Services.AccountingService AccountingService
 
-<MudTabs>
-	<MudTabPanel Text="Journal Entries">
-		<MudPaper Class="pa-4">
-			<MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="@ReloadJournalEntries">Reload</MudButton>
-			<MudTable Items="_journalEntries" Hover="true" Dense="true">
-				<HeaderContent>
-					<MudTh>Reference</MudTh>
-					<MudTh>Description</MudTh>
-					<MudTh>Amount</MudTh>
-					<MudTh>Account</MudTh>
-					<MudTh>Date</MudTh>
-					<MudTh>Status</MudTh>
-				</HeaderContent>
-				<RowTemplate>
-					<MudTd DataLabel="Reference">@context.Reference</MudTd>
-					<MudTd DataLabel="Description">@context.Description</MudTd>
-					<MudTd DataLabel="Amount">@context.Amount.ToString("C")</MudTd>
-					<MudTd DataLabel="Account">@context.AccountCode</MudTd>
-					<MudTd DataLabel="Date">@context.Date</MudTd>
-					<MudTd DataLabel="Status">
-						<MudChip T="string" Color="@(context.Status == "Posted" ? Color.Success : Color.Default)">@context.Status</MudChip>
-					</MudTd>
-				</RowTemplate>
-			</MudTable>
-			<MudDivider Class="my-4" />
-			<MudText Typo="Typo.h6">Post New Journal Entry</MudText>
-			<MudForm @ref="_journalForm" OnValidSubmit="PostJournalEntry">
-				<MudTextField @bind-Value="_newEntry.Reference" Label="Reference" Required="true" />
-				<MudTextField @bind-Value="_newEntry.Description" Label="Description" Required="true" />
-				<MudNumericField @bind-Value="_newEntry.Amount" Label="Amount" Required="true" />
-				<MudSelect T="string" @bind-Value="_newEntry.AccountCode" Label="Account" Required="true">
-					@foreach (var acc in _glAccounts)
-					{
-						<MudSelectItem Value="@acc.Code">@acc.Code - @acc.Name</MudSelectItem>
-					}
-				</MudSelect>
-				<MudButton Type="Submit" Variant="Variant.Filled" Color="Color.Primary">Post Entry</MudButton>
-			</MudForm>
-			<MudSnackbarProvider />
-		</MudPaper>
-	</MudTabPanel>
-	<MudTabPanel Text="GL Accounts">
-		<MudPaper Class="pa-4">
-			<MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="@ReloadGLAccounts">Reload</MudButton>
-			<MudTable Items="_glAccounts" Hover="true" Dense="true">
-				<HeaderContent>
-					<MudTh>Code</MudTh>
-					<MudTh>Name</MudTh>
-					<MudTh>Type</MudTh>
-					<MudTh>Balance</MudTh>
-				</HeaderContent>
-				<RowTemplate>
-					<MudTd DataLabel="Code">@context.Code</MudTd>
-					<MudTd DataLabel="Name">@context.Name</MudTd>
-					<MudTd DataLabel="Type">@context.Type</MudTd>
-					<MudTd DataLabel="Balance">@context.Balance.ToString("C")</MudTd>
-				</RowTemplate>
-			</MudTable>
-			<MudDivider Class="my-4" />
-			<MudText Typo="Typo.h6">Create New GL Account</MudText>
-			<MudForm @ref="_glForm" OnValidSubmit="CreateGLAccount">
-				<MudTextField @bind-Value="_newAccount.Code" Label="Code" Required="true" />
-				<MudTextField @bind-Value="_newAccount.Name" Label="Name" Required="true" />
-				<MudTextField @bind-Value="_newAccount.Type" Label="Type" Required="true" />
-				<MudNumericField @bind-Value="_newAccount.Balance" Label="Opening Balance" />
-				<MudButton Type="Submit" Variant="Variant.Filled" Color="Color.Primary">Create Account</MudButton>
-			</MudForm>
-			<MudSnackbarProvider />
-		</MudPaper>
-	</MudTabPanel>
-</MudTabs>
+<MudStack Spacing="3">
+    <MudPaper Class="pa-4">
+        <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+            <div>
+                <MudText Typo="Typo.h4">Accounting Engine</MudText>
+                <MudText Typo="Typo.body2" Class="mud-text-secondary">Live chart-of-accounts, governed journal posting, and ledger review backed by the general-ledger API.</MudText>
+            </div>
+            <MudStack Row="true" Spacing="2">
+                <MudButton Variant="Variant.Outlined" Color="Color.Secondary" Disabled="@_isBusy" OnClick="LoadWorkspaceAsync">Refresh</MudButton>
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="@_isBusy" OnClick="SeedRegulatoryChartAsync">Seed Regulatory Chart</MudButton>
+            </MudStack>
+        </MudStack>
+    </MudPaper>
+
+    @if (!string.IsNullOrWhiteSpace(_message))
+    {
+        <MudAlert Severity="@(_isSuccess ? Severity.Success : Severity.Error)">@_message</MudAlert>
+    }
+
+    <MudGrid>
+        <MudItem xs="12" sm="4"><MudPaper Class="pa-4"><MudText Typo="Typo.caption">GL Accounts</MudText><MudText Typo="Typo.h5">@_glAccounts.Count</MudText></MudPaper></MudItem>
+        <MudItem xs="12" sm="4"><MudPaper Class="pa-4"><MudText Typo="Typo.caption">Journal Entries</MudText><MudText Typo="Typo.h5">@_journalEntries.Count</MudText></MudPaper></MudItem>
+        <MudItem xs="12" sm="4"><MudPaper Class="pa-4"><MudText Typo="Typo.caption">Draft Difference</MudText><MudText Typo="Typo.h5">@FormatCurrency(DraftDifference)</MudText></MudPaper></MudItem>
+    </MudGrid>
+
+    <MudTabs Rounded="true">
+        <MudTabPanel Text="Chart of Accounts">
+            <MudGrid>
+                <MudItem xs="12" lg="7">
+                    <MudPaper Class="pa-4">
+                        <MudTextField @bind-Value="_accountSearch" Label="Search GL code, name, or category" Variant="Variant.Outlined" />
+                        <MudTable T="CoreBanker.Services.GLAccountDto" Items="@FilteredAccounts" Dense="true" Hover="true" Loading="@_isBusy" Class="mt-3">
+                            <HeaderContent>
+                                <MudTh>Code</MudTh>
+                                <MudTh>Name</MudTh>
+                                <MudTh>Category</MudTh>
+                                <MudTh>Currency</MudTh>
+                                <MudTh>Balance</MudTh>
+                            </HeaderContent>
+                            <RowTemplate>
+                                <MudTd DataLabel="Code">@context.Code</MudTd>
+                                <MudTd DataLabel="Name">@context.Name</MudTd>
+                                <MudTd DataLabel="Category">@context.Category</MudTd>
+                                <MudTd DataLabel="Currency">@DisplayValue(context.Currency)</MudTd>
+                                <MudTd DataLabel="Balance">@FormatCurrency(context.Balance)</MudTd>
+                            </RowTemplate>
+                        </MudTable>
+                    </MudPaper>
+                </MudItem>
+                <MudItem xs="12" lg="5">
+                    <MudPaper Class="pa-4">
+                        <MudText Typo="Typo.h6">Create GL Account</MudText>
+                        <MudTextField @bind-Value="_newGlAccount.Code" Label="Code" Variant="Variant.Outlined" Class="mt-2" />
+                        <MudTextField @bind-Value="_newGlAccount.Name" Label="Name" Variant="Variant.Outlined" Class="mt-3" />
+                        <MudSelect T="string" @bind-Value="_newGlAccount.Category" Label="Category" Variant="Variant.Outlined" Class="mt-3">
+                            @foreach (var category in _glCategories)
+                            {
+                                <MudSelectItem T="string" Value="@category">@category</MudSelectItem>
+                            }
+                        </MudSelect>
+                        <MudTextField @bind-Value="_newGlAccount.Currency" Label="Currency" Variant="Variant.Outlined" Class="mt-3" />
+                        <MudCheckBox @bind-Value="_newGlAccount.IsHeader" Label="Create as header account" Class="mt-2" />
+                        <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="mt-4" Disabled="@(_isBusy || string.IsNullOrWhiteSpace(_newGlAccount.Name) || string.IsNullOrWhiteSpace(_newGlAccount.Category))" OnClick="CreateGlAccountAsync">Create Account</MudButton>
+                    </MudPaper>
+                </MudItem>
+            </MudGrid>
+        </MudTabPanel>
+
+        <MudTabPanel Text="Journal Posting">
+            <MudPaper Class="pa-4">
+                <MudGrid>
+                    <MudItem xs="12" md="6">
+                        <MudTextField @bind-Value="_journalDraft.Description" Label="Description" Variant="Variant.Outlined" />
+                    </MudItem>
+                    <MudItem xs="12" md="6">
+                        <MudTextField @bind-Value="_journalDraft.Reference" Label="Reference" Variant="Variant.Outlined" />
+                    </MudItem>
+                </MudGrid>
+                <MudTable T="CoreBanker.Services.JournalLineDto" Items="@_journalDraft.Lines" Dense="true" Hover="true" Class="mt-4">
+                    <HeaderContent>
+                        <MudTh>Account</MudTh>
+                        <MudTh>Debit</MudTh>
+                        <MudTh>Credit</MudTh>
+                        <MudTh></MudTh>
+                    </HeaderContent>
+                    <RowTemplate>
+                        <MudTd DataLabel="Account">
+                            <MudSelect T="string" Value="@context.AccountCode" ValueChanged="@((string value) => context.AccountCode = value)" Dense="true">
+                                @foreach (var account in PostingAccounts)
+                                {
+                                    <MudSelectItem T="string" Value="@account.Code">@($"{account.Code} - {account.Name}")</MudSelectItem>
+                                }
+                            </MudSelect>
+                        </MudTd>
+                        <MudTd DataLabel="Debit">
+                            <MudNumericField T="decimal" Value="@context.Debit" ValueChanged="@((decimal value) => context.Debit = value)" Margin="Margin.Dense" Min="0" />
+                        </MudTd>
+                        <MudTd DataLabel="Credit">
+                            <MudNumericField T="decimal" Value="@context.Credit" ValueChanged="@((decimal value) => context.Credit = value)" Margin="Margin.Dense" Min="0" />
+                        </MudTd>
+                        <MudTd DataLabel="Actions">
+                            <MudButton Variant="Variant.Text" Color="Color.Error" Disabled="@(_journalDraft.Lines.Count <= 2)" OnClick="@(() => RemoveJournalLine(context))">Remove</MudButton>
+                        </MudTd>
+                    </RowTemplate>
+                </MudTable>
+                <MudStack Row="true" Spacing="2" Class="mt-3">
+                    <MudButton Variant="Variant.Outlined" Color="Color.Secondary" OnClick="AddJournalLine">Add Line</MudButton>
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="@(_isBusy || !CanPostJournal)" OnClick="PostJournalAsync">Post Journal</MudButton>
+                </MudStack>
+            </MudPaper>
+        </MudTabPanel>
+
+        <MudTabPanel Text="Ledger Review">
+            <MudPaper Class="pa-4">
+                <MudTextField @bind-Value="_ledgerSearch" Label="Search journal, account, or user" Variant="Variant.Outlined" />
+                <MudTable T="CoreBanker.Services.JournalEntryDto" Items="@FilteredJournalEntries" Dense="true" Hover="true" Loading="@_isBusy" Class="mt-3">
+                    <HeaderContent>
+                        <MudTh>Date</MudTh>
+                        <MudTh>Reference</MudTh>
+                        <MudTh>Description</MudTh>
+                        <MudTh>Posted By</MudTh>
+                        <MudTh>Debit</MudTh>
+                        <MudTh>Credit</MudTh>
+                        <MudTh>Status</MudTh>
+                    </HeaderContent>
+                    <RowTemplate Context="entry">
+                        <MudTd DataLabel="Date">@entry.Date.ToString("dd MMM yyyy")</MudTd>
+                        <MudTd DataLabel="Reference">@DisplayValue(entry.Reference)</MudTd>
+                        <MudTd DataLabel="Description">@DisplayValue(entry.Description)</MudTd>
+                        <MudTd DataLabel="Posted By">@DisplayValue(entry.PostedBy)</MudTd>
+                        <MudTd DataLabel="Debit">@FormatCurrency(entry.TotalDebit)</MudTd>
+                        <MudTd DataLabel="Credit">@FormatCurrency(entry.TotalCredit)</MudTd>
+                        <MudTd DataLabel="Status">@entry.Status</MudTd>
+                    </RowTemplate>
+                    <ChildRowContent Context="entry">
+                        <MudPaper Outlined="true" Class="pa-3 ma-2">
+                            <MudTable T="CoreBanker.Services.JournalLineResponseDto" Items="@entry.Lines" Dense="true" Hover="true">
+                                <HeaderContent>
+                                    <MudTh>Account Code</MudTh>
+                                    <MudTh>Account Name</MudTh>
+                                    <MudTh>Debit</MudTh>
+                                    <MudTh>Credit</MudTh>
+                                </HeaderContent>
+                                <RowTemplate Context="line">
+                                    <MudTd DataLabel="Account Code">@line.AccountCode</MudTd>
+                                    <MudTd DataLabel="Account Name">@line.AccountName</MudTd>
+                                    <MudTd DataLabel="Debit">@FormatCurrency(line.Debit)</MudTd>
+                                    <MudTd DataLabel="Credit">@FormatCurrency(line.Credit)</MudTd>
+                                </RowTemplate>
+                            </MudTable>
+                        </MudPaper>
+                    </ChildRowContent>
+                </MudTable>
+            </MudPaper>
+        </MudTabPanel>
+    </MudTabs>
+</MudStack>
 
 @code {
-	[Inject] private CoreBanker.Services.AccountingService? AccountingService { get; set; }
-	[Inject] private ISnackbar? Snackbar { get; set; }
+    private readonly string[] _glCategories = ["ASSET", "LIABILITY", "EQUITY", "INCOME", "EXPENSE"];
+    private List<CoreBanker.Services.GLAccountDto> _glAccounts = new();
+    private List<CoreBanker.Services.JournalEntryDto> _journalEntries = new();
+    private CoreBanker.Services.CreateGlAccountRequest _newGlAccount = new() { Category = "ASSET", Currency = "GHS" };
+    private CoreBanker.Services.PostJournalEntryRequest _journalDraft = new() { Lines = new() { new(), new() } };
+    private string _accountSearch = string.Empty;
+    private string _ledgerSearch = string.Empty;
+    private string _message = string.Empty;
+    private bool _isSuccess;
+    private bool _isBusy;
 
-	private List<CoreBanker.Services.JournalEntryDto> _journalEntries = new();
-	private List<CoreBanker.Services.GLAccountDto> _glAccounts = new();
-	private CoreBanker.Services.JournalEntryDto _newEntry = new();
-	private CoreBanker.Services.GLAccountDto _newAccount = new();
-	private MudForm? _journalForm;
-	private MudForm? _glForm;
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadWorkspaceAsync();
+    }
 
-	protected override async Task OnInitializedAsync()
-	{
-		await ReloadJournalEntries();
-		await ReloadGLAccounts();
-	}
+    private IEnumerable<CoreBanker.Services.GLAccountDto> FilteredAccounts =>
+        string.IsNullOrWhiteSpace(_accountSearch)
+            ? _glAccounts
+            : _glAccounts.Where(account => $"{account.Code} {account.Name} {account.Category}".Contains(_accountSearch, StringComparison.OrdinalIgnoreCase));
 
-	private async Task ReloadJournalEntries()
-	{
-		if (AccountingService != null)
-		{
-			_journalEntries = await AccountingService.GetJournalEntriesAsync();
-			StateHasChanged();
-		}
-	}
+    private IEnumerable<CoreBanker.Services.GLAccountDto> PostingAccounts =>
+        _glAccounts.Where(account => !account.IsHeader);
 
-	private async Task ReloadGLAccounts()
-	{
-		if (AccountingService != null)
-		{
-			_glAccounts = await AccountingService.GetGLAccountsAsync();
-			StateHasChanged();
-		}
-	}
+    private IEnumerable<CoreBanker.Services.JournalEntryDto> FilteredJournalEntries =>
+        string.IsNullOrWhiteSpace(_ledgerSearch)
+            ? _journalEntries
+            : _journalEntries.Where(entry => $"{entry.Id} {entry.Reference} {entry.Description} {entry.PostedBy}".Contains(_ledgerSearch, StringComparison.OrdinalIgnoreCase));
 
-	private async Task PostJournalEntry()
-	{
-		if (_journalForm != null)
-		{
-			await _journalForm.ValidateAsync();
-			if (_journalForm.IsValid && AccountingService != null)
-			{
-				var success = await AccountingService.PostJournalEntryAsync(_newEntry);
-				if (success && Snackbar != null)
-				{
-					Snackbar.Add("Journal entry posted.", Severity.Success);
-					_newEntry = new();
-					await ReloadJournalEntries();
-				}
-				else if (Snackbar != null)
-				{
-					Snackbar.Add("Failed to post journal entry.", Severity.Error);
-				}
-			}
-		}
-	}
+    private decimal DraftDifference => _journalDraft.Lines.Sum(line => line.Debit) - _journalDraft.Lines.Sum(line => line.Credit);
 
-	private async Task CreateGLAccount()
-	{
-		if (_glForm != null)
-		{
-			await _glForm.ValidateAsync();
-			if (_glForm.IsValid && AccountingService != null)
-			{
-				var success = await AccountingService.CreateGLAccountAsync(_newAccount);
-				if (success && Snackbar != null)
-				{
-					Snackbar.Add("GL account created.", Severity.Success);
-					_newAccount = new();
-					await ReloadGLAccounts();
-				}
-				else if (Snackbar != null)
-				{
-					Snackbar.Add("Failed to create GL account.", Severity.Error);
-				}
-			}
-		}
-	}
+    private bool CanPostJournal =>
+        !string.IsNullOrWhiteSpace(_journalDraft.Description)
+        && _journalDraft.Lines.Count >= 2
+        && _journalDraft.Lines.All(line => !string.IsNullOrWhiteSpace(line.AccountCode) && ((line.Debit > 0m && line.Credit == 0m) || (line.Credit > 0m && line.Debit == 0m)))
+        && DraftDifference == 0m;
+
+    private async Task LoadWorkspaceAsync()
+    {
+        _isBusy = true;
+        _message = string.Empty;
+        try
+        {
+            var accountsTask = AccountingService.GetGLAccountsAsync();
+            var journalsTask = AccountingService.GetJournalEntriesAsync();
+            await Task.WhenAll(accountsTask, journalsTask);
+            _glAccounts = accountsTask.Result;
+            _journalEntries = journalsTask.Result.OrderByDescending(entry => entry.CreatedAt).ToList();
+        }
+        catch (CoreBanker.Services.ApiClientException ex)
+        {
+            _isSuccess = false;
+            _message = ex.Message;
+        }
+        finally
+        {
+            _isBusy = false;
+        }
+    }
+
+    private void AddJournalLine() => _journalDraft.Lines.Add(new CoreBanker.Services.JournalLineDto());
+
+    private void RemoveJournalLine(CoreBanker.Services.JournalLineDto line)
+    {
+        if (_journalDraft.Lines.Count > 2)
+        {
+            _journalDraft.Lines.Remove(line);
+        }
+    }
+
+    private async Task CreateGlAccountAsync()
+    {
+        await RunAsync(async () =>
+        {
+            var created = await AccountingService.CreateGLAccountAsync(_newGlAccount);
+            _newGlAccount = new CoreBanker.Services.CreateGlAccountRequest { Category = "ASSET", Currency = "GHS" };
+            _message = created is null ? "GL account created." : $"GL account {created.Code} created.";
+            await LoadWorkspaceAsync();
+        });
+    }
+
+    private async Task SeedRegulatoryChartAsync()
+    {
+        await RunAsync(async () =>
+        {
+            var result = await AccountingService.SeedRegulatoryChartAsync();
+            _message = result is null ? "Regulatory chart seeded." : $"Seeded {result.InsertedCount} chart accounts for {result.RegionCode}.";
+            await LoadWorkspaceAsync();
+        });
+    }
+
+    private async Task PostJournalAsync()
+    {
+        await RunAsync(async () =>
+        {
+            var posted = await AccountingService.PostJournalEntryAsync(_journalDraft);
+            _journalDraft = new CoreBanker.Services.PostJournalEntryRequest { Lines = new() { new(), new() } };
+            _message = posted is null ? "Journal posted." : $"Journal {posted.Id} posted successfully.";
+            await LoadWorkspaceAsync();
+        });
+    }
+
+    private async Task RunAsync(Func<Task> action)
+    {
+        _isBusy = true;
+        try
+        {
+            await action();
+            _isSuccess = true;
+        }
+        catch (CoreBanker.Services.ApiClientException ex)
+        {
+            _isSuccess = false;
+            _message = ex.Message;
+        }
+        finally
+        {
+            _isBusy = false;
+        }
+    }
+
+    private static string DisplayValue(string? value) => string.IsNullOrWhiteSpace(value) ? "Not provided" : value;
+    private static string FormatCurrency(decimal value) => value.ToString("C");
 }

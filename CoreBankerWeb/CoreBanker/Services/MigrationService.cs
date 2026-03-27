@@ -1,65 +1,50 @@
-using System.Collections.Generic;
-using System.Net.Http;
+using System.Net.Http.Headers;
 using System.Net.Http.Json;
-using System.Threading.Tasks;
+using System.Text.Json;
 
 namespace CoreBanker.Services
 {
-    public class MigrationService
+    public class MigrationService : ApiClientBase
     {
-        private readonly HttpClient _httpClient;
-        public MigrationService(HttpClient httpClient)
+        public MigrationService(HttpClient httpClient) : base(httpClient) { }
+
+        public async Task<List<MigrationDatasetDto>> GetDatasetsAsync(CancellationToken cancellationToken = default)
         {
-            _httpClient = httpClient;
+            var result = await GetAsync<List<MigrationDatasetDto>>("/api/migration/datasets", cancellationToken);
+            return result ?? new List<MigrationDatasetDto>();
         }
 
-        public async Task<List<MigrationDatasetDto>> GetDatasetsAsync()
+        public async Task<MigrationResultDto?> ImportAsync(string datasetId, Stream fileStream, string fileName, CancellationToken cancellationToken = default)
         {
-            return await _httpClient.GetFromJsonAsync<List<MigrationDatasetDto>>("/api/migration/datasets") ?? new List<MigrationDatasetDto>();
-        }
+            using var content = new MultipartFormDataContent();
+            using var fileContent = new StreamContent(fileStream);
+            fileContent.Headers.ContentType = new MediaTypeHeaderValue("text/csv");
+            content.Add(fileContent, "file", fileName);
 
-        public async Task<MigrationPreviewDto?> PreviewCsvAsync(string datasetId, byte[] fileBytes)
-        {
-            var content = new MultipartFormDataContent();
-            content.Add(new ByteArrayContent(fileBytes), "file", "import.csv");
-            var response = await _httpClient.PostAsync($"/api/migration/preview/{datasetId}", content);
-            if (response.IsSuccessStatusCode)
-            {
-                return await response.Content.ReadFromJsonAsync<MigrationPreviewDto>();
-            }
-            return null;
-        }
-
-        public async Task<MigrationResultDto?> ImportAsync(string datasetId, byte[] fileBytes)
-        {
-            var content = new MultipartFormDataContent();
-            content.Add(new ByteArrayContent(fileBytes), "file", "import.csv");
-            var response = await _httpClient.PostAsync($"/api/migration/import/{datasetId}", content);
-            if (response.IsSuccessStatusCode)
-            {
-                return await response.Content.ReadFromJsonAsync<MigrationResultDto>();
-            }
-            return null;
+            using var response = await _httpClient.PostAsync($"/api/migration/import/{Uri.EscapeDataString(datasetId)}", content, cancellationToken);
+            await EnsureSuccessAsync(response, cancellationToken);
+            return await response.Content.ReadFromJsonAsync<MigrationResultDto>(cancellationToken: cancellationToken);
         }
     }
 
     public class MigrationDatasetDto
     {
-        public string? Id { get; set; }
-        public string? Name { get; set; }
-        public string? Description { get; set; }
+        public string Id { get; set; } = string.Empty;
+        public string Name { get; set; } = string.Empty;
+        public string Description { get; set; } = string.Empty;
     }
 
     public class MigrationPreviewDto
     {
-        public List<string>? Headers { get; set; }
-        public List<List<string>>? Rows { get; set; }
+        public List<string> Headers { get; set; } = new();
+        public List<List<string>> Rows { get; set; } = new();
+        public int RowCount { get; set; }
     }
 
     public class MigrationResultDto
     {
         public bool Success { get; set; }
-        public string? Message { get; set; }
-        public List<string>? Errors { get; set; }
+        public string Message { get; set; } = string.Empty;
+        public List<string> Errors { get; set; } = new();
     }
 }

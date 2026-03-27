@@ -1,5 +1,190 @@
 @page "/eod"
 @layout CoreBanker.Layouts.MainLayout
 
-<MudText Typo="Typo.h4">End of Day</MudText>
-<!-- TODO: Implement EOD console, operational actions/status -->
+@inject CoreBanker.Services.EndOfDayService EndOfDayService
+
+<MudStack Spacing="3">
+    <MudPaper Class="pa-4">
+        <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+            <div>
+                <MudText Typo="Typo.h4">End Of Day Console</MudText>
+                <MudText Typo="Typo.body2" Class="mud-text-secondary">Run the operational close workflow step-by-step and monitor blockers, scheduler posture, and run history in one console.</MudText>
+            </div>
+            <MudButton Variant="Variant.Outlined" Color="Color.Secondary" Disabled="@_isBusy" OnClick="LoadStatusAsync">Refresh</MudButton>
+        </MudStack>
+    </MudPaper>
+
+    @if (!string.IsNullOrWhiteSpace(_message))
+    {
+        <MudAlert Severity="@(_isSuccess ? Severity.Success : Severity.Error)">@_message</MudAlert>
+    }
+
+    <MudGrid>
+        <MudItem xs="12" md="3"><MudPaper Class="pa-4"><MudText Typo="Typo.caption">Business Date</MudText><MudText Typo="Typo.h6">@DisplayValue(_status?.BusinessDate)</MudText></MudPaper></MudItem>
+        <MudItem xs="12" md="3"><MudPaper Class="pa-4"><MudText Typo="Typo.caption">Pending Transactions</MudText><MudText Typo="Typo.h6">@(_status?.PendingTransactions ?? 0)</MudText></MudPaper></MudItem>
+        <MudItem xs="12" md="3"><MudPaper Class="pa-4"><MudText Typo="Typo.caption">Draft Journals</MudText><MudText Typo="Typo.h6">@(_status?.DraftJournalEntries ?? 0)</MudText></MudPaper></MudItem>
+        <MudItem xs="12" md="3"><MudPaper Class="pa-4"><MudText Typo="Typo.caption">Active Loans</MudText><MudText Typo="Typo.h6">@(_status?.ActiveLoans ?? 0)</MudText></MudPaper></MudItem>
+    </MudGrid>
+
+    <MudGrid>
+        <MudItem xs="12" lg="4">
+            <MudPaper Class="pa-4">
+                <MudText Typo="Typo.h6">Run Step</MudText>
+                <MudSelect T="string" @bind-Value="_selectedStepId" Label="Step" Variant="Variant.Outlined" Class="mt-2">
+                    @foreach (var step in _steps)
+                    {
+                        <MudSelectItem T="string" Value="@step.Id">@($"{step.Id} - {step.Label}")</MudSelectItem>
+                    }
+                </MudSelect>
+                <MudDatePicker Label="Business Date" Variant="Variant.Outlined" Date="@_businessDateTime" DateChanged="OnBusinessDateChanged" Class="mt-3" />
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="mt-4" Disabled="@(_isBusy || string.IsNullOrWhiteSpace(_selectedStepId))" OnClick="RunStepAsync">Run Selected Step</MudButton>
+            </MudPaper>
+            <MudPaper Class="pa-4 mt-3">
+                <MudText Typo="Typo.h6">Scheduler</MudText>
+                <MudText Typo="Typo.body2" Class="mt-2">@($"Mode: {DisplayValue(_status?.Mode)}")</MudText>
+                <MudText Typo="Typo.body2">@($"Status: {DisplayValue(_status?.Status)}")</MudText>
+                <MudText Typo="Typo.body2">@($"Enabled: {((_status?.SchedulerEnabled ?? false) ? "Yes" : "No")}")</MudText>
+                <MudText Typo="Typo.body2">@($"Time (UTC): {DisplayValue(_status?.SchedulerTimeUtc)}")</MudText>
+                <MudText Typo="Typo.body2">@($"Last Run: {DisplayValue(_status?.LastSchedulerRunDate)}")</MudText>
+                <MudText Typo="Typo.body2">@($"Next Run: {DisplayValue(_status?.NextScheduledRunUtc)}")</MudText>
+            </MudPaper>
+        </MudItem>
+        <MudItem xs="12" lg="8">
+            <MudPaper Class="pa-4">
+                <MudText Typo="Typo.h6">Workflow Sequence</MudText>
+                <MudTable T="EodStepDefinition" Items="@_steps" Dense="true" Hover="true" Class="mt-3">
+                    <HeaderContent><MudTh>Step</MudTh><MudTh>Description</MudTh><MudTh>Last Result</MudTh></HeaderContent>
+                    <RowTemplate>
+                        <MudTd DataLabel="Step">@context.Label</MudTd>
+                        <MudTd DataLabel="Description">@context.Description</MudTd>
+                        <MudTd DataLabel="Last Result">@GetStepStatus(context.Id)</MudTd>
+                    </RowTemplate>
+                </MudTable>
+                @if (_status?.ManualSteps?.Any() == true)
+                {
+                    <MudDivider Class="my-3" />
+                    <MudText Typo="Typo.subtitle2">Manual Steps</MudText>
+                    <MudList T="string" Dense="true" Class="mt-2">
+                        @foreach (var step in _status.ManualSteps)
+                        {
+                            <MudListItem T="string" Text="@step" />
+                        }
+                    </MudList>
+                }
+            </MudPaper>
+
+            <MudPaper Class="pa-4 mt-3">
+                <MudText Typo="Typo.h6">Run Log</MudText>
+                <MudTable T="CoreBanker.Services.EodStepResultDto" Items="@_results" Dense="true" Hover="true" Class="mt-3">
+                    <HeaderContent><MudTh>Step</MudTh><MudTh>Status</MudTh><MudTh>Message</MudTh><MudTh>Business Date</MudTh></HeaderContent>
+                    <RowTemplate>
+                        <MudTd DataLabel="Step">@context.StepId</MudTd>
+                        <MudTd DataLabel="Status">@context.Status</MudTd>
+                        <MudTd DataLabel="Message">@context.Message</MudTd>
+                        <MudTd DataLabel="Business Date">@DisplayValue(context.BusinessDate)</MudTd>
+                    </RowTemplate>
+                </MudTable>
+            </MudPaper>
+        </MudItem>
+    </MudGrid>
+</MudStack>
+
+@code {
+    private readonly List<EodStepDefinition> _steps =
+    [
+        new("PRE_VALIDATION", "Pre-Close Validation", "Check pending transactions and draft journals."),
+        new("SAVINGS_ACCRUAL", "Interest Accrual", "Run deposit accruals for active savings products."),
+        new("LOAN_AGING", "Loan Accrual Batch", "Advance loan aging and accrual logic."),
+        new("GL_POSTING", "GL Close Readiness", "Confirm journals and close blockers are cleared."),
+        new("BACKUP_DB", "System Snapshot", "Run the documented backup and infrastructure safeguards."),
+        new("CLOSE_DATE", "Date Rollover", "Advance the bank business date after close checks pass.")
+    ];
+
+    private CoreBanker.Services.EodStatusDto? _status;
+    private readonly List<CoreBanker.Services.EodStepResultDto> _results = new();
+    private DateOnly _businessDate = DateOnly.FromDateTime(DateTime.Today);
+    private DateTime? _businessDateTime = DateTime.Today;
+    private string _selectedStepId = "PRE_VALIDATION";
+    private string _message = string.Empty;
+    private bool _isSuccess;
+    private bool _isBusy;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadStatusAsync();
+    }
+
+    private async Task LoadStatusAsync()
+    {
+        _isBusy = true;
+        _message = string.Empty;
+        try
+        {
+            _status = await EndOfDayService.GetStatusAsync();
+            if (DateOnly.TryParse(_status?.BusinessDate, out var businessDate))
+            {
+                _businessDate = businessDate;
+                _businessDateTime = businessDate.ToDateTime(TimeOnly.MinValue);
+            }
+        }
+        catch (CoreBanker.Services.ApiClientException ex)
+        {
+            _isSuccess = false;
+            _message = ex.Message;
+        }
+        finally
+        {
+            _isBusy = false;
+        }
+    }
+
+    private async Task RunStepAsync()
+    {
+        _isBusy = true;
+        try
+        {
+            var result = await EndOfDayService.RunStepAsync(new CoreBanker.Services.RunEodStepRequest
+            {
+                StepId = _selectedStepId,
+                BusinessDate = _businessDate
+            });
+            if (result is not null)
+            {
+                _results.Insert(0, result);
+                _message = $"{result.StepId} completed with status {result.Status}.";
+                _isSuccess = !result.Status.Equals("ERROR", StringComparison.OrdinalIgnoreCase);
+                if (DateOnly.TryParse(result.BusinessDate, out var businessDate))
+                {
+                    _businessDate = businessDate;
+                    _businessDateTime = businessDate.ToDateTime(TimeOnly.MinValue);
+                }
+            }
+            await LoadStatusAsync();
+        }
+        catch (CoreBanker.Services.ApiClientException ex)
+        {
+            _isSuccess = false;
+            _message = ex.Message;
+        }
+        finally
+        {
+            _isBusy = false;
+        }
+    }
+
+    private void OnBusinessDateChanged(DateTime? value)
+    {
+        _businessDateTime = value;
+        _businessDate = DateOnly.FromDateTime((value ?? DateTime.Today).Date);
+    }
+
+    private string GetStepStatus(string stepId)
+    {
+        var result = _results.FirstOrDefault(item => item.StepId == stepId);
+        return result?.Status ?? "Not run";
+    }
+
+    private static string DisplayValue(string? value) => string.IsNullOrWhiteSpace(value) ? "Not available" : value;
+
+    private sealed record EodStepDefinition(string Id, string Label, string Description);
+}

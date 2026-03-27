@@ -1,5 +1,308 @@
 @page "/security-ops"
 @layout CoreBanker.Layouts.MainLayout
 
-<MudText Typo="Typo.h4">Security Operations</MudText>
-<!-- TODO: Implement security workbench, terminal registry, investigations, setup -->
+@inject CoreBanker.Services.SecurityService SecurityService
+
+<MudStack Spacing="3">
+    <MudPaper Class="pa-4">
+        <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+            <div>
+                <MudText Typo="Typo.h4">Security Operations</MudText>
+                <MudText Typo="Typo.body2" Class="mud-text-secondary">Monitor alerts, devices, suspicious activity, and active sessions from the operational security control room.</MudText>
+            </div>
+            <MudStack Row="true" Spacing="2">
+                <MudButton Variant="Variant.Outlined" Color="Color.Warning" Disabled="@_isScanning" OnClick="ScanOutdatedDevicesAsync">Scan Outdated</MudButton>
+                <MudButton Variant="Variant.Outlined" Color="Color.Secondary" OnClick="LoadWorkspaceAsync">Refresh</MudButton>
+            </MudStack>
+        </MudStack>
+    </MudPaper>
+
+    @if (!string.IsNullOrWhiteSpace(_loadError))
+    {
+        <MudAlert Severity="Severity.Error">@_loadError</MudAlert>
+    }
+
+    @if (!string.IsNullOrWhiteSpace(_workspaceMessage))
+    {
+        <MudAlert Severity="@(_workspaceSuccess ? Severity.Success : Severity.Error)">@_workspaceMessage</MudAlert>
+    }
+
+    <MudGrid>
+        <MudItem xs="12" sm="6" md="3"><MudCard><MudCardContent><MudText Typo="Typo.subtitle2">Security Alerts</MudText><MudText Typo="Typo.h5">@(_summary?.SecurityAlertCount ?? 0)</MudText></MudCardContent></MudCard></MudItem>
+        <MudItem xs="12" sm="6" md="3"><MudCard><MudCardContent><MudText Typo="Typo.subtitle2">Failed Logins</MudText><MudText Typo="Typo.h5">@(_summary?.FailedLoginCount ?? 0)</MudText></MudCardContent></MudCard></MudItem>
+        <MudItem xs="12" sm="6" md="3"><MudCard><MudCardContent><MudText Typo="Typo.subtitle2">Active Sessions</MudText><MudText Typo="Typo.h5">@(_summary?.ActiveSessions ?? 0)</MudText></MudCardContent></MudCard></MudItem>
+        <MudItem xs="12" sm="6" md="3"><MudCard><MudCardContent><MudText Typo="Typo.subtitle2">Outdated Devices</MudText><MudText Typo="Typo.h5">@(_summary?.OutdatedDevices ?? 0)</MudText></MudCardContent></MudCard></MudItem>
+    </MudGrid>
+
+    <MudTabs Rounded="true">
+        <MudTabPanel Text="Alerts">
+            <MudTable T="CoreBanker.Services.SecurityAlertDto" Items="@_alerts" Hover="true" Dense="true" Loading="@_isLoading">
+                <HeaderContent>
+                    <MudTh>Action</MudTh>
+                    <MudTh>Entity</MudTh>
+                    <MudTh>Status</MudTh>
+                    <MudTh>IP</MudTh>
+                    <MudTh>Date</MudTh>
+                </HeaderContent>
+                <RowTemplate>
+                    <MudTd DataLabel="Action">@context.Action</MudTd>
+                    <MudTd DataLabel="Entity">@($"{context.EntityType} {DisplayValue(context.EntityId)}")</MudTd>
+                    <MudTd DataLabel="Status">@context.Status</MudTd>
+                    <MudTd DataLabel="IP">@DisplayValue(context.IpAddress)</MudTd>
+                    <MudTd DataLabel="Date">@context.CreatedAt.ToLocalTime().ToString("dd MMM yyyy HH:mm")</MudTd>
+                </RowTemplate>
+            </MudTable>
+        </MudTabPanel>
+
+        <MudTabPanel Text="Devices">
+            <MudGrid>
+                <MudItem xs="12" lg="7">
+                    <MudTable T="CoreBanker.Services.SecurityDeviceDto" Items="@_devices" Hover="true" Dense="true" Loading="@_isLoading">
+                        <HeaderContent>
+                            <MudTh>Name</MudTh>
+                            <MudTh>Branch</MudTh>
+                            <MudTh>Status</MudTh>
+                            <MudTh>Software</MudTh>
+                            <MudTh></MudTh>
+                        </HeaderContent>
+                        <RowTemplate>
+                            <MudTd DataLabel="Name">
+                                <MudText Typo="Typo.body2">@context.Name</MudText>
+                                <MudText Typo="Typo.caption" Class="mud-text-secondary">@context.DeviceType</MudText>
+                            </MudTd>
+                            <MudTd DataLabel="Branch">@DisplayValue(context.BranchName ?? context.BranchId)</MudTd>
+                            <MudTd DataLabel="Status">@context.Status</MudTd>
+                            <MudTd DataLabel="Software">@($"{context.SoftwareVersion} / min {context.MinimumSupportedVersion}")</MudTd>
+                            <MudTd DataLabel="Actions"><MudButton Variant="Variant.Text" Color="Color.Primary" OnClick="@(() => _selectedDevice = context)">Inspect</MudButton></MudTd>
+                        </RowTemplate>
+                    </MudTable>
+                </MudItem>
+                <MudItem xs="12" lg="5">
+                    <MudPaper Class="pa-4">
+                        <MudText Typo="Typo.subtitle1">Device Action</MudText>
+                        @if (_selectedDevice is null)
+                        {
+                            <MudText Typo="Typo.body2" Class="mud-text-secondary">Select a device to inspect or act on it.</MudText>
+                        }
+                        else
+                        {
+                            <MudText Typo="Typo.body2">@_selectedDevice.Name</MudText>
+                            <MudText Typo="Typo.caption" Class="mud-text-secondary">@DisplayValue(_selectedDevice.BranchName ?? _selectedDevice.BranchId) • @_selectedDevice.RiskLevel</MudText>
+                            <MudDivider Class="my-3" />
+                            <MudText Typo="Typo.body2">Lifecycle: @_selectedDevice.LifecycleState</MudText>
+                            <MudText Typo="Typo.body2">Block Reason: @DisplayValue(_selectedDevice.BlockReason)</MudText>
+                            <MudText Typo="Typo.body2">Last Seen: @(_selectedDevice.LastSeenAt?.ToLocalTime().ToString("dd MMM yyyy HH:mm") ?? "Not recorded")</MudText>
+
+                            <MudSelect @bind-Value="_deviceAction" Label="Action" Variant="Variant.Outlined" Class="mt-3">
+                                <MudSelectItem Value="@("FLAG")">Flag</MudSelectItem>
+                                <MudSelectItem Value="@("BLOCK")">Block</MudSelectItem>
+                                <MudSelectItem Value="@("UNBLOCK")">Unblock</MudSelectItem>
+                                <MudSelectItem Value="@("MONITOR")">Monitor</MudSelectItem>
+                                <MudSelectItem Value="@("PATCH")">Patch</MudSelectItem>
+                            </MudSelect>
+                            <MudTextField @bind-Value="_deviceReason" Label="Reason" Variant="Variant.Outlined" Class="mt-3" />
+                            <MudTextField @bind-Value="_deviceSoftwareVersion" Label="Software version (optional)" Variant="Variant.Outlined" Class="mt-3" />
+                            <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="mt-3" Disabled="@_isActingOnDevice" OnClick="ExecuteDeviceActionAsync">Apply Action</MudButton>
+                        }
+                    </MudPaper>
+                </MudItem>
+            </MudGrid>
+        </MudTabPanel>
+
+        <MudTabPanel Text="Failed Logins">
+            <MudTable T="CoreBanker.Services.FailedLoginAttemptDto" Items="@_failedLogins" Hover="true" Dense="true" Loading="@_isLoading">
+                <HeaderContent>
+                    <MudTh>Email</MudTh>
+                    <MudTh>IP</MudTh>
+                    <MudTh>Reason</MudTh>
+                    <MudTh>Date</MudTh>
+                </HeaderContent>
+                <RowTemplate>
+                    <MudTd DataLabel="Email">@context.Email</MudTd>
+                    <MudTd DataLabel="IP">@context.IpAddress</MudTd>
+                    <MudTd DataLabel="Reason">@DisplayValue(context.FailureReason)</MudTd>
+                    <MudTd DataLabel="Date">@context.AttemptedAt.ToLocalTime().ToString("dd MMM yyyy HH:mm")</MudTd>
+                </RowTemplate>
+            </MudTable>
+        </MudTabPanel>
+
+        <MudTabPanel Text="Irregular Activity">
+            <MudTable T="CoreBanker.Services.TransactionIrregularityDto" Items="@_irregularities" Hover="true" Dense="true" Loading="@_isLoading">
+                <HeaderContent>
+                    <MudTh>Transaction</MudTh>
+                    <MudTh>Customer</MudTh>
+                    <MudTh>Severity</MudTh>
+                    <MudTh>Amount</MudTh>
+                    <MudTh>Summary</MudTh>
+                </HeaderContent>
+                <RowTemplate>
+                    <MudTd DataLabel="Transaction">
+                        <MudText Typo="Typo.body2">@context.TransactionId</MudText>
+                        <MudText Typo="Typo.caption" Class="mud-text-secondary">@DisplayValue(context.Reference)</MudText>
+                    </MudTd>
+                    <MudTd DataLabel="Customer">@DisplayValue(context.CustomerName ?? context.CustomerId)</MudTd>
+                    <MudTd DataLabel="Severity">@context.Severity</MudTd>
+                    <MudTd DataLabel="Amount">@FormatAmount(context.Amount)</MudTd>
+                    <MudTd DataLabel="Summary">@context.Summary</MudTd>
+                </RowTemplate>
+            </MudTable>
+        </MudTabPanel>
+
+        <MudTabPanel Text="Sessions">
+            <MudTable T="CoreBanker.Services.SecuritySessionDto" Items="@_sessions" Hover="true" Dense="true" Loading="@_isLoading">
+                <HeaderContent>
+                    <MudTh>User</MudTh>
+                    <MudTh>IP</MudTh>
+                    <MudTh>Created</MudTh>
+                    <MudTh>Last Activity</MudTh>
+                    <MudTh>Status</MudTh>
+                </HeaderContent>
+                <RowTemplate>
+                    <MudTd DataLabel="User">
+                        <MudText Typo="Typo.body2">@context.StaffName</MudText>
+                        <MudText Typo="Typo.caption" Class="mud-text-secondary">@context.Email</MudText>
+                    </MudTd>
+                    <MudTd DataLabel="IP">@context.IpAddress</MudTd>
+                    <MudTd DataLabel="Created">@context.CreatedAt.ToLocalTime().ToString("dd MMM yyyy HH:mm")</MudTd>
+                    <MudTd DataLabel="Last Activity">@context.LastActivity.ToLocalTime().ToString("dd MMM yyyy HH:mm")</MudTd>
+                    <MudTd DataLabel="Status">@(context.IsActive ? "Active" : "Expired")</MudTd>
+                </RowTemplate>
+            </MudTable>
+        </MudTabPanel>
+    </MudTabs>
+</MudStack>
+
+@code {
+    private CoreBanker.Services.SecuritySummaryDto? _summary;
+    private List<CoreBanker.Services.SecurityAlertDto> _alerts = new();
+    private List<CoreBanker.Services.SecurityDeviceDto> _devices = new();
+    private List<CoreBanker.Services.FailedLoginAttemptDto> _failedLogins = new();
+    private List<CoreBanker.Services.TransactionIrregularityDto> _irregularities = new();
+    private List<CoreBanker.Services.SecuritySessionDto> _sessions = new();
+    private CoreBanker.Services.SecurityDeviceDto? _selectedDevice;
+    private string _deviceAction = "FLAG";
+    private string _deviceReason = string.Empty;
+    private string _deviceSoftwareVersion = string.Empty;
+    private string _loadError = string.Empty;
+    private string _workspaceMessage = string.Empty;
+    private bool _workspaceSuccess;
+    private bool _isLoading;
+    private bool _isScanning;
+    private bool _isActingOnDevice;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadWorkspaceAsync();
+    }
+
+    private async Task LoadWorkspaceAsync()
+    {
+        _isLoading = true;
+        _loadError = string.Empty;
+
+        try
+        {
+            var summaryTask = SecurityService.GetSummaryAsync();
+            var alertsTask = SecurityService.GetAlertsAsync();
+            var devicesTask = SecurityService.GetDevicesAsync();
+            var failedLoginsTask = SecurityService.GetFailedLoginsAsync();
+            var irregularitiesTask = SecurityService.GetIrregularTransactionsAsync();
+            var sessionsTask = SecurityService.GetSessionsAsync();
+
+            await Task.WhenAll(summaryTask, alertsTask, devicesTask, failedLoginsTask, irregularitiesTask, sessionsTask);
+
+            _summary = summaryTask.Result;
+            _alerts = alertsTask.Result;
+            _devices = devicesTask.Result;
+            _failedLogins = failedLoginsTask.Result;
+            _irregularities = irregularitiesTask.Result;
+            _sessions = sessionsTask.Result;
+
+            if (_selectedDevice is not null)
+            {
+                _selectedDevice = _devices.FirstOrDefault(device => device.Id == _selectedDevice.Id);
+            }
+        }
+        catch (CoreBanker.Services.ApiClientException ex)
+        {
+            _loadError = ex.Message;
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private async Task ScanOutdatedDevicesAsync()
+    {
+        _isScanning = true;
+        _workspaceMessage = string.Empty;
+
+        try
+        {
+            var result = await SecurityService.ScanOutdatedDevicesAsync();
+            _workspaceSuccess = true;
+            _workspaceMessage = result is null
+                ? "Outdated-device scan completed."
+                : $"Scan completed. {result.OutdatedCount} outdated devices, {result.FlaggedCount} newly flagged.";
+            await LoadWorkspaceAsync();
+        }
+        catch (CoreBanker.Services.ApiClientException ex)
+        {
+            _workspaceSuccess = false;
+            _workspaceMessage = ex.Message;
+        }
+        finally
+        {
+            _isScanning = false;
+        }
+    }
+
+    private async Task ExecuteDeviceActionAsync()
+    {
+        if (_selectedDevice is null)
+        {
+            return;
+        }
+
+        _isActingOnDevice = true;
+        _workspaceMessage = string.Empty;
+
+        try
+        {
+            var updated = await SecurityService.ExecuteDeviceActionAsync(_selectedDevice.Id, new CoreBanker.Services.DeviceActionRequest
+            {
+                Action = _deviceAction,
+                Reason = _deviceReason,
+                SoftwareVersion = string.IsNullOrWhiteSpace(_deviceSoftwareVersion) ? null : _deviceSoftwareVersion
+            });
+
+            _workspaceSuccess = true;
+            _workspaceMessage = updated is null
+                ? "Device action completed."
+                : $"Device action {_deviceAction} applied to {updated.Name}.";
+            _deviceReason = string.Empty;
+            _deviceSoftwareVersion = string.Empty;
+            await LoadWorkspaceAsync();
+        }
+        catch (CoreBanker.Services.ApiClientException ex)
+        {
+            _workspaceSuccess = false;
+            _workspaceMessage = ex.Message;
+        }
+        finally
+        {
+            _isActingOnDevice = false;
+        }
+    }
+
+    private static string DisplayValue(string? value)
+    {
+        return string.IsNullOrWhiteSpace(value) ? "Not provided" : value;
+    }
+
+    private static string FormatAmount(decimal amount)
+    {
+        return amount.ToString("C", System.Globalization.CultureInfo.GetCultureInfo("en-GH"));
+    }
+}

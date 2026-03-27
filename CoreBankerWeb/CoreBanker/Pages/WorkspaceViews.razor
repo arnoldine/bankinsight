@@ -1,98 +1,227 @@
 @page "/workspaces"
 @layout CoreBanker.Layouts.MainLayout
 
-<MudText Typo="Typo.h4">Workspace Views</MudText>
-<MudTabs>
-	<MudTabPanel Text="Loan Officer">
-		<MudPaper Class="pa-4">
-			<MudText Typo="Typo.h6">Loan Officer Dashboard</MudText>
-			<MudGrid>
-				<MudItem xs="12" md="6">
-					<MudCard>
-						<MudCardContent>
-							<MudText Typo="Typo.subtitle1">My Loan Portfolio</MudText>
-							<!-- TODO: Bind to loan portfolio data -->
-						</MudCardContent>
-					</MudCard>
-				</MudItem>
-				<MudItem xs="12" md="6">
-					<MudCard>
-						<MudCardContent>
-							<MudText Typo="Typo.subtitle1">Pending Applications</MudText>
-							<!-- TODO: Bind to pending applications -->
-						</MudCardContent>
-					</MudCard>
-				</MudItem>
-			</MudGrid>
-		</MudPaper>
-	</MudTabPanel>
-	<MudTabPanel Text="Accountant">
-		<MudPaper Class="pa-4">
-			<MudText Typo="Typo.h6">Accountant Workspace</MudText>
-			<MudGrid>
-				<MudItem xs="12" md="6">
-					<MudCard>
-						<MudCardContent>
-							<MudText Typo="Typo.subtitle1">GL Accounts</MudText>
-							<!-- TODO: Bind to GL accounts data -->
-						</MudCardContent>
-					</MudCard>
-				</MudItem>
-				<MudItem xs="12" md="6">
-					<MudCard>
-						<MudCardContent>
-							<MudText Typo="Typo.subtitle1">Journal Entries</MudText>
-							<!-- TODO: Bind to journal entries -->
-						</MudCardContent>
-					</MudCard>
-				</MudItem>
-			</MudGrid>
-		</MudPaper>
-	</MudTabPanel>
-	<MudTabPanel Text="Customer Service">
-		<MudPaper Class="pa-4">
-			<MudText Typo="Typo.h6">Customer Service Workspace</MudText>
-			<MudGrid>
-				<MudItem xs="12" md="6">
-					<MudCard>
-						<MudCardContent>
-							<MudText Typo="Typo.subtitle1">Active Clients</MudText>
-							<!-- TODO: Bind to client data -->
-						</MudCardContent>
-					</MudCard>
-				</MudItem>
-				<MudItem xs="12" md="6">
-					<MudCard>
-						<MudCardContent>
-							<MudText Typo="Typo.subtitle1">Recent Accounts</MudText>
-							<!-- TODO: Bind to recent accounts -->
-						</MudCardContent>
-					</MudCard>
-				</MudItem>
-			</MudGrid>
-		</MudPaper>
-	</MudTabPanel>
-	<MudTabPanel Text="Compliance">
-		<MudPaper Class="pa-4">
-			<MudText Typo="Typo.h6">Compliance Workspace</MudText>
-			<MudGrid>
-				<MudItem xs="12" md="6">
-					<MudCard>
-						<MudCardContent>
-							<MudText Typo="Typo.subtitle1">KYC Exceptions</MudText>
-							<!-- TODO: Bind to KYC exception data -->
-						</MudCardContent>
-					</MudCard>
-				</MudItem>
-				<MudItem xs="12" md="6">
-					<MudCard>
-						<MudCardContent>
-							<MudText Typo="Typo.subtitle1">Audit Trail</MudText>
-							<!-- TODO: Bind to audit trail data -->
-						</MudCardContent>
-					</MudCard>
-				</MudItem>
-			</MudGrid>
-		</MudPaper>
-	</MudTabPanel>
-</MudTabs>
+@inject CoreBanker.Services.LoanService LoanService
+@inject CoreBanker.Services.ApprovalService ApprovalService
+@inject CoreBanker.Services.AccountingService AccountingService
+@inject CoreBanker.Services.ClientService ClientService
+@inject CoreBanker.Services.AccountService AccountService
+@inject CoreBanker.Services.AuditService AuditService
+
+<MudStack Spacing="3">
+    <MudPaper Class="pa-4">
+        <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+            <div>
+                <MudText Typo="Typo.h4">Workspace Views</MudText>
+                <MudText Typo="Typo.body2" Class="mud-text-secondary">Role-oriented dashboards built from the same live data powering the operational modules.</MudText>
+            </div>
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="LoadWorkspaceAsync">Refresh</MudButton>
+        </MudStack>
+    </MudPaper>
+
+    @if (!string.IsNullOrWhiteSpace(_message))
+    {
+        <MudAlert Severity="Severity.Error">@_message</MudAlert>
+    }
+
+    <MudTabs Rounded="true">
+        <MudTabPanel Text="Loan Officer">
+            <MudGrid>
+                <MudItem xs="12" md="4">
+                    <MudPaper Class="pa-4">
+                        <MudText Typo="Typo.caption">Portfolio</MudText>
+                        <MudText Typo="Typo.h5">@_loans.Count</MudText>
+                        <MudText Typo="Typo.body2">@($"Outstanding {_loans.Sum(loan => loan.OutstandingBalance ?? 0m):N2}")</MudText>
+                    </MudPaper>
+                </MudItem>
+                <MudItem xs="12" md="4">
+                    <MudPaper Class="pa-4">
+                        <MudText Typo="Typo.caption">Pending Approvals</MudText>
+                        <MudText Typo="Typo.h5">@_approvals.Count(approval => approval.Status == "Pending")</MudText>
+                        <MudText Typo="Typo.body2">@($"Appraised {_loans.Count(loan => loan.Status.Contains("APPRAISED", StringComparison.OrdinalIgnoreCase))}")</MudText>
+                    </MudPaper>
+                </MudItem>
+                <MudItem xs="12" md="4">
+                    <MudPaper Class="pa-4">
+                        <MudText Typo="Typo.caption">PAR Watch</MudText>
+                        <MudText Typo="Typo.h5">@_loans.Count(loan => !string.IsNullOrWhiteSpace(loan.ParBucket) && !string.Equals(loan.ParBucket, "CURRENT", StringComparison.OrdinalIgnoreCase))</MudText>
+                        <MudText Typo="Typo.body2">@($"Active {_loans.Count(loan => loan.Status.Contains("ACTIVE", StringComparison.OrdinalIgnoreCase))}")</MudText>
+                    </MudPaper>
+                </MudItem>
+            </MudGrid>
+
+            <MudTable T="CoreBanker.Services.LoanDto" Items="@_loans.Take(10)" Dense="true" Hover="true" Class="mt-3">
+                <HeaderContent>
+                    <MudTh>Loan</MudTh>
+                    <MudTh>Customer</MudTh>
+                    <MudTh>Status</MudTh>
+                    <MudTh>Outstanding</MudTh>
+                </HeaderContent>
+                <RowTemplate>
+                    <MudTd DataLabel="Loan">@context.Id</MudTd>
+                    <MudTd DataLabel="Customer">@context.Cif</MudTd>
+                    <MudTd DataLabel="Status">@context.Status</MudTd>
+                    <MudTd DataLabel="Outstanding">@($"{context.OutstandingBalance ?? 0m:N2}")</MudTd>
+                </RowTemplate>
+            </MudTable>
+        </MudTabPanel>
+
+        <MudTabPanel Text="Accountant">
+            <MudGrid>
+                <MudItem xs="12" md="4">
+                    <MudPaper Class="pa-4">
+                        <MudText Typo="Typo.caption">GL Accounts</MudText>
+                        <MudText Typo="Typo.h5">@_glAccounts.Count</MudText>
+                    </MudPaper>
+                </MudItem>
+                <MudItem xs="12" md="4">
+                    <MudPaper Class="pa-4">
+                        <MudText Typo="Typo.caption">Journal Entries</MudText>
+                        <MudText Typo="Typo.h5">@_journalEntries.Count</MudText>
+                    </MudPaper>
+                </MudItem>
+                <MudItem xs="12" md="4">
+                    <MudPaper Class="pa-4">
+                        <MudText Typo="Typo.caption">Imbalance Watch</MudText>
+                        <MudText Typo="Typo.h5">@_journalEntries.Count(entry => entry.TotalDebit != entry.TotalCredit)</MudText>
+                    </MudPaper>
+                </MudItem>
+            </MudGrid>
+
+            <MudTable T="CoreBanker.Services.JournalEntryDto" Items="@_journalEntries.Take(10)" Dense="true" Hover="true" Class="mt-3">
+                <HeaderContent>
+                    <MudTh>Entry</MudTh>
+                    <MudTh>Date</MudTh>
+                    <MudTh>Debits</MudTh>
+                    <MudTh>Credits</MudTh>
+                </HeaderContent>
+                <RowTemplate>
+                    <MudTd DataLabel="Entry">@context.Reference</MudTd>
+                    <MudTd DataLabel="Date">@context.CreatedAt.ToString("g")</MudTd>
+                    <MudTd DataLabel="Debits">@($"{context.TotalDebit:N2}")</MudTd>
+                    <MudTd DataLabel="Credits">@($"{context.TotalCredit:N2}")</MudTd>
+                </RowTemplate>
+            </MudTable>
+        </MudTabPanel>
+
+        <MudTabPanel Text="Customer Service">
+            <MudGrid>
+                <MudItem xs="12" md="4">
+                    <MudPaper Class="pa-4">
+                        <MudText Typo="Typo.caption">Active Clients</MudText>
+                        <MudText Typo="Typo.h5">@_clients.Count(client => client.Status == "Active")</MudText>
+                    </MudPaper>
+                </MudItem>
+                <MudItem xs="12" md="4">
+                    <MudPaper Class="pa-4">
+                        <MudText Typo="Typo.caption">Tier 1 Clients</MudText>
+                        <MudText Typo="Typo.h5">@_clients.Count(client => client.KycLevel == "Tier 1")</MudText>
+                    </MudPaper>
+                </MudItem>
+                <MudItem xs="12" md="4">
+                    <MudPaper Class="pa-4">
+                        <MudText Typo="Typo.caption">Open Accounts</MudText>
+                        <MudText Typo="Typo.h5">@_accounts.Count(account => account.Status == "ACTIVE")</MudText>
+                    </MudPaper>
+                </MudItem>
+            </MudGrid>
+
+            <MudTable T="CoreBanker.Services.ClientDto" Items="@_clients.Take(10)" Dense="true" Hover="true" Class="mt-3">
+                <HeaderContent>
+                    <MudTh>Client</MudTh>
+                    <MudTh>Type</MudTh>
+                    <MudTh>KYC</MudTh>
+                    <MudTh>Status</MudTh>
+                </HeaderContent>
+                <RowTemplate>
+                    <MudTd DataLabel="Client">@context.Name</MudTd>
+                    <MudTd DataLabel="Type">@context.Type</MudTd>
+                    <MudTd DataLabel="KYC">@context.KycLevel</MudTd>
+                    <MudTd DataLabel="Status">@context.Status</MudTd>
+                </RowTemplate>
+            </MudTable>
+        </MudTabPanel>
+
+        <MudTabPanel Text="Compliance">
+            <MudGrid>
+                <MudItem xs="12" md="4">
+                    <MudPaper Class="pa-4">
+                        <MudText Typo="Typo.caption">Audit Events</MudText>
+                        <MudText Typo="Typo.h5">@_auditLogs.Count</MudText>
+                    </MudPaper>
+                </MudItem>
+                <MudItem xs="12" md="4">
+                    <MudPaper Class="pa-4">
+                        <MudText Typo="Typo.caption">Exceptions</MudText>
+                        <MudText Typo="Typo.h5">@_auditLogs.Count(log => !string.Equals(log.Status, "SUCCESS", StringComparison.OrdinalIgnoreCase))</MudText>
+                    </MudPaper>
+                </MudItem>
+                <MudItem xs="12" md="4">
+                    <MudPaper Class="pa-4">
+                        <MudText Typo="Typo.caption">High Risk Clients</MudText>
+                        <MudText Typo="Typo.h5">@_clients.Count(client => client.RiskRating == "High")</MudText>
+                    </MudPaper>
+                </MudItem>
+            </MudGrid>
+
+            <MudTable T="CoreBanker.Services.AuditLogDto" Items="@_auditLogs.Take(10)" Dense="true" Hover="true" Class="mt-3">
+                <HeaderContent>
+                    <MudTh>Action</MudTh>
+                    <MudTh>User</MudTh>
+                    <MudTh>Module</MudTh>
+                    <MudTh>Status</MudTh>
+                </HeaderContent>
+                <RowTemplate>
+                    <MudTd DataLabel="Action">@context.Action</MudTd>
+                    <MudTd DataLabel="User">@context.User</MudTd>
+                    <MudTd DataLabel="Module">@context.Module</MudTd>
+                    <MudTd DataLabel="Status">@context.Status</MudTd>
+                </RowTemplate>
+            </MudTable>
+        </MudTabPanel>
+    </MudTabs>
+</MudStack>
+
+@code {
+    private List<CoreBanker.Services.LoanDto> _loans = new();
+    private List<CoreBanker.Services.ApprovalDto> _approvals = new();
+    private List<CoreBanker.Services.GLAccountDto> _glAccounts = new();
+    private List<CoreBanker.Services.JournalEntryDto> _journalEntries = new();
+    private List<CoreBanker.Services.ClientDto> _clients = new();
+    private List<CoreBanker.Services.AccountDto> _accounts = new();
+    private List<CoreBanker.Services.AuditLogDto> _auditLogs = new();
+    private string _message = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadWorkspaceAsync();
+    }
+
+    private async Task LoadWorkspaceAsync()
+    {
+        _message = string.Empty;
+        try
+        {
+            var loansTask = LoanService.GetLoansAsync();
+            var approvalsTask = ApprovalService.GetApprovalsAsync();
+            var glTask = AccountingService.GetGLAccountsAsync();
+            var journalsTask = AccountingService.GetJournalEntriesAsync();
+            var clientsTask = ClientService.GetClientsAsync();
+            var accountsTask = AccountService.GetAccountsAsync();
+            var auditTask = AuditService.GetAuditLogsAsync(50);
+            await Task.WhenAll(loansTask, approvalsTask, glTask, journalsTask, clientsTask, accountsTask, auditTask);
+
+            _loans = loansTask.Result;
+            _approvals = approvalsTask.Result;
+            _glAccounts = glTask.Result;
+            _journalEntries = journalsTask.Result;
+            _clients = clientsTask.Result;
+            _accounts = accountsTask.Result;
+            _auditLogs = auditTask.Result;
+        }
+        catch (CoreBanker.Services.ApiClientException ex)
+        {
+            _message = ex.Message;
+        }
+    }
+}

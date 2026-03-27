@@ -1,5 +1,190 @@
 @page "/statements"
 @layout CoreBanker.Layouts.MainLayout
 
-<MudText Typo="Typo.h4">Statements</MudText>
-<!-- TODO: Implement statement verification screen -->
+@inject CoreBanker.Services.AccountingService AccountingService
+
+<MudStack Spacing="3">
+    <MudPaper Class="pa-4">
+        <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+            <div>
+                <MudText Typo="Typo.h4">Financial Statements</MudText>
+                <MudText Typo="Typo.body2" Class="mud-text-secondary">Generate income statement, cash flow, and trial balance views from the live reporting endpoints.</MudText>
+            </div>
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="@_isBusy" OnClick="LoadStatementsAsync">Generate</MudButton>
+        </MudStack>
+    </MudPaper>
+
+    @if (!string.IsNullOrWhiteSpace(_message))
+    {
+        <MudAlert Severity="@(_isSuccess ? Severity.Success : Severity.Error)">@_message</MudAlert>
+    }
+
+    <MudGrid>
+        <MudItem xs="12" md="4">
+            <MudDatePicker Label="Period Start" Variant="Variant.Outlined" Date="@_periodStartDateTime" DateChanged="OnPeriodStartChanged" />
+        </MudItem>
+        <MudItem xs="12" md="4">
+            <MudDatePicker Label="Period End" Variant="Variant.Outlined" Date="@_periodEndDateTime" DateChanged="OnPeriodEndChanged" />
+        </MudItem>
+        <MudItem xs="12" md="4">
+            <MudDatePicker Label="Trial Balance As Of" Variant="Variant.Outlined" Date="@_asOfDateTime" DateChanged="OnAsOfDateChanged" />
+        </MudItem>
+    </MudGrid>
+
+    <MudTabs Rounded="true">
+        <MudTabPanel Text="Income Statement">
+            <MudGrid>
+                <MudItem xs="12" md="4"><MudPaper Class="pa-4"><MudText Typo="Typo.caption">Revenue</MudText><MudText Typo="Typo.h5">@FormatCurrency(_incomeStatement?.TotalRevenue ?? 0m)</MudText></MudPaper></MudItem>
+                <MudItem xs="12" md="4"><MudPaper Class="pa-4"><MudText Typo="Typo.caption">Expenses</MudText><MudText Typo="Typo.h5">@FormatCurrency(_incomeStatement?.TotalExpenses ?? 0m)</MudText></MudPaper></MudItem>
+                <MudItem xs="12" md="4"><MudPaper Class="pa-4"><MudText Typo="Typo.caption">Net Profit</MudText><MudText Typo="Typo.h5">@FormatCurrency(_incomeStatement?.NetProfit ?? 0m)</MudText></MudPaper></MudItem>
+            </MudGrid>
+            <MudGrid Class="mt-1">
+                <MudItem xs="12" lg="6">
+                    <MudPaper Class="pa-4">
+                        <MudText Typo="Typo.h6">Revenue Items</MudText>
+                        <MudTable T="CoreBanker.Services.IncomeStatementLineItemDto" Items="@(_incomeStatement?.RevenueItems ?? new())" Dense="true" Hover="true" Class="mt-3">
+                            <HeaderContent><MudTh>Line Item</MudTh><MudTh>Amount</MudTh></HeaderContent>
+                            <RowTemplate><MudTd DataLabel="Line Item">@context.LineItem</MudTd><MudTd DataLabel="Amount">@FormatCurrency(context.Amount)</MudTd></RowTemplate>
+                        </MudTable>
+                    </MudPaper>
+                </MudItem>
+                <MudItem xs="12" lg="6">
+                    <MudPaper Class="pa-4">
+                        <MudText Typo="Typo.h6">Expense Items</MudText>
+                        <MudTable T="CoreBanker.Services.IncomeStatementLineItemDto" Items="@(_incomeStatement?.ExpenseItems ?? new())" Dense="true" Hover="true" Class="mt-3">
+                            <HeaderContent><MudTh>Line Item</MudTh><MudTh>Amount</MudTh></HeaderContent>
+                            <RowTemplate><MudTd DataLabel="Line Item">@context.LineItem</MudTd><MudTd DataLabel="Amount">@FormatCurrency(context.Amount)</MudTd></RowTemplate>
+                        </MudTable>
+                    </MudPaper>
+                </MudItem>
+            </MudGrid>
+        </MudTabPanel>
+
+        <MudTabPanel Text="Cash Flow">
+            <MudGrid>
+                <MudItem xs="12" md="4"><MudPaper Class="pa-4"><MudText Typo="Typo.caption">Operating</MudText><MudText Typo="Typo.h5">@FormatCurrency(_cashFlow?.NetOperatingCashFlow ?? 0m)</MudText></MudPaper></MudItem>
+                <MudItem xs="12" md="4"><MudPaper Class="pa-4"><MudText Typo="Typo.caption">Investing</MudText><MudText Typo="Typo.h5">@FormatCurrency(_cashFlow?.NetInvestingCashFlow ?? 0m)</MudText></MudPaper></MudItem>
+                <MudItem xs="12" md="4"><MudPaper Class="pa-4"><MudText Typo="Typo.caption">Net Change</MudText><MudText Typo="Typo.h5">@FormatCurrency(_cashFlow?.NetChangeInCash ?? 0m)</MudText></MudPaper></MudItem>
+            </MudGrid>
+            <MudGrid Class="mt-1">
+                <MudItem xs="12" lg="4">
+                    <MudPaper Class="pa-4">
+                        <MudText Typo="Typo.h6">Operating Activities</MudText>
+                        <MudTable T="CoreBanker.Services.CashFlowLineItemDto" Items="@(_cashFlow?.OperatingActivities ?? new())" Dense="true" Hover="true" Class="mt-3">
+                            <HeaderContent><MudTh>Activity</MudTh><MudTh>Amount</MudTh></HeaderContent>
+                            <RowTemplate><MudTd DataLabel="Activity">@context.Activity</MudTd><MudTd DataLabel="Amount">@FormatCurrency(context.Amount)</MudTd></RowTemplate>
+                        </MudTable>
+                    </MudPaper>
+                </MudItem>
+                <MudItem xs="12" lg="4">
+                    <MudPaper Class="pa-4">
+                        <MudText Typo="Typo.h6">Investing Activities</MudText>
+                        <MudTable T="CoreBanker.Services.CashFlowLineItemDto" Items="@(_cashFlow?.InvestingActivities ?? new())" Dense="true" Hover="true" Class="mt-3">
+                            <HeaderContent><MudTh>Activity</MudTh><MudTh>Amount</MudTh></HeaderContent>
+                            <RowTemplate><MudTd DataLabel="Activity">@context.Activity</MudTd><MudTd DataLabel="Amount">@FormatCurrency(context.Amount)</MudTd></RowTemplate>
+                        </MudTable>
+                    </MudPaper>
+                </MudItem>
+                <MudItem xs="12" lg="4">
+                    <MudPaper Class="pa-4">
+                        <MudText Typo="Typo.h6">Financing Activities</MudText>
+                        <MudTable T="CoreBanker.Services.CashFlowLineItemDto" Items="@(_cashFlow?.FinancingActivities ?? new())" Dense="true" Hover="true" Class="mt-3">
+                            <HeaderContent><MudTh>Activity</MudTh><MudTh>Amount</MudTh></HeaderContent>
+                            <RowTemplate><MudTd DataLabel="Activity">@context.Activity</MudTd><MudTd DataLabel="Amount">@FormatCurrency(context.Amount)</MudTd></RowTemplate>
+                        </MudTable>
+                    </MudPaper>
+                </MudItem>
+            </MudGrid>
+        </MudTabPanel>
+
+        <MudTabPanel Text="Trial Balance">
+            <MudGrid>
+                <MudItem xs="12" md="4"><MudPaper Class="pa-4"><MudText Typo="Typo.caption">Total Debits</MudText><MudText Typo="Typo.h5">@FormatCurrency(_trialBalance?.TotalDebits ?? 0m)</MudText></MudPaper></MudItem>
+                <MudItem xs="12" md="4"><MudPaper Class="pa-4"><MudText Typo="Typo.caption">Total Credits</MudText><MudText Typo="Typo.h5">@FormatCurrency(_trialBalance?.TotalCredits ?? 0m)</MudText></MudPaper></MudItem>
+                <MudItem xs="12" md="4"><MudPaper Class="pa-4"><MudText Typo="Typo.caption">Balanced</MudText><MudText Typo="Typo.h5">@((_trialBalance?.IsBalanced ?? false) ? "Yes" : "No")</MudText></MudPaper></MudItem>
+            </MudGrid>
+            <MudPaper Class="pa-4 mt-3">
+                <MudTable T="CoreBanker.Services.TrialBalanceAccountDto" Items="@(_trialBalance?.Accounts ?? new())" Dense="true" Hover="true">
+                    <HeaderContent><MudTh>Account</MudTh><MudTh>Name</MudTh><MudTh>Debit</MudTh><MudTh>Credit</MudTh><MudTh>Balance</MudTh></HeaderContent>
+                    <RowTemplate>
+                        <MudTd DataLabel="Account">@context.AccountNumber</MudTd>
+                        <MudTd DataLabel="Name">@context.AccountName</MudTd>
+                        <MudTd DataLabel="Debit">@FormatCurrency(context.DebitBalance)</MudTd>
+                        <MudTd DataLabel="Credit">@FormatCurrency(context.CreditBalance)</MudTd>
+                        <MudTd DataLabel="Balance">@FormatCurrency(context.Balance)</MudTd>
+                    </RowTemplate>
+                </MudTable>
+            </MudPaper>
+        </MudTabPanel>
+    </MudTabs>
+</MudStack>
+
+@code {
+    private CoreBanker.Services.IncomeStatementDto? _incomeStatement;
+    private CoreBanker.Services.CashFlowStatementDto? _cashFlow;
+    private CoreBanker.Services.TrialBalanceDto? _trialBalance;
+    private DateOnly _periodStart = DateOnly.FromDateTime(DateTime.Today.AddMonths(-1));
+    private DateOnly _periodEnd = DateOnly.FromDateTime(DateTime.Today);
+    private DateOnly _asOfDate = DateOnly.FromDateTime(DateTime.Today);
+    private DateTime? _periodStartDateTime = DateTime.Today.AddMonths(-1);
+    private DateTime? _periodEndDateTime = DateTime.Today;
+    private DateTime? _asOfDateTime = DateTime.Today;
+    private string _message = string.Empty;
+    private bool _isSuccess;
+    private bool _isBusy;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadStatementsAsync();
+    }
+
+    private async Task LoadStatementsAsync()
+    {
+        _isBusy = true;
+        _message = string.Empty;
+        try
+        {
+            var start = _periodStart.ToDateTime(TimeOnly.MinValue);
+            var end = _periodEnd.ToDateTime(TimeOnly.MinValue);
+            var asOf = _asOfDate.ToDateTime(TimeOnly.MinValue);
+            var incomeTask = AccountingService.GetIncomeStatementAsync(start, end);
+            var cashFlowTask = AccountingService.GetCashFlowStatementAsync(start, end);
+            var trialBalanceTask = AccountingService.GetTrialBalanceAsync(asOf);
+            await Task.WhenAll(incomeTask, cashFlowTask, trialBalanceTask);
+            _incomeStatement = incomeTask.Result;
+            _cashFlow = cashFlowTask.Result;
+            _trialBalance = trialBalanceTask.Result;
+            _isSuccess = true;
+            _message = "Financial statements refreshed successfully.";
+        }
+        catch (CoreBanker.Services.ApiClientException ex)
+        {
+            _isSuccess = false;
+            _message = ex.Message;
+        }
+        finally
+        {
+            _isBusy = false;
+        }
+    }
+
+    private void OnPeriodStartChanged(DateTime? value)
+    {
+        _periodStartDateTime = value;
+        _periodStart = DateOnly.FromDateTime((value ?? DateTime.Today).Date);
+    }
+
+    private void OnPeriodEndChanged(DateTime? value)
+    {
+        _periodEndDateTime = value;
+        _periodEnd = DateOnly.FromDateTime((value ?? DateTime.Today).Date);
+    }
+
+    private void OnAsOfDateChanged(DateTime? value)
+    {
+        _asOfDateTime = value;
+        _asOfDate = DateOnly.FromDateTime((value ?? DateTime.Today).Date);
+    }
+
+    private static string FormatCurrency(decimal value) => value.ToString("C");
+}

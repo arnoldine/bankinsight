@@ -1,5 +1,354 @@
 @page "/products"
 @layout CoreBanker.Layouts.MainLayout
 
-<MudText Typo="Typo.h4">Products</MudText>
-<!-- TODO: Implement product designer, CRUD, parameter editing -->
+@inject CoreBanker.Services.ExtensibilityService ExtensibilityService
+
+<MudStack Spacing="3">
+    <MudPaper Class="pa-4">
+        <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+            <div>
+                <MudText Typo="Typo.h4">Product Designer</MudText>
+                <MudText Typo="Typo.body2" Class="mud-text-secondary">Manage live BankingOS product definitions and key lending policies from one workspace.</MudText>
+            </div>
+            <MudStack Row="true" Spacing="2">
+                <MudButton Variant="Variant.Outlined" Color="Color.Secondary" OnClick="CreateNewProduct">New Product</MudButton>
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="LoadWorkspaceAsync">Refresh</MudButton>
+            </MudStack>
+        </MudStack>
+    </MudPaper>
+
+    @if (!string.IsNullOrWhiteSpace(_message))
+    {
+        <MudAlert Severity="@(_success ? Severity.Success : Severity.Error)">@_message</MudAlert>
+    }
+
+    <MudGrid>
+        <MudItem xs="12" md="4">
+            <MudPaper Class="pa-4">
+                <MudText Typo="Typo.caption">Product Estate</MudText>
+                <MudText Typo="Typo.h5">@_products.Count</MudText>
+                <MudText Typo="Typo.body2">@($"{_products.Count(p => string.Equals(p.Status, "ACTIVE", StringComparison.OrdinalIgnoreCase))} active | {_products.Count(p => p.IsGroupLoanEnabled)} group-enabled")</MudText>
+            </MudPaper>
+        </MudItem>
+        <MudItem xs="12" md="8">
+            <MudPaper Class="pa-4">
+                <MudTextField @bind-Value="_searchTerm" Label="Search products" Variant="Variant.Outlined" Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search" />
+            </MudPaper>
+        </MudItem>
+    </MudGrid>
+
+    <MudGrid>
+        <MudItem xs="12" lg="5">
+            <MudTable T="CoreBanker.Services.BankingOSProductConfigurationDto" Items="@FilteredProducts" Dense="true" Hover="true" Loading="@_isLoading">
+                <HeaderContent>
+                    <MudTh>Product</MudTh>
+                    <MudTh>Type</MudTh>
+                    <MudTh>Status</MudTh>
+                </HeaderContent>
+                <RowTemplate>
+                    <MudTd DataLabel="Product">
+                        <MudLink Href="#" OnClick="@(() => SelectProduct(context))">@context.Name</MudLink>
+                        <MudText Typo="Typo.caption" Class="d-block mud-text-secondary">@context.Id</MudText>
+                    </MudTd>
+                    <MudTd DataLabel="Type">@context.Type</MudTd>
+                    <MudTd DataLabel="Status">@context.Status</MudTd>
+                </RowTemplate>
+            </MudTable>
+        </MudItem>
+
+        <MudItem xs="12" lg="7">
+            <MudPaper Class="pa-4">
+                <MudText Typo="Typo.h6">@(_isNewProduct ? "Create Product" : "Edit Product")</MudText>
+
+                @if (_editor is null)
+                {
+                    <MudText Typo="Typo.body2" Class="mud-text-secondary mt-3">Select a product to edit it, or create a new one.</MudText>
+                }
+                else
+                {
+                    <MudGrid Class="mt-2">
+                        <MudItem xs="12" md="6">
+                            <MudTextField @bind-Value="_editor.Id" Label="Product Code" Variant="Variant.Outlined" Disabled="@(!_isNewProduct)" />
+                        </MudItem>
+                        <MudItem xs="12" md="6">
+                            <MudTextField @bind-Value="_editor.Name" Label="Product Name" Variant="Variant.Outlined" />
+                        </MudItem>
+                        <MudItem xs="12">
+                            <MudTextField @bind-Value="_editor.Description" Label="Description" Variant="Variant.Outlined" Lines="2" />
+                        </MudItem>
+                        <MudItem xs="12" md="4">
+                            <MudTextField @bind-Value="_editor.Type" Label="Type" Variant="Variant.Outlined" />
+                        </MudItem>
+                        <MudItem xs="12" md="4">
+                            <MudSelect T="string" @bind-Value="_editor.Currency" Label="Currency" Variant="Variant.Outlined">
+                                <MudSelectItem T="string" Value="@("GHS")">GHS</MudSelectItem>
+                                <MudSelectItem T="string" Value="@("USD")">USD</MudSelectItem>
+                            </MudSelect>
+                        </MudItem>
+                        <MudItem xs="12" md="4">
+                            <MudSelect T="string" @bind-Value="_editor.Status" Label="Status" Variant="Variant.Outlined">
+                                <MudSelectItem T="string" Value="@("DRAFT")">DRAFT</MudSelectItem>
+                                <MudSelectItem T="string" Value="@("ACTIVE")">ACTIVE</MudSelectItem>
+                                <MudSelectItem T="string" Value="@("SUSPENDED")">SUSPENDED</MudSelectItem>
+                            </MudSelect>
+                        </MudItem>
+                        <MudItem xs="12" md="4">
+                            <MudNumericField T="decimal?" @bind-Value="_editor.InterestRate" Label="Interest Rate" Variant="Variant.Outlined" />
+                        </MudItem>
+                        <MudItem xs="12" md="4">
+                            <MudTextField @bind-Value="_editor.InterestMethod" Label="Interest Method" Variant="Variant.Outlined" />
+                        </MudItem>
+                        <MudItem xs="12" md="4">
+                            <MudTextField @bind-Value="_editor.LendingMethodology" Label="Methodology" Variant="Variant.Outlined" />
+                        </MudItem>
+                        <MudItem xs="12" md="4">
+                            <MudNumericField T="decimal?" @bind-Value="_editor.MinAmount" Label="Min Amount" Variant="Variant.Outlined" />
+                        </MudItem>
+                        <MudItem xs="12" md="4">
+                            <MudNumericField T="decimal?" @bind-Value="_editor.MaxAmount" Label="Max Amount" Variant="Variant.Outlined" />
+                        </MudItem>
+                        <MudItem xs="12" md="4">
+                            <MudTextField @bind-Value="_allowedRepaymentFrequencies" Label="Allowed Frequencies" Variant="Variant.Outlined" />
+                        </MudItem>
+                        <MudItem xs="12" md="4">
+                            <MudNumericField T="int?" @bind-Value="_editor.MinTerm" Label="Min Term" Variant="Variant.Outlined" />
+                        </MudItem>
+                        <MudItem xs="12" md="4">
+                            <MudNumericField T="int?" @bind-Value="_editor.MaxTerm" Label="Max Term" Variant="Variant.Outlined" />
+                        </MudItem>
+                        <MudItem xs="12" md="4">
+                            <MudNumericField T="int?" @bind-Value="_editor.DefaultTerm" Label="Default Term" Variant="Variant.Outlined" />
+                        </MudItem>
+                        <MudItem xs="12" md="4">
+                            <MudTextField @bind-Value="_editor.DefaultRepaymentFrequency" Label="Default Frequency" Variant="Variant.Outlined" />
+                        </MudItem>
+                        <MudItem xs="12" md="4">
+                            <MudNumericField T="int?" @bind-Value="_editor.MinimumGroupSize" Label="Min Group Size" Variant="Variant.Outlined" />
+                        </MudItem>
+                        <MudItem xs="12" md="4">
+                            <MudNumericField T="int?" @bind-Value="_editor.MaximumGroupSize" Label="Max Group Size" Variant="Variant.Outlined" />
+                        </MudItem>
+                    </MudGrid>
+
+                    <MudGrid Class="mt-2">
+                        <MudItem xs="12" md="6">
+                            <MudCheckBox @bind-Value="_editor.IsGroupLoanEnabled" Label="Enable group lending" />
+                            <MudCheckBox @bind-Value="_editor.RequiresGroup" Label="Requires group" />
+                            <MudCheckBox @bind-Value="_editor.RequiresCenter" Label="Requires center" />
+                            <MudCheckBox @bind-Value="_editor.SupportsJointLiability" Label="Supports joint liability" />
+                            <MudCheckBox @bind-Value="_editor.RequiresCompulsorySavings" Label="Requires compulsory savings" />
+                        </MudItem>
+                        <MudItem xs="12" md="6">
+                            <MudCheckBox @bind-Value="_editor.RequiresGroupApprovalMeeting" Label="Requires group approval meeting" />
+                            <MudCheckBox @bind-Value="_editor.SupportsWeeklyRepayment" Label="Supports weekly repayment" />
+                            <MudCheckBox @bind-Value="_editor.UsesMemberLevelUnderwriting" Label="Member-level underwriting" />
+                            <MudCheckBox @bind-Value="_editor.AllowTopUpWithinGroup" Label="Allow top-up" />
+                            <MudCheckBox @bind-Value="_editor.AllowRescheduleWithinGroup" Label="Allow reschedule" />
+                        </MudItem>
+                    </MudGrid>
+
+                    <MudDivider Class="my-3" />
+                    <MudTextField @bind-Value="_editor.GroupPenaltyPolicy" Label="Penalty Policy" Variant="Variant.Outlined" Lines="2" />
+                    <MudTextField @bind-Value="_editor.GroupDelinquencyPolicy" Label="Delinquency Policy" Variant="Variant.Outlined" Lines="2" Class="mt-3" />
+
+                    <MudStack Row="true" Spacing="2" Class="mt-4">
+                        <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="@_isSaving" OnClick="SaveAsync">Save Product</MudButton>
+                        <MudButton Variant="Variant.Outlined" Color="Color.Secondary" Disabled="@_isSaving" OnClick="ResetEditor">Reset</MudButton>
+                    </MudStack>
+                }
+            </MudPaper>
+        </MudItem>
+    </MudGrid>
+</MudStack>
+
+@code {
+    private List<CoreBanker.Services.BankingOSProductConfigurationDto> _products = new();
+    private CoreBanker.Services.BankingOSProductConfigurationDto? _editor;
+    private string _searchTerm = string.Empty;
+    private string _allowedRepaymentFrequencies = "Monthly";
+    private string _message = string.Empty;
+    private bool _success;
+    private bool _isLoading;
+    private bool _isSaving;
+    private bool _isNewProduct;
+
+    private IEnumerable<CoreBanker.Services.BankingOSProductConfigurationDto> FilteredProducts =>
+        _products.Where(product =>
+            string.IsNullOrWhiteSpace(_searchTerm)
+            || product.Name.Contains(_searchTerm, StringComparison.OrdinalIgnoreCase)
+            || product.Id.Contains(_searchTerm, StringComparison.OrdinalIgnoreCase)
+            || product.Type.Contains(_searchTerm, StringComparison.OrdinalIgnoreCase));
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadWorkspaceAsync();
+    }
+
+    private async Task LoadWorkspaceAsync()
+    {
+        _isLoading = true;
+        _message = string.Empty;
+        try
+        {
+            _products = await ExtensibilityService.GetProductsAsync();
+            if (_editor is not null && !_isNewProduct)
+            {
+                var refreshed = _products.FirstOrDefault(product => product.Id == _editor.Id);
+                if (refreshed is not null)
+                {
+                    SelectProduct(refreshed);
+                }
+            }
+        }
+        catch (CoreBanker.Services.ApiClientException ex)
+        {
+            _success = false;
+            _message = ex.Message;
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private void CreateNewProduct()
+    {
+        _isNewProduct = true;
+        _editor = new CoreBanker.Services.BankingOSProductConfigurationDto
+        {
+            Currency = "GHS",
+            Status = "DRAFT",
+            Type = "LOAN",
+            DefaultRepaymentFrequency = "Monthly"
+        };
+        _allowedRepaymentFrequencies = "Monthly";
+    }
+
+    private void SelectProduct(CoreBanker.Services.BankingOSProductConfigurationDto product)
+    {
+        _isNewProduct = false;
+        _editor = Clone(product);
+        _allowedRepaymentFrequencies = string.Join(", ", _editor.AllowedRepaymentFrequencies);
+    }
+
+    private void ResetEditor()
+    {
+        if (_editor is null)
+        {
+            return;
+        }
+
+        if (_isNewProduct)
+        {
+            CreateNewProduct();
+            return;
+        }
+
+        var source = _products.FirstOrDefault(product => product.Id == _editor.Id);
+        if (source is not null)
+        {
+            SelectProduct(source);
+        }
+    }
+
+    private async Task SaveAsync()
+    {
+        if (_editor is null)
+        {
+            return;
+        }
+
+        _isSaving = true;
+        _message = string.Empty;
+        try
+        {
+            _editor.Id = _editor.Id.Trim().ToUpperInvariant();
+            _editor.Name = _editor.Name.Trim();
+            _editor.Type = _editor.Type.Trim().ToUpperInvariant();
+            _editor.Currency = string.IsNullOrWhiteSpace(_editor.Currency) ? "GHS" : _editor.Currency.Trim().ToUpperInvariant();
+            _editor.AllowedRepaymentFrequencies = _allowedRepaymentFrequencies
+                .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .DefaultIfEmpty(_editor.DefaultRepaymentFrequency)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToArray();
+
+            if (string.IsNullOrWhiteSpace(_editor.Id) || string.IsNullOrWhiteSpace(_editor.Name) || string.IsNullOrWhiteSpace(_editor.Type))
+            {
+                throw new InvalidOperationException("Product code, name, and type are required.");
+            }
+
+            CoreBanker.Services.BankingOSProductConfigurationDto? saved = _isNewProduct
+                ? await ExtensibilityService.CreateProductAsync(_editor)
+                : await ExtensibilityService.UpdateProductAsync(_editor.Id, _editor);
+
+            _success = true;
+            _message = $"Product {_editor.Name} saved successfully.";
+            _isNewProduct = false;
+            await LoadWorkspaceAsync();
+            if (saved is not null)
+            {
+                SelectProduct(saved);
+            }
+        }
+        catch (Exception ex) when (ex is CoreBanker.Services.ApiClientException or InvalidOperationException)
+        {
+            _success = false;
+            _message = ex.Message;
+        }
+        finally
+        {
+            _isSaving = false;
+        }
+    }
+
+    private static CoreBanker.Services.BankingOSProductConfigurationDto Clone(CoreBanker.Services.BankingOSProductConfigurationDto source)
+    {
+        return new CoreBanker.Services.BankingOSProductConfigurationDto
+        {
+            Id = source.Id,
+            Name = source.Name,
+            Description = source.Description,
+            Type = source.Type,
+            Currency = source.Currency,
+            InterestRate = source.InterestRate,
+            InterestMethod = source.InterestMethod,
+            MinAmount = source.MinAmount,
+            MaxAmount = source.MaxAmount,
+            MinTerm = source.MinTerm,
+            MaxTerm = source.MaxTerm,
+            DefaultTerm = source.DefaultTerm,
+            Status = source.Status,
+            LendingMethodology = source.LendingMethodology,
+            IsGroupLoanEnabled = source.IsGroupLoanEnabled,
+            SupportsJointLiability = source.SupportsJointLiability,
+            RequiresCenter = source.RequiresCenter,
+            RequiresGroup = source.RequiresGroup,
+            DefaultRepaymentFrequency = source.DefaultRepaymentFrequency,
+            AllowedRepaymentFrequencies = source.AllowedRepaymentFrequencies.ToArray(),
+            SupportsWeeklyRepayment = source.SupportsWeeklyRepayment,
+            MinimumGroupSize = source.MinimumGroupSize,
+            MaximumGroupSize = source.MaximumGroupSize,
+            RequiresCompulsorySavings = source.RequiresCompulsorySavings,
+            MinimumSavingsToLoanRatio = source.MinimumSavingsToLoanRatio,
+            RequiresGroupApprovalMeeting = source.RequiresGroupApprovalMeeting,
+            UsesMemberLevelUnderwriting = source.UsesMemberLevelUnderwriting,
+            UsesGroupLevelApproval = source.UsesGroupLevelApproval,
+            LoanCyclePolicyType = source.LoanCyclePolicyType,
+            MaxCycleNumber = source.MaxCycleNumber,
+            GraduatedCycleLimitRulesJson = source.GraduatedCycleLimitRulesJson,
+            AttendanceRuleType = source.AttendanceRuleType,
+            ArrearsEligibilityRuleType = source.ArrearsEligibilityRuleType,
+            GroupGuaranteePolicyType = source.GroupGuaranteePolicyType,
+            MeetingCollectionMode = source.MeetingCollectionMode,
+            AllowBatchDisbursement = source.AllowBatchDisbursement,
+            AllowMemberLevelDisbursementAdjustment = source.AllowMemberLevelDisbursementAdjustment,
+            AllowTopUpWithinGroup = source.AllowTopUpWithinGroup,
+            AllowRescheduleWithinGroup = source.AllowRescheduleWithinGroup,
+            GroupPenaltyPolicy = source.GroupPenaltyPolicy,
+            GroupDelinquencyPolicy = source.GroupDelinquencyPolicy,
+            GroupOfficerAssignmentMode = source.GroupOfficerAssignmentMode,
+            GroupRules = source.GroupRules,
+            EligibilityRules = source.EligibilityRules
+        };
+    }
+}

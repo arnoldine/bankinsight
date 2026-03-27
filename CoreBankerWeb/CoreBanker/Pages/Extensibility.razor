@@ -1,119 +1,424 @@
 @page "/extensibility"
 @layout CoreBanker.Layouts.MainLayout
 
-<MudText Typo="Typo.h4">Extensibility / Dynamic Forms</MudText>
+@inject CoreBanker.Services.ExtensibilityService ExtensibilityService
 
-<MudPaper Class="pa-4">
-	<MudTextField @bind-Value="_formId" Label="Form ID" Variant="Variant.Outlined" />
-	<MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="LoadForm">Load Form</MudButton>
-	<MudDivider Class="my-2" />
-	@if (_schema != null)
-	{
-		<MudText Typo="Typo.h6">@_schema.Title</MudText>
-		<MudForm @ref="_form" OnValidSubmit="SubmitForm">
-			@foreach (var field in _schema.Fields ?? new List<CoreBanker.Services.DynamicFormFieldDto>())
-			{
-				@RenderField(field)
-			}
-			<MudButton Type="Submit" Variant="Variant.Filled" Color="Color.Primary">Submit</MudButton>
-		</MudForm>
-	}
-	@if (_submitResult != null)
-	{
-		<MudAlert Severity="@(_submitResult.Value ? Severity.Success : Severity.Error)">@(_submitResult.Value ? "Form submitted successfully." : "Form submission failed.")</MudAlert>
-	}
-</MudPaper>
+<MudStack Spacing="3">
+    <MudPaper Class="pa-4">
+        <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+            <div>
+                <MudText Typo="Typo.h4">Workflow and Extensibility Workbench</MudText>
+                <MudText Typo="Typo.body2" Class="mud-text-secondary">Review process definitions, claim operational work, and complete BankingOS-driven tasks from one runtime console.</MudText>
+            </div>
+            <MudButton Variant="Variant.Outlined" Color="Color.Secondary" OnClick="LoadWorkspaceAsync">Refresh</MudButton>
+        </MudStack>
+    </MudPaper>
+
+    @if (!string.IsNullOrWhiteSpace(_message))
+    {
+        <MudAlert Severity="@(_isSuccess ? Severity.Success : Severity.Error)">@_message</MudAlert>
+    }
+
+    <MudTabs Rounded="true">
+        <MudTabPanel Text="Definitions">
+            <MudTable T="CoreBanker.Services.ProcessDefinitionDto" Items="@_definitions" Dense="true" Hover="true" Loading="@_isLoading">
+                <HeaderContent>
+                    <MudTh>Code</MudTh>
+                    <MudTh>Name</MudTh>
+                    <MudTh>Module</MudTh>
+                    <MudTh>Entity</MudTh>
+                    <MudTh>Trigger</MudTh>
+                    <MudTh>Status</MudTh>
+                </HeaderContent>
+                <RowTemplate>
+                    <MudTd DataLabel="Code">@context.Code</MudTd>
+                    <MudTd DataLabel="Name">@context.Name</MudTd>
+                    <MudTd DataLabel="Module">@context.Module</MudTd>
+                    <MudTd DataLabel="Entity">@context.EntityType</MudTd>
+                    <MudTd DataLabel="Trigger">@GetTriggerLabel(context)</MudTd>
+                    <MudTd DataLabel="Status">@(context.IsActive ? "Active" : "Inactive")</MudTd>
+                </RowTemplate>
+            </MudTable>
+        </MudTabPanel>
+
+        <MudTabPanel Text="My Tasks">
+            <MudGrid>
+                <MudItem xs="12" lg="7">
+                    <MudTable T="CoreBanker.Services.WorkflowTaskDto" Items="@_myTasks" Dense="true" Hover="true" Loading="@_isLoading">
+                        <HeaderContent>
+                            <MudTh>Step</MudTh>
+                            <MudTh>Process</MudTh>
+                            <MudTh>Status</MudTh>
+                            <MudTh>Entity</MudTh>
+                            <MudTh>Due</MudTh>
+                            <MudTh></MudTh>
+                        </HeaderContent>
+                        <RowTemplate>
+                            <MudTd DataLabel="Step">@context.StepName</MudTd>
+                            <MudTd DataLabel="Process">@context.StepCode</MudTd>
+                            <MudTd DataLabel="Status">@context.Status</MudTd>
+                            <MudTd DataLabel="Entity">@GetEntityLabel(context)</MudTd>
+                            <MudTd DataLabel="Due">@FormatDate(context.DueAtUtc)</MudTd>
+                            <MudTd DataLabel="Actions">
+                                <MudButton Variant="Variant.Text" Color="Color.Primary" OnClick="@(() => SelectTaskAsync(context))">Open</MudButton>
+                            </MudTd>
+                        </RowTemplate>
+                    </MudTable>
+                </MudItem>
+                <MudItem xs="12" lg="5">
+                    @TaskDetailPanel
+                </MudItem>
+            </MudGrid>
+        </MudTabPanel>
+
+        <MudTabPanel Text="Claimable Tasks">
+            <MudGrid>
+                <MudItem xs="12" lg="7">
+                    <MudTable T="CoreBanker.Services.WorkflowTaskDto" Items="@_claimableTasks" Dense="true" Hover="true" Loading="@_isLoading">
+                        <HeaderContent>
+                            <MudTh>Step</MudTh>
+                            <MudTh>Status</MudTh>
+                            <MudTh>Entity</MudTh>
+                            <MudTh>Created</MudTh>
+                            <MudTh></MudTh>
+                        </HeaderContent>
+                        <RowTemplate>
+                            <MudTd DataLabel="Step">@context.StepName</MudTd>
+                            <MudTd DataLabel="Status">@context.Status</MudTd>
+                            <MudTd DataLabel="Entity">@GetEntityLabel(context)</MudTd>
+                            <MudTd DataLabel="Created">@FormatDate(context.CreatedAtUtc)</MudTd>
+                            <MudTd DataLabel="Actions">
+                                <MudStack Row="true" Spacing="1">
+                                    <MudButton Variant="Variant.Text" Color="Color.Info" Disabled="@_isTaskActionInProgress" OnClick="@(() => ClaimTaskAsync(context))">Claim</MudButton>
+                                    <MudButton Variant="Variant.Text" Color="Color.Primary" OnClick="@(() => SelectTaskAsync(context))">Inspect</MudButton>
+                                </MudStack>
+                            </MudTd>
+                        </RowTemplate>
+                    </MudTable>
+                </MudItem>
+                <MudItem xs="12" lg="5">
+                    @TaskDetailPanel
+                </MudItem>
+            </MudGrid>
+        </MudTabPanel>
+    </MudTabs>
+</MudStack>
 
 @code {
-	[Inject] private CoreBanker.Services.ExtensibilityService? ExtensibilityService { get; set; }
-	[Inject] private ISnackbar? Snackbar { get; set; }
+    private List<CoreBanker.Services.ProcessDefinitionDto> _definitions = new();
+    private List<CoreBanker.Services.WorkflowTaskDto> _myTasks = new();
+    private List<CoreBanker.Services.WorkflowTaskDto> _claimableTasks = new();
+    private CoreBanker.Services.WorkflowTaskDto? _selectedTask;
+    private CoreBanker.Services.BankingOSTaskContextDto? _selectedContext;
+    private string _payloadJson = "{}";
+    private string _remarks = string.Empty;
+    private string _message = string.Empty;
+    private bool _isSuccess;
+    private bool _isLoading;
+    private bool _isTaskActionInProgress;
 
-	private string _formId = string.Empty;
-	private CoreBanker.Services.DynamicFormSchemaDto? _schema;
-	private Dictionary<string, object> _values = new();
-	private MudForm? _form;
-	private bool? _submitResult;
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadWorkspaceAsync();
+    }
 
-	private async Task LoadForm()
-	{
-		if (ExtensibilityService != null && !string.IsNullOrWhiteSpace(_formId))
-		{
-			_schema = await ExtensibilityService.GetFormSchemaAsync(_formId);
-			_values = new();
-			StateHasChanged();
-		}
-	}
+    private RenderFragment TaskDetailPanel => @<MudPaper Class="pa-4">
+        <MudText Typo="Typo.subtitle1">Task Detail</MudText>
+        @if (_selectedTask is null)
+        {
+            <MudText Typo="Typo.body2" Class="mud-text-secondary mt-2">Choose a task to inspect its schema, allowed actions, and payload requirements.</MudText>
+        }
+        else
+        {
+            <MudStack Spacing="2" Class="mt-3">
+                <MudText Typo="Typo.body1">@_selectedTask.StepName</MudText>
+                <MudText Typo="Typo.caption" Class="mud-text-secondary">@_selectedTask.StepCode | @GetEntityLabel(_selectedTask)</MudText>
+                <MudChip T="string" Color="Color.Primary" Variant="Variant.Outlined" Text="@_selectedTask.Status" />
 
-	private async Task SubmitForm()
-	{
-		if (_form != null)
-		{
-			await _form.ValidateAsync();
-			if (_form.IsValid && ExtensibilityService != null && _schema != null)
-			{
-				var result = await ExtensibilityService.SubmitFormAsync(_schema.Id ?? string.Empty, _values);
-				_submitResult = result;
-				if (Snackbar != null)
-				{
-					Snackbar.Add(result ? "Form submitted successfully." : "Form submission failed.", result ? Severity.Success : Severity.Error);
-				}
-			}
-		}
-	}
+                @if (_selectedContext is null)
+                {
+                    <MudProgressCircular Color="Color.Primary" Indeterminate="true" Size="Size.Medium" />
+                }
+                else
+                {
+                    @if (_selectedContext.Screen is not null)
+                    {
+                        <MudPaper Class="pa-3 mud-theme-surface mt-2">
+                            <MudText Typo="Typo.subtitle2">@_selectedContext.Screen.Title</MudText>
+                            @if (!string.IsNullOrWhiteSpace(_selectedContext.Screen.Description))
+                            {
+                                <MudText Typo="Typo.body2" Class="mud-text-secondary mt-1">@_selectedContext.Screen.Description</MudText>
+                            }
+                            @if (!string.IsNullOrWhiteSpace(_selectedContext.Screen.BannerMessage))
+                            {
+                                <MudAlert Class="mt-3" Severity="@GetBannerSeverity(_selectedContext.Screen.BannerTone)">
+                                    @_selectedContext.Screen.BannerMessage
+                                </MudAlert>
+                            }
+                        </MudPaper>
+                    }
 
-	private RenderFragment RenderField(CoreBanker.Services.DynamicFormFieldDto field) => builder =>
-	{
-		int seq = 0;
-		switch (field.Type)
-		{
-			case "text":
-				builder.OpenComponent<MudTextField<string>>(seq++);
-				builder.AddAttribute(seq++, "Label", field.Label);
-				builder.AddAttribute(seq++, "Required", field.Required);
-				builder.AddAttribute(seq++, "Value", _values.ContainsKey(field.Name ?? "") ? _values[field.Name ?? ""] as string : string.Empty);
-				builder.AddAttribute(seq++, "ValueChanged", EventCallback.Factory.Create<string>(this, v => _values[field.Name ?? ""] = v));
-				builder.CloseComponent();
-				break;
-			case "number":
-				builder.OpenComponent<MudNumericField<decimal>>(seq++);
-				builder.AddAttribute(seq++, "Label", field.Label);
-				builder.AddAttribute(seq++, "Required", field.Required);
-				builder.AddAttribute(seq++, "Value", _values.TryGetValue(field.Name ?? string.Empty, out var numberValue) && numberValue is decimal decimalValue ? decimalValue : 0m);
-				builder.AddAttribute(seq++, "ValueChanged", EventCallback.Factory.Create<decimal?>(this, v => _values[field.Name ?? ""] = v ?? 0));
-				builder.CloseComponent();
-				break;
-			case "date":
-				builder.OpenComponent<MudDatePicker>(seq++);
-				builder.AddAttribute(seq++, "Label", field.Label);
-				builder.AddAttribute(seq++, "Required", field.Required);
-				builder.AddAttribute(seq++, "Date", _values.ContainsKey(field.Name ?? "") ? _values[field.Name ?? ""] : null);
-				builder.AddAttribute(seq++, "DateChanged", EventCallback.Factory.Create<DateTime?>(this, v => _values[field.Name ?? ""] = v));
-				builder.CloseComponent();
-				break;
-			case "select":
-				builder.OpenComponent<MudSelect<string>>(seq++);
-				builder.AddAttribute(seq++, "Label", field.Label);
-				builder.AddAttribute(seq++, "Required", field.Required);
-				builder.AddAttribute(seq++, "Value", _values.ContainsKey(field.Name ?? "") ? _values[field.Name ?? ""] as string : string.Empty);
-				builder.AddAttribute(seq++, "ValueChanged", EventCallback.Factory.Create<string>(this, v => _values[field.Name ?? ""] = v));
-				builder.AddAttribute(seq++, "ChildContent", (RenderFragment)(childBuilder =>
-				{
-					int childSeq = 0;
-					foreach (var opt in field.Options ?? new List<string>())
-					{
-						childBuilder.OpenComponent<MudSelectItem<string>>(childSeq++);
-						childBuilder.AddAttribute(childSeq++, "Value", opt);
-						childBuilder.AddAttribute(childSeq++, "ChildContent", (RenderFragment)(optBuilder => optBuilder.AddContent(0, opt)));
-						childBuilder.CloseComponent();
-					}
-				}));
-				builder.CloseComponent();
-				break;
-			default:
-				builder.OpenElement(seq++, "div");
-				builder.AddContent(seq++, $"Unsupported field type: {field.Type}");
-				builder.CloseElement();
-				break;
-		}
-	};
+                    @if (_selectedContext.Form is not null)
+                    {
+                        <MudPaper Class="pa-3">
+                            <MudText Typo="Typo.subtitle2">Task Fields</MudText>
+                            <MudTable T="CoreBanker.Services.BankingOSSeedFieldDto" Items="@_selectedContext.Form.Fields" Dense="true" Hover="true" Class="mt-2">
+                                <HeaderContent>
+                                    <MudTh>Field</MudTh>
+                                    <MudTh>Type</MudTh>
+                                    <MudTh>Required</MudTh>
+                                </HeaderContent>
+                                <RowTemplate>
+                                    <MudTd DataLabel="Field">@context.Label</MudTd>
+                                    <MudTd DataLabel="Type">@context.Type</MudTd>
+                                    <MudTd DataLabel="Required">@(IsRequiredField(context.Id) ? "Yes" : "No")</MudTd>
+                                </RowTemplate>
+                            </MudTable>
+                        </MudPaper>
+                    }
+
+                    @if (_selectedContext.ValidationRules.Count > 0)
+                    {
+                        <MudPaper Class="pa-3">
+                            <MudText Typo="Typo.subtitle2">Validation Rules</MudText>
+                            <MudList T="string" Dense="true">
+                                @foreach (var rule in _selectedContext.ValidationRules)
+                                {
+                                    <MudListItem T="string" Text="@($"{rule.Label}: {rule.Message}")" />
+                                }
+                            </MudList>
+                        </MudPaper>
+                    }
+
+                    <MudPaper Class="pa-3">
+                        <MudText Typo="Typo.subtitle2">Action Payload</MudText>
+                        <MudText Typo="Typo.body2" Class="mud-text-secondary mt-1">Provide JSON for the task action when the backend expects additional fields. Leave `{}` when no extra values are required.</MudText>
+                        <MudTextField @bind-Value="_payloadJson" Label="Payload JSON" Variant="Variant.Outlined" Lines="8" FullWidth="true" Class="mt-3" />
+                        <MudTextField @bind-Value="_remarks" Label="Remarks" Variant="Variant.Outlined" Lines="3" FullWidth="true" Class="mt-3" />
+                        <MudStack Row="true" Spacing="2" Class="mt-3">
+                            @if (_selectedContext.RequiresClaim)
+                            {
+                                <MudButton Variant="Variant.Outlined" Color="Color.Info" Disabled="@_isTaskActionInProgress" OnClick="@(() => ClaimTaskAsync(_selectedTask))">Claim</MudButton>
+                            }
+                            <MudButton Variant="Variant.Filled" Color="Color.Success" Disabled="@(_isTaskActionInProgress || !CanCompleteTask)" OnClick="CompleteSelectedTaskAsync">Complete</MudButton>
+                            <MudButton Variant="Variant.Filled" Color="Color.Error" Disabled="@(_isTaskActionInProgress || !_selectedContext.RejectionAllowed)" OnClick="RejectSelectedTaskAsync">Reject</MudButton>
+                        </MudStack>
+                        @if (_selectedContext.AllowedActions.Count > 0)
+                        {
+                            <MudText Typo="Typo.caption" Class="mud-text-secondary mt-3">Allowed actions: @string.Join(", ", _selectedContext.AllowedActions)</MudText>
+                        }
+                    </MudPaper>
+                }
+            </MudStack>
+        }
+    </MudPaper>;
+
+    private bool CanCompleteTask =>
+        _selectedContext is not null && (_selectedContext.AllowedActions.Count == 0 || _selectedContext.AllowedActions.Contains("complete", StringComparer.OrdinalIgnoreCase));
+
+    private async Task LoadWorkspaceAsync()
+    {
+        _isLoading = true;
+        _message = string.Empty;
+
+        try
+        {
+            var definitionsTask = ExtensibilityService.GetWorkflowDefinitionsAsync();
+            var myTasksTask = ExtensibilityService.GetMyTasksAsync();
+            var claimableTask = ExtensibilityService.GetClaimableTasksAsync();
+
+            await Task.WhenAll(definitionsTask, myTasksTask, claimableTask);
+
+            _definitions = definitionsTask.Result.OrderBy(definition => definition.Module).ThenBy(definition => definition.Name).ToList();
+            _myTasks = myTasksTask.Result.OrderByDescending(task => task.CreatedAtUtc).ToList();
+            _claimableTasks = claimableTask.Result.OrderByDescending(task => task.CreatedAtUtc).ToList();
+
+            if (_selectedTask is not null)
+            {
+                var refreshedTask = _myTasks.Concat(_claimableTasks).FirstOrDefault(task => task.Id == _selectedTask.Id);
+                if (refreshedTask is null)
+                {
+                    ClearSelection();
+                }
+                else
+                {
+                    _selectedTask = refreshedTask;
+                    await LoadTaskContextAsync(refreshedTask.Id);
+                }
+            }
+        }
+        catch (CoreBanker.Services.ApiClientException ex)
+        {
+            _isSuccess = false;
+            _message = ex.Message;
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private async Task SelectTaskAsync(CoreBanker.Services.WorkflowTaskDto task)
+    {
+        _selectedTask = task;
+        _payloadJson = "{}";
+        _remarks = string.Empty;
+        await LoadTaskContextAsync(task.Id);
+    }
+
+    private async Task LoadTaskContextAsync(Guid taskId)
+    {
+        _selectedContext = null;
+        _message = string.Empty;
+
+        try
+        {
+            _selectedContext = await ExtensibilityService.GetTaskContextAsync(taskId);
+            _isSuccess = true;
+        }
+        catch (CoreBanker.Services.ApiClientException ex)
+        {
+            _isSuccess = false;
+            _message = ex.Message;
+        }
+    }
+
+    private async Task ClaimTaskAsync(CoreBanker.Services.WorkflowTaskDto task)
+    {
+        _isTaskActionInProgress = true;
+
+        try
+        {
+            await ExtensibilityService.ClaimTaskAsync(task.Id);
+            _isSuccess = true;
+            _message = $"Task {task.StepName} claimed successfully.";
+            await LoadWorkspaceAsync();
+            await SelectTaskAsync(_myTasks.FirstOrDefault(item => item.Id == task.Id) ?? task);
+        }
+        catch (CoreBanker.Services.ApiClientException ex)
+        {
+            _isSuccess = false;
+            _message = ex.Message;
+        }
+        finally
+        {
+            _isTaskActionInProgress = false;
+        }
+    }
+
+    private async Task CompleteSelectedTaskAsync()
+    {
+        if (_selectedTask is null)
+        {
+            return;
+        }
+
+        await ExecuteTaskActionAsync(async request => await ExtensibilityService.CompleteTaskAsync(_selectedTask.Id, request), "completed");
+    }
+
+    private async Task RejectSelectedTaskAsync()
+    {
+        if (_selectedTask is null)
+        {
+            return;
+        }
+
+        await ExecuteTaskActionAsync(async request => await ExtensibilityService.RejectTaskAsync(_selectedTask.Id, request), "rejected");
+    }
+
+    private async Task ExecuteTaskActionAsync(Func<CoreBanker.Services.BankingOSTaskActionRequest, Task> action, string outcome)
+    {
+        if (_selectedTask is null)
+        {
+            return;
+        }
+
+        _isTaskActionInProgress = true;
+
+        try
+        {
+            var request = new CoreBanker.Services.BankingOSTaskActionRequest
+            {
+                Remarks = string.IsNullOrWhiteSpace(_remarks) ? null : _remarks.Trim(),
+                PayloadJson = NormalizePayloadJson(_payloadJson)
+            };
+
+            await action(request);
+            _isSuccess = true;
+            _message = $"Task {_selectedTask.StepName} {outcome} successfully.";
+            await LoadWorkspaceAsync();
+        }
+        catch (CoreBanker.Services.ApiClientException ex)
+        {
+            _isSuccess = false;
+            _message = ex.Message;
+        }
+        catch (FormatException ex)
+        {
+            _isSuccess = false;
+            _message = ex.Message;
+        }
+        finally
+        {
+            _isTaskActionInProgress = false;
+        }
+    }
+
+    private void ClearSelection()
+    {
+        _selectedTask = null;
+        _selectedContext = null;
+        _payloadJson = "{}";
+        _remarks = string.Empty;
+    }
+
+    private static string GetTriggerLabel(CoreBanker.Services.ProcessDefinitionDto definition)
+    {
+        return string.IsNullOrWhiteSpace(definition.TriggerEventType)
+            ? definition.TriggerType
+            : $"{definition.TriggerType} / {definition.TriggerEventType}";
+    }
+
+    private static string GetEntityLabel(CoreBanker.Services.WorkflowTaskDto task)
+    {
+        var entityType = string.IsNullOrWhiteSpace(task.EntityType) ? "Entity" : task.EntityType;
+        var entityId = string.IsNullOrWhiteSpace(task.EntityId) ? "n/a" : task.EntityId;
+        return $"{entityType}: {entityId}";
+    }
+
+    private static string FormatDate(DateTime? value)
+    {
+        return value?.ToLocalTime().ToString("dd MMM yyyy HH:mm") ?? "-";
+    }
+
+    private static Severity GetBannerSeverity(string? tone)
+    {
+        return tone?.Trim().ToLowerInvariant() switch
+        {
+            "warning" => Severity.Warning,
+            "error" => Severity.Error,
+            "success" => Severity.Success,
+            _ => Severity.Info
+        };
+    }
+
+    private bool IsRequiredField(string fieldId)
+    {
+        return _selectedContext?.RequiredFieldIds.Contains(fieldId, StringComparer.OrdinalIgnoreCase) ?? false;
+    }
+
+    private static string NormalizePayloadJson(string rawJson)
+    {
+        var trimmed = string.IsNullOrWhiteSpace(rawJson) ? "{}" : rawJson.Trim();
+
+        try
+        {
+            using var document = System.Text.Json.JsonDocument.Parse(trimmed);
+            return document.RootElement.GetRawText();
+        }
+        catch (System.Text.Json.JsonException)
+        {
+            throw new FormatException("Payload JSON is invalid. Please enter a valid JSON object.");
+        }
+    }
 }

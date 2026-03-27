@@ -2,73 +2,926 @@
 @layout CoreBanker.Layouts.MainLayout
 
 @inject CoreBanker.Services.GroupLendingService GroupLendingService
+@inject CoreBanker.Services.ClientService ClientService
+@inject CoreBanker.Services.LoanService LoanService
 
-<MudText Typo="Typo.h4">Group Lending</MudText>
+<MudStack Spacing="3">
+    <MudPaper Class="pa-4">
+        <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+            <div>
+                <MudText Typo="Typo.h4">Group Lending Hub</MudText>
+                <MudText Typo="Typo.body2" Class="mud-text-secondary">Live group, center, application, meeting, and watchlist workflows for the group-lending module.</MudText>
+            </div>
+            <MudButton Variant="Variant.Outlined" Color="Color.Secondary" OnClick="LoadWorkspaceAsync">Refresh</MudButton>
+        </MudStack>
+    </MudPaper>
 
-<MudPaper Class="pa-4 mb-4">
-	<MudText Typo="Typo.h6">Groups</MudText>
-	<MudTable Items="@Groups" Hover="true" Dense="true" @bind-SelectedItem="SelectedGroup">
-		<HeaderContent>
-			<MudTh>Name</MudTh>
-			<MudTh>Officer</MudTh>
-			<MudTh>Status</MudTh>
-			<MudTh>Formation Date</MudTh>
-		</HeaderContent>
-		<RowTemplate>
-			<MudTd DataLabel="Name">@DisplayValue(context.Name)</MudTd>
-			<MudTd DataLabel="Officer">@DisplayValue(context.Officer)</MudTd>
-			<MudTd DataLabel="Status">@DisplayValue(context.Status)</MudTd>
-			<MudTd DataLabel="Formation Date">@DisplayValue(context.FormationDate)</MudTd>
-		</RowTemplate>
-	</MudTable>
-</MudPaper>
+    @if (!string.IsNullOrWhiteSpace(_message))
+    {
+        <MudAlert Severity="@(_isSuccess ? Severity.Success : Severity.Error)">@_message</MudAlert>
+    }
 
-@if (SelectedGroup != null)
-{
-	<MudPaper Class="pa-4 mb-4">
-		<MudText Typo="Typo.h6">Meetings for @DisplayValue(SelectedGroup.Name)</MudText>
-		<MudTable Items="@Meetings" Hover="true" Dense="true">
-			<HeaderContent>
-				<MudTh>Date</MudTh>
-				<MudTh>Status</MudTh>
-				<MudTh>Members Present</MudTh>
-			</HeaderContent>
-			<RowTemplate>
-				<MudTd DataLabel="Date">@context.Date</MudTd>
-				<MudTd DataLabel="Status">@context.Status</MudTd>
-				<MudTd DataLabel="Members Present">@string.Join(", ", context.MembersPresent ?? new List<string>())</MudTd>
-			</RowTemplate>
-		</MudTable>
-	</MudPaper>
-}
+    <MudGrid>
+        <MudItem xs="12" sm="6" lg="3"><MudPaper Class="pa-4"><MudText Typo="Typo.caption">Active Groups</MudText><MudText Typo="Typo.h5">@(_summary?.ActiveGroups ?? 0)</MudText></MudPaper></MudItem>
+        <MudItem xs="12" sm="6" lg="3"><MudPaper Class="pa-4"><MudText Typo="Typo.caption">Active Members</MudText><MudText Typo="Typo.h5">@(_summary?.ActiveMembers ?? 0)</MudText></MudPaper></MudItem>
+        <MudItem xs="12" sm="6" lg="3"><MudPaper Class="pa-4"><MudText Typo="Typo.caption">Portfolio</MudText><MudText Typo="Typo.h5">@FormatCurrency(_summary?.TotalPortfolio ?? 0m)</MudText></MudPaper></MudItem>
+        <MudItem xs="12" sm="6" lg="3"><MudPaper Class="pa-4"><MudText Typo="Typo.caption">PAR 30</MudText><MudText Typo="Typo.h5">@FormatCurrency(_summary?.Par30 ?? 0m)</MudText></MudPaper></MudItem>
+    </MudGrid>
+
+    <MudTabs Rounded="true">
+        <MudTabPanel Text="Dashboard">
+            <MudGrid>
+                <MudItem xs="12" lg="6">
+                    <MudPaper Class="pa-4">
+                        <MudText Typo="Typo.h6">PAR Watchlist</MudText>
+                        <MudTable T="CoreBanker.Services.GroupParReportItemDto" Items="@_parReport.Take(8)" Dense="true" Hover="true" Class="mt-3">
+                            <HeaderContent><MudTh>Group</MudTh><MudTh>Bucket</MudTh><MudTh>DPD</MudTh><MudTh>Outstanding</MudTh></HeaderContent>
+                            <RowTemplate>
+                                <MudTd DataLabel="Group">@context.GroupName</MudTd>
+                                <MudTd DataLabel="Bucket">@context.ParBucket</MudTd>
+                                <MudTd DataLabel="DPD">@context.DaysPastDue</MudTd>
+                                <MudTd DataLabel="Outstanding">@FormatCurrency(context.OutstandingPrincipal)</MudTd>
+                            </RowTemplate>
+                        </MudTable>
+                    </MudPaper>
+                </MudItem>
+                <MudItem xs="12" lg="6">
+                    <MudPaper Class="pa-4">
+                        <MudText Typo="Typo.h6">Performance Snapshot</MudText>
+                        <MudTable T="CoreBanker.Services.GroupReportRowDto" Items="@_officerPerformance.Take(8)" Dense="true" Hover="true" Class="mt-3">
+                            <HeaderContent><MudTh>Officer</MudTh><MudTh>Groups</MudTh><MudTh>Members</MudTh></HeaderContent>
+                            <RowTemplate>
+                                <MudTd DataLabel="Officer">@GetField(context, "OfficerId")</MudTd>
+                                <MudTd DataLabel="Groups">@GetField(context, "ActiveGroups")</MudTd>
+                                <MudTd DataLabel="Members">@GetField(context, "ActiveMembers")</MudTd>
+                            </RowTemplate>
+                        </MudTable>
+                    </MudPaper>
+                </MudItem>
+            </MudGrid>
+        </MudTabPanel>
+
+        <MudTabPanel Text="Groups">
+            <MudGrid>
+                <MudItem xs="12" lg="4">
+                    <MudPaper Class="pa-4">
+                        <MudText Typo="Typo.h6">Create Group</MudText>
+                        <MudTextField @bind-Value="_newGroupName" Label="Group Name" Variant="Variant.Outlined" Class="mt-2" />
+                        <MudTextField @bind-Value="_newGroupLocation" Label="Meeting Location" Variant="Variant.Outlined" Class="mt-3" />
+                        <MudTextField @bind-Value="_newGroupOfficerId" Label="Officer Id" Variant="Variant.Outlined" Class="mt-3" />
+                        <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="mt-4" Disabled="@(_isBusy || string.IsNullOrWhiteSpace(_newGroupName))" OnClick="CreateGroupAsync">Create Group</MudButton>
+                    </MudPaper>
+                    <MudPaper Class="pa-4 mt-3">
+                        <MudText Typo="Typo.h6">Create Center</MudText>
+                        <MudTextField @bind-Value="_newCenterCode" Label="Center Code" Variant="Variant.Outlined" Class="mt-2" />
+                        <MudTextField @bind-Value="_newCenterName" Label="Center Name" Variant="Variant.Outlined" Class="mt-3" />
+                        <MudButton Variant="Variant.Filled" Color="Color.Secondary" Class="mt-4" Disabled="@(_isBusy || string.IsNullOrWhiteSpace(_newCenterCode) || string.IsNullOrWhiteSpace(_newCenterName))" OnClick="CreateCenterAsync">Create Center</MudButton>
+                    </MudPaper>
+                    <MudPaper Class="pa-4 mt-3">
+                        <MudText Typo="Typo.h6">Centers</MudText>
+                        <MudTable T="CoreBanker.Services.LendingCenterDto" Items="@_centers.Take(6)" Dense="true" Hover="true" Class="mt-2">
+                            <HeaderContent><MudTh>Code</MudTh><MudTh>Name</MudTh><MudTh>Status</MudTh></HeaderContent>
+                            <RowTemplate>
+                                <MudTd DataLabel="Code">@context.CenterCode</MudTd>
+                                <MudTd DataLabel="Name">@context.CenterName</MudTd>
+                                <MudTd DataLabel="Status">@context.Status</MudTd>
+                            </RowTemplate>
+                        </MudTable>
+                    </MudPaper>
+                </MudItem>
+                <MudItem xs="12" lg="8">
+                    <MudPaper Class="pa-4">
+                        <MudText Typo="Typo.h6">Groups</MudText>
+                        <MudTable T="CoreBanker.Services.LendingGroupDto" Items="@_groups" Dense="true" Hover="true" Class="mt-3">
+                            <HeaderContent><MudTh>Group</MudTh><MudTh>Status</MudTh><MudTh>Members</MudTh><MudTh></MudTh></HeaderContent>
+                            <RowTemplate>
+                                <MudTd DataLabel="Group">@context.GroupName</MudTd>
+                                <MudTd DataLabel="Status">@context.Status</MudTd>
+                                <MudTd DataLabel="Members">@context.Members.Count</MudTd>
+                                <MudTd DataLabel="Actions"><MudButton Variant="Variant.Text" Color="Color.Primary" OnClick="@(() => SelectGroup(context))">Manage</MudButton></MudTd>
+                            </RowTemplate>
+                        </MudTable>
+                    </MudPaper>
+                    @if (_selectedGroup is not null)
+                    {
+                        <MudPaper Class="pa-4 mt-3">
+                            <MudText Typo="Typo.h6">@_selectedGroup.GroupName</MudText>
+                            <MudGrid Class="mt-2">
+                                <MudItem xs="12" md="8">
+                                    <MudSelect T="string" @bind-Value="_selectedCustomerId" Label="Add Customer" Variant="Variant.Outlined">
+                                        @foreach (var client in AvailableCustomers)
+                                        {
+                                            <MudSelectItem T="string" Value="@client.Id">@($"{client.Name} ({client.Id})")</MudSelectItem>
+                                        }
+                                    </MudSelect>
+                                </MudItem>
+                                <MudItem xs="12" md="4">
+                                    <MudButton Variant="Variant.Outlined" Color="Color.Primary" Class="mt-1" Disabled="@(_isBusy || string.IsNullOrWhiteSpace(_selectedCustomerId))" OnClick="AddMemberAsync">Add Member</MudButton>
+                                </MudItem>
+                            </MudGrid>
+                            <MudTable T="CoreBanker.Services.GroupMemberSummaryDto" Items="@_selectedGroup.Members" Dense="true" Hover="true" Class="mt-3">
+                                <HeaderContent><MudTh>Member</MudTh><MudTh>KYC</MudTh><MudTh>Exposure</MudTh><MudTh>Status</MudTh></HeaderContent>
+                                <RowTemplate>
+                                    <MudTd DataLabel="Member">@context.CustomerName</MudTd>
+                                    <MudTd DataLabel="KYC">@context.KycStatus</MudTd>
+                                    <MudTd DataLabel="Exposure">@FormatCurrency(context.CurrentExposure)</MudTd>
+                                    <MudTd DataLabel="Status">@context.Status</MudTd>
+                                </RowTemplate>
+                            </MudTable>
+                        </MudPaper>
+                    }
+                </MudItem>
+            </MudGrid>
+        </MudTabPanel>
+
+        <MudTabPanel Text="Workflow">
+            <MudGrid>
+                <MudItem xs="12" lg="4">
+                    <MudPaper Class="pa-4">
+                        <MudText Typo="Typo.h6">Create Application</MudText>
+                        <MudSelect T="string" @bind-Value="_applicationGroupId" Label="Group" Variant="Variant.Outlined" Class="mt-2">
+                            @foreach (var group in _groups)
+                            {
+                                <MudSelectItem T="string" Value="@group.Id">@group.GroupName</MudSelectItem>
+                            }
+                        </MudSelect>
+                        <MudSelect T="string" @bind-Value="_applicationProductId" Label="Product" Variant="Variant.Outlined" Class="mt-3">
+                            @foreach (var product in GroupLoanProducts)
+                            {
+                                <MudSelectItem T="string" Value="@product.Id">@($"{product.Name} ({product.Code})")</MudSelectItem>
+                            }
+                        </MudSelect>
+                        <MudNumericField T="decimal" @bind-Value="_applicationAmountPerMember" Label="Amount per Member" Variant="Variant.Outlined" Min="0.01m" Class="mt-3" />
+                        <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="mt-4" Disabled="@(_isBusy || string.IsNullOrWhiteSpace(_applicationGroupId) || string.IsNullOrWhiteSpace(_applicationProductId))" OnClick="CreateApplicationAsync">Create Draft</MudButton>
+                    </MudPaper>
+
+                    <MudPaper Class="pa-4 mt-3">
+                        <MudText Typo="Typo.h6">Create Meeting</MudText>
+                        <MudSelect T="string" @bind-Value="_meetingGroupId" Label="Group" Variant="Variant.Outlined" Class="mt-2">
+                            @foreach (var group in _groups)
+                            {
+                                <MudSelectItem T="string" Value="@group.Id">@group.GroupName</MudSelectItem>
+                            }
+                        </MudSelect>
+                        <MudDatePicker Label="Meeting Date" Variant="Variant.Outlined" Date="@_meetingDateTime" DateChanged="OnMeetingDateChanged" Class="mt-3" />
+                        <MudButton Variant="Variant.Filled" Color="Color.Secondary" Class="mt-4" Disabled="@(_isBusy || string.IsNullOrWhiteSpace(_meetingGroupId))" OnClick="CreateMeetingAsync">Create Meeting</MudButton>
+                    </MudPaper>
+                </MudItem>
+
+                <MudItem xs="12" lg="8">
+                    <MudPaper Class="pa-4">
+                        <MudText Typo="Typo.h6">Recent Applications</MudText>
+                        <MudTable T="CoreBanker.Services.GroupLoanApplicationDto" Items="@_recentApplications" Dense="true" Hover="true" Class="mt-3">
+                            <HeaderContent><MudTh>Group</MudTh><MudTh>Status</MudTh><MudTh>Requested</MudTh><MudTh></MudTh></HeaderContent>
+                            <RowTemplate>
+                                <MudTd DataLabel="Group">@context.GroupName</MudTd>
+                                <MudTd DataLabel="Status">@context.Status</MudTd>
+                                <MudTd DataLabel="Requested">@FormatCurrency(context.TotalRequestedAmount)</MudTd>
+                                <MudTd DataLabel="Actions">
+                                    <MudStack Row="true" Spacing="1">
+                                        <MudButton Variant="Variant.Text" Color="Color.Primary" Disabled="@_isBusy" OnClick="@(() => _selectedApplication = context)">View</MudButton>
+                                        <MudButton Variant="Variant.Text" Color="Color.Info" Disabled="@_isBusy" OnClick="@(() => SubmitApplicationAsync(context.Id))">Submit</MudButton>
+                                        <MudButton Variant="Variant.Text" Color="Color.Success" Disabled="@_isBusy" OnClick="@(() => ApproveApplicationAsync(context.Id))">Approve</MudButton>
+                                        <MudButton Variant="Variant.Text" Color="Color.Error" Disabled="@_isBusy" OnClick="@(() => RejectApplicationAsync(context.Id))">Reject</MudButton>
+                                        <MudButton Variant="Variant.Text" Color="Color.Primary" Disabled="@_isBusy" OnClick="@(() => DisburseApplicationAsync(context.Id))">Disburse</MudButton>
+                                    </MudStack>
+                                </MudTd>
+                            </RowTemplate>
+                        </MudTable>
+                    </MudPaper>
+                    <MudPaper Class="pa-4 mt-3">
+                        <MudText Typo="Typo.h6">Recent Meetings</MudText>
+                        <MudTable T="CoreBanker.Services.GroupMeetingDto" Items="@_recentMeetings" Dense="true" Hover="true" Class="mt-3">
+                            <HeaderContent><MudTh>Group</MudTh><MudTh>Date</MudTh><MudTh>Status</MudTh><MudTh>Attendance</MudTh></HeaderContent>
+                            <RowTemplate>
+                                <MudTd DataLabel="Group">@context.GroupName</MudTd>
+                                <MudTd DataLabel="Date">@context.MeetingDate.ToString("dd MMM yyyy")</MudTd>
+                                <MudTd DataLabel="Status">@context.Status</MudTd>
+                                <MudTd DataLabel="Attendance">@context.AttendanceCount</MudTd>
+                            </RowTemplate>
+                        </MudTable>
+                    </MudPaper>
+                    @if (_selectedApplication is not null)
+                    {
+                        <MudPaper Class="pa-4 mt-3">
+                            <MudText Typo="Typo.h6">@($"Application {_selectedApplication.Id}")</MudText>
+                            <MudText Typo="Typo.body2" Class="mud-text-secondary">@($"{_selectedApplication.GroupName} | {_selectedApplication.ProductName} | {_selectedApplication.Status}")</MudText>
+                            <MudTable T="CoreBanker.Services.GroupLoanApplicationMemberDto" Items="@_selectedApplication.Members" Dense="true" Hover="true" Class="mt-3">
+                                <HeaderContent><MudTh>Member</MudTh><MudTh>Requested</MudTh><MudTh>Approved</MudTh><MudTh>Eligibility</MudTh></HeaderContent>
+                                <RowTemplate>
+                                    <MudTd DataLabel="Member">@context.CustomerName</MudTd>
+                                    <MudTd DataLabel="Requested">@FormatCurrency(context.RequestedAmount)</MudTd>
+                                    <MudTd DataLabel="Approved">@FormatCurrency(context.ApprovedAmount)</MudTd>
+                                    <MudTd DataLabel="Eligibility">@context.EligibilityStatus</MudTd>
+                                </RowTemplate>
+                            </MudTable>
+                        </MudPaper>
+                    }
+                </MudItem>
+            </MudGrid>
+        </MudTabPanel>
+
+        <MudTabPanel Text="Reports">
+            <MudGrid>
+                <MudItem xs="12" lg="4">
+                    <MudPaper Class="pa-4">
+                        <MudText Typo="Typo.h6">Cycle Analysis</MudText>
+                        <MudTable T="CoreBanker.Services.GroupReportRowDto" Items="@_cycleAnalysis.Take(8)" Dense="true" Hover="true" Class="mt-3">
+                            <HeaderContent><MudTh>Cycle</MudTh><MudTh>Accounts</MudTh><MudTh>Exposure</MudTh></HeaderContent>
+                            <RowTemplate>
+                                <MudTd DataLabel="Cycle">@GetField(context, "CycleNo")</MudTd>
+                                <MudTd DataLabel="Accounts">@GetField(context, "Accounts")</MudTd>
+                                <MudTd DataLabel="Exposure">@GetField(context, "Exposure")</MudTd>
+                            </RowTemplate>
+                        </MudTable>
+                    </MudPaper>
+                </MudItem>
+                <MudItem xs="12" lg="4">
+                    <MudPaper Class="pa-4">
+                        <MudText Typo="Typo.h6">Delinquency</MudText>
+                        <MudTable T="CoreBanker.Services.GroupReportRowDto" Items="@_delinquency.Take(8)" Dense="true" Hover="true" Class="mt-3">
+                            <HeaderContent><MudTh>Bucket</MudTh><MudTh>Accounts</MudTh><MudTh>Exposure</MudTh></HeaderContent>
+                            <RowTemplate>
+                                <MudTd DataLabel="Bucket">@GetField(context, "ParBucket")</MudTd>
+                                <MudTd DataLabel="Accounts">@GetField(context, "Accounts")</MudTd>
+                                <MudTd DataLabel="Exposure">@GetField(context, "Exposure")</MudTd>
+                            </RowTemplate>
+                        </MudTable>
+                    </MudPaper>
+                </MudItem>
+                <MudItem xs="12" lg="4">
+                    <MudPaper Class="pa-4">
+                        <MudText Typo="Typo.h6">Meeting Collections</MudText>
+                        <MudTable T="CoreBanker.Services.GroupReportRowDto" Items="@_meetingCollections.Take(8)" Dense="true" Hover="true" Class="mt-3">
+                            <HeaderContent><MudTh>Date</MudTh><MudTh>Batches</MudTh><MudTh>Collected</MudTh></HeaderContent>
+                            <RowTemplate>
+                                <MudTd DataLabel="Date">@GetField(context, "CollectionDate")</MudTd>
+                                <MudTd DataLabel="Batches">@GetField(context, "Batches")</MudTd>
+                                <MudTd DataLabel="Collected">@GetField(context, "TotalCollected")</MudTd>
+                            </RowTemplate>
+                        </MudTable>
+                    </MudPaper>
+                </MudItem>
+            </MudGrid>
+        </MudTabPanel>
+
+        <MudTabPanel Text="Operations">
+            <MudGrid>
+                <MudItem xs="12" lg="6">
+                    <MudPaper Class="pa-4">
+                        <MudText Typo="Typo.h6">Meeting Attendance</MudText>
+                        <MudSelect T="string" Value="@_selectedMeetingId" Label="Recent Meeting" Variant="Variant.Outlined" Class="mt-2" ValueChanged="OnMeetingSelectedAsync">
+                            @foreach (var meeting in _recentMeetings)
+                            {
+                                <MudSelectItem T="string" Value="@meeting.Id">@($"{meeting.GroupName} | {meeting.MeetingDate:dd MMM yyyy} | {meeting.Status}")</MudSelectItem>
+                            }
+                        </MudSelect>
+                        @if (_selectedMeetingDetail is not null)
+                        {
+                            <MudText Typo="Typo.body2" Class="mt-3">@($"{_selectedMeetingDetail.GroupName} | {_selectedMeetingDetail.MeetingType} | {_selectedMeetingDetail.Status}")</MudText>
+                            <MudTable T="CoreBanker.Services.GroupMeetingAttendanceLineDto" Items="@_attendanceDraft" Dense="true" Hover="true" Class="mt-3">
+                                <HeaderContent><MudTh>Member</MudTh><MudTh>Status</MudTh><MudTh>Notes</MudTh></HeaderContent>
+                                <RowTemplate>
+                                    <MudTd DataLabel="Member">@GetMemberName(context.CustomerId)</MudTd>
+                                    <MudTd DataLabel="Status">
+                                        <MudSelect T="string" Value="@context.AttendanceStatus" ValueChanged="@((string value) => UpdateAttendanceStatus(context, value))">
+                                            <MudSelectItem T="string" Value="@("PRESENT")">Present</MudSelectItem>
+                                            <MudSelectItem T="string" Value="@("ABSENT")">Absent</MudSelectItem>
+                                            <MudSelectItem T="string" Value="@("LATE")">Late</MudSelectItem>
+                                        </MudSelect>
+                                    </MudTd>
+                                    <MudTd DataLabel="Notes">
+                                        <MudTextField Value="@context.Notes" ValueChanged="@((string? value) => context.Notes = value)" />
+                                    </MudTd>
+                                </RowTemplate>
+                            </MudTable>
+                            <MudStack Row="true" Spacing="2" Class="mt-3">
+                                <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="@_isBusy" OnClick="RecordAttendanceAsync">Save Attendance</MudButton>
+                                <MudButton Variant="Variant.Outlined" Color="Color.Secondary" Disabled="@_isBusy" OnClick="CloseMeetingAsync">Close Meeting</MudButton>
+                            </MudStack>
+                        }
+                    </MudPaper>
+                </MudItem>
+
+                <MudItem xs="12" lg="6">
+                    <MudStack Spacing="3">
+                        <MudPaper Class="pa-4">
+                            <MudText Typo="Typo.h6">Collection Batch</MudText>
+                            <MudSelect T="string" Value="@_batchGroupId" Label="Group" Variant="Variant.Outlined" Class="mt-2" ValueChanged="OnBatchGroupChanged">
+                                @foreach (var group in _groups)
+                                {
+                                    <MudSelectItem T="string" Value="@group.Id">@group.GroupName</MudSelectItem>
+                                }
+                            </MudSelect>
+                            <MudSelect T="string" Value="@_batchMeetingId" Label="Meeting" Variant="Variant.Outlined" Class="mt-3" ValueChanged="OnBatchMeetingChanged">
+                                <MudSelectItem T="string" Value="@string.Empty">No linked meeting</MudSelectItem>
+                                @foreach (var meeting in BatchMeetings)
+                                {
+                                    <MudSelectItem T="string" Value="@meeting.Id">@($"{meeting.MeetingDate:dd MMM yyyy} | {meeting.Status}")</MudSelectItem>
+                                }
+                            </MudSelect>
+                            <MudDatePicker Label="Collection Date" Variant="Variant.Outlined" Date="@_batchCollectionDateTime" DateChanged="OnBatchCollectionDateChanged" Class="mt-3" />
+                            <MudTextField @bind-Value="_batchOfficerId" Label="Officer Id" Variant="Variant.Outlined" Class="mt-3" />
+                            <MudTextField @bind-Value="_batchReferenceNo" Label="Reference Number" Variant="Variant.Outlined" Class="mt-3" />
+                            <MudTextField @bind-Value="_batchChannel" Label="Channel" Variant="Variant.Outlined" Class="mt-3" />
+                            @if (_batchDraftLines.Any())
+                            {
+                                <MudTable T="CoreBanker.Services.GroupCollectionBatchLineRequest" Items="@_batchDraftLines" Dense="true" Hover="true" Class="mt-3">
+                                    <HeaderContent><MudTh>Member</MudTh><MudTh>Loan Id</MudTh><MudTh>Expected</MudTh><MudTh>Collected</MudTh><MudTh>Savings</MudTh></HeaderContent>
+                                    <RowTemplate>
+                                        <MudTd DataLabel="Member">@GetMemberName(context.CustomerId)</MudTd>
+                                        <MudTd DataLabel="Loan Id"><MudTextField Value="@context.LoanAccountId" ValueChanged="@((string? value) => context.LoanAccountId = value ?? string.Empty)" Margin="Margin.Dense" /></MudTd>
+                                        <MudTd DataLabel="Expected"><MudNumericField T="decimal" Value="@context.ExpectedInstallment" ValueChanged="@((decimal value) => context.ExpectedInstallment = value)" Margin="Margin.Dense" /></MudTd>
+                                        <MudTd DataLabel="Collected"><MudNumericField T="decimal" Value="@context.AmountCollected" ValueChanged="@((decimal value) => context.AmountCollected = value)" Margin="Margin.Dense" /></MudTd>
+                                        <MudTd DataLabel="Savings"><MudNumericField T="decimal" Value="@context.SavingsComponent" ValueChanged="@((decimal value) => context.SavingsComponent = value)" Margin="Margin.Dense" /></MudTd>
+                                    </RowTemplate>
+                                </MudTable>
+                            }
+                            else
+                            {
+                                <MudText Typo="Typo.body2" Class="mud-text-secondary mt-3">Choose a group to seed collection lines from its active members.</MudText>
+                            }
+                            <MudStack Row="true" Spacing="2" Class="mt-3">
+                                <MudButton Variant="Variant.Outlined" Color="Color.Secondary" Disabled="@(_isBusy || string.IsNullOrWhiteSpace(_batchGroupId))" OnClick="SeedBatchLines">Refresh Lines</MudButton>
+                                <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="@(_isBusy || string.IsNullOrWhiteSpace(_batchGroupId) || !CanCreateBatch)" OnClick="CreateCollectionBatchAsync">Create Batch</MudButton>
+                            </MudStack>
+                        </MudPaper>
+
+                        <MudPaper Class="pa-4">
+                            <MudText Typo="Typo.h6">Group Loan Workbench</MudText>
+                            <MudTextField @bind-Value="_groupLoanId" Label="Loan Id" Variant="Variant.Outlined" Class="mt-2" />
+                            <MudButton Variant="Variant.Outlined" Color="Color.Primary" Class="mt-3" Disabled="@(_isBusy || string.IsNullOrWhiteSpace(_groupLoanId))" OnClick="LoadGroupLoanAsync">Load Statement</MudButton>
+
+                            @if (_selectedLoanStatement is not null)
+                            {
+                                <MudText Typo="Typo.body2" Class="mt-3">@($"Status {_selectedLoanStatement.Status} | Outstanding {FormatCurrency(_selectedLoanStatement.OutstandingBalance ?? 0m)} | Cycle {_selectedLoanStatement.CycleNo}")</MudText>
+                                <MudText Typo="Typo.caption" Class="mud-text-secondary">@($"Guarantee {DisplayValue(_selectedLoanStatement.GuaranteeReference)} | Restructured {(_selectedLoanStatement.RestructuredFlag ? "Yes" : "No")}")</MudText>
+                            }
+                        </MudPaper>
+
+                        <MudPaper Class="pa-4">
+                            <MudText Typo="Typo.h6">Reschedule Loan</MudText>
+                            <MudNumericField T="int" @bind-Value="_newTermInPeriods" Label="New Term In Periods" Variant="Variant.Outlined" Min="1" Class="mt-2" />
+                            <MudNumericField T="decimal?" @bind-Value="_newAnnualRate" Label="New Annual Rate" Variant="Variant.Outlined" Class="mt-3" />
+                            <MudTextField @bind-Value="_newRepaymentFrequency" Label="New Repayment Frequency" Variant="Variant.Outlined" Class="mt-3" />
+                            <MudTextField @bind-Value="_rescheduleReason" Label="Reason" Variant="Variant.Outlined" Lines="3" Class="mt-3" />
+                            <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="mt-4" Disabled="@(_isBusy || string.IsNullOrWhiteSpace(_groupLoanId) || string.IsNullOrWhiteSpace(_rescheduleReason) || _newTermInPeriods <= 0)" OnClick="RescheduleGroupLoanAsync">Reschedule</MudButton>
+                        </MudPaper>
+                    </MudStack>
+                </MudItem>
+            </MudGrid>
+
+            @if (_selectedBatch is not null)
+            {
+                <MudPaper Class="pa-4 mt-3">
+                    <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+                        <div>
+                            <MudText Typo="Typo.h6">@($"Collection Batch {_selectedBatch.Id}")</MudText>
+                            <MudText Typo="Typo.body2" Class="mud-text-secondary">@($"{_selectedBatch.Status} | {_selectedBatch.CollectionDate:dd MMM yyyy} | {_selectedBatch.Channel}")</MudText>
+                        </div>
+                        <MudStack Row="true" Spacing="2">
+                            <MudButton Variant="Variant.Outlined" Color="Color.Info" Disabled="@(_isBusy || string.IsNullOrWhiteSpace(_selectedBatch.Id))" OnClick="RefreshSelectedBatchAsync">Reload</MudButton>
+                            <MudButton Variant="Variant.Filled" Color="Color.Success" Disabled="@(_isBusy || !CanPostSelectedBatch)" OnClick="PostSelectedBatchAsync">Post Batch</MudButton>
+                            <MudButton Variant="Variant.Filled" Color="Color.Error" Disabled="@(_isBusy || !CanReverseSelectedBatch)" OnClick="ReverseSelectedBatchAsync">Reverse Batch</MudButton>
+                        </MudStack>
+                    </MudStack>
+                    <MudGrid Class="mt-2">
+                        <MudItem xs="12" md="3"><MudPaper Outlined="true" Class="pa-3"><MudText Typo="Typo.caption">Expected</MudText><MudText Typo="Typo.h6">@FormatCurrency(_selectedBatch.TotalExpectedAmount)</MudText></MudPaper></MudItem>
+                        <MudItem xs="12" md="3"><MudPaper Outlined="true" Class="pa-3"><MudText Typo="Typo.caption">Collected</MudText><MudText Typo="Typo.h6">@FormatCurrency(_selectedBatch.TotalCollectedAmount)</MudText></MudPaper></MudItem>
+                        <MudItem xs="12" md="3"><MudPaper Outlined="true" Class="pa-3"><MudText Typo="Typo.caption">Variance</MudText><MudText Typo="Typo.h6">@FormatCurrency(_selectedBatch.VarianceAmount)</MudText></MudPaper></MudItem>
+                        <MudItem xs="12" md="3"><MudPaper Outlined="true" Class="pa-3"><MudText Typo="Typo.caption">Reference</MudText><MudText Typo="Typo.h6">@DisplayValue(_selectedBatch.ReferenceNo)</MudText></MudPaper></MudItem>
+                    </MudGrid>
+                    <MudTable T="CoreBanker.Services.GroupCollectionBatchLineDto" Items="@_selectedBatch.Lines" Dense="true" Hover="true" Class="mt-3">
+                        <HeaderContent><MudTh>Member</MudTh><MudTh>Loan</MudTh><MudTh>Collected</MudTh><MudTh>Principal</MudTh><MudTh>Interest</MudTh><MudTh>Status</MudTh></HeaderContent>
+                        <RowTemplate>
+                            <MudTd DataLabel="Member">@GetMemberName(context.CustomerId)</MudTd>
+                            <MudTd DataLabel="Loan">@context.LoanAccountId</MudTd>
+                            <MudTd DataLabel="Collected">@FormatCurrency(context.AmountCollected)</MudTd>
+                            <MudTd DataLabel="Principal">@FormatCurrency(context.PrincipalComponent)</MudTd>
+                            <MudTd DataLabel="Interest">@FormatCurrency(context.InterestComponent)</MudTd>
+                            <MudTd DataLabel="Status">@context.Status</MudTd>
+                        </RowTemplate>
+                    </MudTable>
+                </MudPaper>
+            }
+
+            @if (_selectedLoanStatement is not null)
+            {
+                <MudGrid Class="mt-1">
+                    <MudItem xs="12" lg="7">
+                        <MudPaper Class="pa-4">
+                            <MudText Typo="Typo.h6">Schedule</MudText>
+                            <MudTable T="CoreBanker.Services.LoanScheduleDto" Items="@_selectedLoanStatement.Schedule.Take(12)" Dense="true" Hover="true" Class="mt-3">
+                                <HeaderContent><MudTh>Period</MudTh><MudTh>Due</MudTh><MudTh>Total</MudTh><MudTh>Balance</MudTh><MudTh>Status</MudTh></HeaderContent>
+                                <RowTemplate>
+                                    <MudTd DataLabel="Period">@context.Period</MudTd>
+                                    <MudTd DataLabel="Due">@context.DueDate.ToString("dd MMM yyyy")</MudTd>
+                                    <MudTd DataLabel="Total">@FormatCurrency(context.Total)</MudTd>
+                                    <MudTd DataLabel="Balance">@FormatCurrency(context.Balance)</MudTd>
+                                    <MudTd DataLabel="Status">@context.Status</MudTd>
+                                </RowTemplate>
+                            </MudTable>
+                        </MudPaper>
+                    </MudItem>
+                    <MudItem xs="12" lg="5">
+                        <MudPaper Class="pa-4">
+                            <MudText Typo="Typo.h6">Repayment History</MudText>
+                            <MudTable T="CoreBanker.Services.GroupRepaymentHistoryDto" Items="@_selectedLoanStatement.Repayments.Take(10)" Dense="true" Hover="true" Class="mt-3">
+                                <HeaderContent><MudTh>Date</MudTh><MudTh>Amount</MudTh><MudTh>Reference</MudTh></HeaderContent>
+                                <RowTemplate>
+                                    <MudTd DataLabel="Date">@context.RepaymentDate.ToString("dd MMM yyyy")</MudTd>
+                                    <MudTd DataLabel="Amount">@FormatCurrency(context.Amount)</MudTd>
+                                    <MudTd DataLabel="Reference">@DisplayValue(context.Reference)</MudTd>
+                                </RowTemplate>
+                            </MudTable>
+                        </MudPaper>
+                    </MudItem>
+                </MudGrid>
+            }
+        </MudTabPanel>
+    </MudTabs>
+</MudStack>
 
 @code {
-	private List<CoreBanker.Services.GroupDto> Groups = new();
-	private CoreBanker.Services.GroupDto? SelectedGroup;
-	private List<CoreBanker.Services.GroupMeetingDto> Meetings = new();
+    private List<CoreBanker.Services.LendingGroupDto> _groups = new();
+    private List<CoreBanker.Services.LendingCenterDto> _centers = new();
+    private List<CoreBanker.Services.ClientDto> _clients = new();
+    private List<CoreBanker.Services.LoanProductDefinitionDto> _loanProducts = new();
+    private List<CoreBanker.Services.GroupLoanApplicationDto> _recentApplications = new();
+    private List<CoreBanker.Services.GroupMeetingDto> _recentMeetings = new();
+    private List<CoreBanker.Services.GroupParReportItemDto> _parReport = new();
+    private List<CoreBanker.Services.GroupReportRowDto> _officerPerformance = new();
+    private List<CoreBanker.Services.GroupReportRowDto> _cycleAnalysis = new();
+    private List<CoreBanker.Services.GroupReportRowDto> _delinquency = new();
+    private List<CoreBanker.Services.GroupReportRowDto> _meetingCollections = new();
+    private List<CoreBanker.Services.GroupMeetingAttendanceLineDto> _attendanceDraft = new();
+    private List<CoreBanker.Services.GroupCollectionBatchLineRequest> _batchDraftLines = new();
+    private CoreBanker.Services.GroupPortfolioSummaryDto? _summary;
+    private CoreBanker.Services.LendingGroupDto? _selectedGroup;
+    private CoreBanker.Services.GroupLoanApplicationDto? _selectedApplication;
+    private CoreBanker.Services.GroupMeetingDto? _selectedMeetingDetail;
+    private CoreBanker.Services.GroupCollectionBatchDto? _selectedBatch;
+    private CoreBanker.Services.GroupLoanStatementDto? _selectedLoanStatement;
+    private string _message = string.Empty;
+    private bool _isSuccess;
+    private bool _isBusy;
+    private string _newGroupName = string.Empty;
+    private string _newGroupLocation = string.Empty;
+    private string _newGroupOfficerId = string.Empty;
+    private string _newCenterCode = string.Empty;
+    private string _newCenterName = string.Empty;
+    private string _selectedCustomerId = string.Empty;
+    private string _applicationGroupId = string.Empty;
+    private string _applicationProductId = string.Empty;
+    private decimal _applicationAmountPerMember = 500m;
+    private string _meetingGroupId = string.Empty;
+    private string _selectedMeetingId = string.Empty;
+    private DateOnly _meetingDate = DateOnly.FromDateTime(DateTime.Today);
+    private DateTime? _meetingDateTime = DateTime.Today;
+    private string _batchGroupId = string.Empty;
+    private string _batchMeetingId = string.Empty;
+    private DateOnly _batchCollectionDate = DateOnly.FromDateTime(DateTime.Today);
+    private DateTime? _batchCollectionDateTime = DateTime.Today;
+    private string _batchOfficerId = string.Empty;
+    private string _batchReferenceNo = string.Empty;
+    private string _batchChannel = "CASH";
+    private string _groupLoanId = string.Empty;
+    private int _newTermInPeriods = 12;
+    private decimal? _newAnnualRate;
+    private string _newRepaymentFrequency = "Weekly";
+    private string _rescheduleReason = string.Empty;
 
-	protected override async Task OnInitializedAsync()
-	{
-		Groups = await GroupLendingService.GetGroupsAsync();
-	}
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadWorkspaceAsync();
+    }
 
-	protected override async Task OnParametersSetAsync()
-	{
-		if (SelectedGroup != null)
-		{
-			Meetings = await GroupLendingService.GetMeetingsAsync(SelectedGroup.Id ?? string.Empty);
-		}
-	}
+    private IEnumerable<CoreBanker.Services.ClientDto> AvailableCustomers =>
+        _selectedGroup is null ? Enumerable.Empty<CoreBanker.Services.ClientDto>() : _clients.Where(client => _selectedGroup.Members.All(member => member.CustomerId != client.Id));
 
-	private async Task OnGroupSelected(CoreBanker.Services.GroupDto group)
-	{
-		SelectedGroup = group;
-		Meetings = await GroupLendingService.GetMeetingsAsync(group.Id ?? string.Empty);
-		StateHasChanged();
-	}
+    private IEnumerable<CoreBanker.Services.LoanProductDefinitionDto> GroupLoanProducts =>
+        _loanProducts.Where(product => product.IsActive && (product.ProductType.Contains("Group", StringComparison.OrdinalIgnoreCase) || product.Code.Contains("GROUP", StringComparison.OrdinalIgnoreCase) || product.RepaymentFrequency.Equals("Weekly", StringComparison.OrdinalIgnoreCase)));
 
-	private static string DisplayValue(string? value)
-	{
-		return string.IsNullOrWhiteSpace(value) ? "Not available" : value;
-	}
+    private IEnumerable<CoreBanker.Services.GroupMeetingDto> BatchMeetings =>
+        string.IsNullOrWhiteSpace(_batchGroupId) ? Enumerable.Empty<CoreBanker.Services.GroupMeetingDto>() : _recentMeetings.Where(meeting => meeting.GroupId == _batchGroupId);
+
+    private bool CanCreateBatch =>
+        _batchDraftLines.Any(line => !string.IsNullOrWhiteSpace(line.LoanAccountId) && line.AmountCollected > 0m);
+
+    private bool CanPostSelectedBatch =>
+        _selectedBatch is not null && _selectedBatch.Status.Equals("OPEN", StringComparison.OrdinalIgnoreCase);
+
+    private bool CanReverseSelectedBatch =>
+        _selectedBatch is not null && _selectedBatch.Status.Equals("POSTED", StringComparison.OrdinalIgnoreCase);
+
+    private async Task LoadWorkspaceAsync()
+    {
+        try
+        {
+            var groupsTask = GroupLendingService.GetGroupsAsync();
+            var centersTask = GroupLendingService.GetCentersAsync();
+            var clientsTask = ClientService.GetClientsAsync();
+            var productsTask = LoanService.GetLoanProductsAsync();
+            var summaryTask = GroupLendingService.GetGroupPerformanceAsync();
+            var parTask = GroupLendingService.GetParReportAsync();
+            var officerTask = GroupLendingService.GetOfficerPerformanceAsync();
+            var cycleTask = GroupLendingService.GetCycleAnalysisAsync();
+            var delinquencyTask = GroupLendingService.GetDelinquencyReportAsync();
+            var collectionsTask = GroupLendingService.GetMeetingCollectionsReportAsync();
+            await Task.WhenAll(groupsTask, centersTask, clientsTask, productsTask, summaryTask, parTask, officerTask, cycleTask, delinquencyTask, collectionsTask);
+            _groups = groupsTask.Result;
+            _centers = centersTask.Result;
+            _clients = clientsTask.Result;
+            _loanProducts = productsTask.Result;
+            _summary = summaryTask.Result;
+            _parReport = parTask.Result;
+            _officerPerformance = officerTask.Result;
+            _cycleAnalysis = cycleTask.Result;
+            _delinquency = delinquencyTask.Result;
+            _meetingCollections = collectionsTask.Result;
+            if (_selectedGroup is not null)
+            {
+                _selectedGroup = _groups.FirstOrDefault(group => group.Id == _selectedGroup.Id);
+            }
+            if (_selectedApplication is not null)
+            {
+                _selectedApplication = _recentApplications.FirstOrDefault(app => app.Id == _selectedApplication.Id) ?? _selectedApplication;
+            }
+        }
+        catch (CoreBanker.Services.ApiClientException ex)
+        {
+            _isSuccess = false;
+            _message = ex.Message;
+        }
+    }
+
+    private void SelectGroup(CoreBanker.Services.LendingGroupDto group)
+    {
+        _selectedGroup = group;
+        _applicationGroupId = group.Id;
+        _meetingGroupId = group.Id;
+        _batchGroupId = group.Id;
+        _batchOfficerId = group.AssignedOfficerId ?? string.Empty;
+        _selectedCustomerId = string.Empty;
+        SeedBatchLines();
+    }
+
+    private async Task CreateGroupAsync()
+    {
+        await RunAsync(async () =>
+        {
+            var created = await GroupLendingService.CreateGroupAsync(new CoreBanker.Services.CreateLendingGroupRequest { GroupName = _newGroupName, MeetingLocation = _newGroupLocation, AssignedOfficerId = _newGroupOfficerId, MeetingDayOfWeek = "Tuesday" });
+            _message = created is null ? "Group created." : $"Group {created.GroupName} created successfully.";
+            _newGroupName = string.Empty;
+            _newGroupLocation = string.Empty;
+            _newGroupOfficerId = string.Empty;
+            await LoadWorkspaceAsync();
+        });
+    }
+
+    private async Task CreateCenterAsync()
+    {
+        await RunAsync(async () =>
+        {
+            var created = await GroupLendingService.CreateCenterAsync(new CoreBanker.Services.CreateLendingCenterRequest { CenterCode = _newCenterCode, CenterName = _newCenterName, MeetingDayOfWeek = "Tuesday" });
+            _message = created is null ? "Center created." : $"Center {created.CenterName} created successfully.";
+            _newCenterCode = string.Empty;
+            _newCenterName = string.Empty;
+        });
+    }
+
+    private async Task AddMemberAsync()
+    {
+        if (_selectedGroup is null) return;
+        await RunAsync(async () =>
+        {
+            var member = await GroupLendingService.AddMemberAsync(_selectedGroup.Id, new CoreBanker.Services.AddLendingGroupMemberRequest { CustomerId = _selectedCustomerId });
+            _message = member is null ? "Member added." : $"{member.CustomerName} added successfully.";
+            _selectedCustomerId = string.Empty;
+            await LoadWorkspaceAsync();
+        });
+    }
+
+    private async Task CreateApplicationAsync()
+    {
+        var group = _groups.FirstOrDefault(item => item.Id == _applicationGroupId);
+        var product = GroupLoanProducts.FirstOrDefault(item => item.Id == _applicationProductId);
+        if (group is null || product is null) return;
+
+        await RunAsync(async () =>
+        {
+            var created = await GroupLendingService.CreateApplicationAsync(new CoreBanker.Services.CreateGroupLoanApplicationRequest
+            {
+                GroupId = group.Id,
+                ProductId = product.Id,
+                BranchId = group.BranchId,
+                OfficerId = group.AssignedOfficerId,
+                Members = group.Members.Where(member => member.Status == "ACTIVE").Select(member => new CoreBanker.Services.GroupLoanApplicationMemberRequest
+                {
+                    GroupMemberId = member.Id,
+                    RequestedAmount = _applicationAmountPerMember,
+                    TenureWeeks = Math.Max(product.TermInPeriods, 1),
+                    InterestRate = product.AnnualInterestRate,
+                    InterestMethod = product.InterestMethod,
+                    RepaymentFrequency = product.RepaymentFrequency
+                }).ToList()
+            });
+            if (created is not null) _recentApplications.Insert(0, created);
+            _selectedApplication = created;
+            _message = created is null ? "Application created." : $"Application {created.Id} created.";
+        });
+    }
+
+    private async Task SubmitApplicationAsync(string id) => await MutateApplicationAsync(async () => await GroupLendingService.SubmitApplicationAsync(id), $"Application {id} submitted.");
+    private async Task ApproveApplicationAsync(string id) => await MutateApplicationAsync(async () => await GroupLendingService.ApproveApplicationAsync(id, new CoreBanker.Services.ApproveGroupLoanApplicationRequest { DecisionNotes = "Approved from CoreBanker." }), $"Application {id} approved.");
+    private async Task RejectApplicationAsync(string id) => await MutateApplicationAsync(async () => await GroupLendingService.RejectApplicationAsync(id, new CoreBanker.Services.RejectGroupLoanApplicationRequest { Reason = "Rejected from CoreBanker." }), $"Application {id} rejected.");
+    private async Task DisburseApplicationAsync(string id) => await MutateApplicationAsync(async () => await GroupLendingService.DisburseApplicationAsync(id, new CoreBanker.Services.DisburseGroupLoanApplicationRequest { DisbursementDate = DateOnly.FromDateTime(DateTime.Today) }), $"Application {id} disbursed.");
+
+    private async Task CreateMeetingAsync()
+    {
+        await RunAsync(async () =>
+        {
+            var created = await GroupLendingService.CreateMeetingAsync(new CoreBanker.Services.CreateGroupMeetingRequest { GroupId = _meetingGroupId, MeetingDate = _meetingDate });
+            if (created is not null) _recentMeetings.Insert(0, created);
+            _message = created is null ? "Meeting created." : $"Meeting {created.Id} created.";
+        });
+    }
+
+    private async Task MutateApplicationAsync(Func<Task<CoreBanker.Services.GroupLoanApplicationDto?>> action, string success)
+    {
+        await RunAsync(async () =>
+        {
+            var updated = await action();
+            if (updated is not null)
+            {
+                var index = _recentApplications.FindIndex(item => item.Id == updated.Id);
+                if (index >= 0) _recentApplications[index] = updated; else _recentApplications.Insert(0, updated);
+                _selectedApplication = updated;
+            }
+            _message = success;
+        });
+    }
+
+    private async Task RunAsync(Func<Task> action)
+    {
+        _isBusy = true;
+        try
+        {
+            await action();
+            _isSuccess = true;
+        }
+        catch (CoreBanker.Services.ApiClientException ex)
+        {
+            _isSuccess = false;
+            _message = ex.Message;
+        }
+        finally
+        {
+            _isBusy = false;
+        }
+    }
+
+    private void OnMeetingDateChanged(DateTime? value)
+    {
+        _meetingDateTime = value;
+        _meetingDate = DateOnly.FromDateTime((value ?? DateTime.Today).Date);
+    }
+
+    private async Task OnMeetingSelectedAsync(string meetingId)
+    {
+        _selectedMeetingId = meetingId;
+        if (string.IsNullOrWhiteSpace(meetingId))
+        {
+            _selectedMeetingDetail = null;
+            _attendanceDraft = new();
+            return;
+        }
+
+        await RunAsync(async () =>
+        {
+            _selectedMeetingDetail = await GroupLendingService.GetMeetingAsync(meetingId);
+            _attendanceDraft = _selectedMeetingDetail?.Attendances.Any() == true
+                ? _selectedMeetingDetail.Attendances.Select(line => new CoreBanker.Services.GroupMeetingAttendanceLineDto
+                {
+                    GroupMemberId = line.GroupMemberId,
+                    CustomerId = line.CustomerId,
+                    AttendanceStatus = line.AttendanceStatus,
+                    ArrivalTime = line.ArrivalTime,
+                    Notes = line.Notes
+                }).ToList()
+                : BuildAttendanceDraft(_selectedMeetingDetail?.GroupId);
+        });
+    }
+
+    private async Task RecordAttendanceAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_selectedMeetingId))
+        {
+            return;
+        }
+
+        await RunAsync(async () =>
+        {
+            _selectedMeetingDetail = await GroupLendingService.RecordAttendanceAsync(_selectedMeetingId, new CoreBanker.Services.GroupMeetingAttendanceRequest
+            {
+                Attendances = _attendanceDraft
+            });
+            _message = $"Attendance saved for meeting {_selectedMeetingId}.";
+            _attendanceDraft = _selectedMeetingDetail?.Attendances.ToList() ?? new();
+            await RefreshMeetingListAsync();
+        });
+    }
+
+    private async Task CloseMeetingAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_selectedMeetingId))
+        {
+            return;
+        }
+
+        await RunAsync(async () =>
+        {
+            _selectedMeetingDetail = await GroupLendingService.CloseMeetingAsync(_selectedMeetingId);
+            _message = $"Meeting {_selectedMeetingId} closed.";
+            await RefreshMeetingListAsync();
+        });
+    }
+
+    private async Task LoadGroupLoanAsync()
+    {
+        await RunAsync(async () =>
+        {
+            _selectedLoanStatement = await GroupLendingService.GetLoanStatementAsync(_groupLoanId);
+            _message = _selectedLoanStatement is null ? "Loan statement loaded." : $"Loaded loan {_selectedLoanStatement.LoanId}.";
+        });
+    }
+
+    private async Task RescheduleGroupLoanAsync()
+    {
+        await RunAsync(async () =>
+        {
+            _selectedLoanStatement = await GroupLendingService.RescheduleLoanAsync(_groupLoanId, new CoreBanker.Services.GroupLoanRescheduleRequest
+            {
+                LoanId = _groupLoanId,
+                NewTermInPeriods = _newTermInPeriods,
+                NewAnnualRate = _newAnnualRate,
+                NewRepaymentFrequency = string.IsNullOrWhiteSpace(_newRepaymentFrequency) ? null : _newRepaymentFrequency,
+                Reason = _rescheduleReason
+            });
+            _message = $"Loan {_groupLoanId} rescheduled successfully.";
+        });
+    }
+
+    private async Task RefreshMeetingListAsync()
+    {
+        if (_selectedMeetingDetail is not null)
+        {
+            var refreshed = await GroupLendingService.GetMeetingAsync(_selectedMeetingDetail.Id);
+            if (refreshed is not null)
+            {
+                var idx = _recentMeetings.FindIndex(item => item.Id == refreshed.Id);
+                if (idx >= 0) _recentMeetings[idx] = refreshed; else _recentMeetings.Insert(0, refreshed);
+                _selectedMeetingDetail = refreshed;
+            }
+        }
+    }
+
+    private Task OnBatchGroupChanged(string groupId)
+    {
+        _batchGroupId = groupId;
+        _batchMeetingId = string.Empty;
+        _selectedBatch = null;
+        var group = _groups.FirstOrDefault(item => item.Id == groupId);
+        _batchOfficerId = group?.AssignedOfficerId ?? string.Empty;
+        SeedBatchLines();
+        return Task.CompletedTask;
+    }
+
+    private Task OnBatchMeetingChanged(string meetingId)
+    {
+        _batchMeetingId = meetingId;
+        return Task.CompletedTask;
+    }
+
+    private void OnBatchCollectionDateChanged(DateTime? value)
+    {
+        _batchCollectionDateTime = value;
+        _batchCollectionDate = DateOnly.FromDateTime((value ?? DateTime.Today).Date);
+    }
+
+    private void SeedBatchLines()
+    {
+        var group = _groups.FirstOrDefault(item => item.Id == _batchGroupId);
+        _batchDraftLines = group?.Members
+            .Where(member => member.Status.Equals("ACTIVE", StringComparison.OrdinalIgnoreCase))
+            .Select(member => new CoreBanker.Services.GroupCollectionBatchLineRequest
+            {
+                GroupMemberId = member.Id,
+                CustomerId = member.CustomerId
+            })
+            .ToList() ?? new List<CoreBanker.Services.GroupCollectionBatchLineRequest>();
+    }
+
+    private async Task CreateCollectionBatchAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_batchGroupId))
+        {
+            return;
+        }
+
+        await RunAsync(async () =>
+        {
+            var group = _groups.FirstOrDefault(item => item.Id == _batchGroupId);
+            var request = new CoreBanker.Services.CreateGroupCollectionBatchRequest
+            {
+                GroupId = _batchGroupId,
+                GroupMeetingId = string.IsNullOrWhiteSpace(_batchMeetingId) ? null : _batchMeetingId,
+                BranchId = group?.BranchId ?? "BR001",
+                OfficerId = string.IsNullOrWhiteSpace(_batchOfficerId) ? null : _batchOfficerId,
+                CollectionDate = _batchCollectionDate,
+                Channel = string.IsNullOrWhiteSpace(_batchChannel) ? "CASH" : _batchChannel,
+                ReferenceNo = string.IsNullOrWhiteSpace(_batchReferenceNo) ? null : _batchReferenceNo,
+                Lines = _batchDraftLines
+                    .Where(line => !string.IsNullOrWhiteSpace(line.LoanAccountId) && line.AmountCollected > 0m)
+                    .ToList()
+            };
+
+            _selectedBatch = await GroupLendingService.CreateCollectionBatchAsync(request);
+            _message = _selectedBatch is null ? "Collection batch created." : $"Collection batch {_selectedBatch.Id} created.";
+        });
+    }
+
+    private async Task RefreshSelectedBatchAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_selectedBatch?.Id))
+        {
+            return;
+        }
+
+        await RunAsync(async () =>
+        {
+            _selectedBatch = await GroupLendingService.GetCollectionBatchAsync(_selectedBatch.Id);
+            _message = $"Collection batch {_selectedBatch?.Id ?? string.Empty} refreshed.";
+        });
+    }
+
+    private async Task PostSelectedBatchAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_selectedBatch?.Id))
+        {
+            return;
+        }
+
+        await RunAsync(async () =>
+        {
+            _selectedBatch = await GroupLendingService.PostCollectionBatchAsync(_selectedBatch.Id);
+            _message = $"Collection batch {_selectedBatch?.Id ?? string.Empty} posted.";
+            await LoadWorkspaceAsync();
+        });
+    }
+
+    private async Task ReverseSelectedBatchAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_selectedBatch?.Id))
+        {
+            return;
+        }
+
+        await RunAsync(async () =>
+        {
+            _selectedBatch = await GroupLendingService.ReverseCollectionBatchAsync(_selectedBatch.Id);
+            _message = $"Collection batch {_selectedBatch?.Id ?? string.Empty} reversed.";
+            await LoadWorkspaceAsync();
+        });
+    }
+
+    private List<CoreBanker.Services.GroupMeetingAttendanceLineDto> BuildAttendanceDraft(string? groupId)
+    {
+        var members = _groups.FirstOrDefault(group => group.Id == groupId)?.Members ?? new List<CoreBanker.Services.GroupMemberSummaryDto>();
+        return members.Select(member => new CoreBanker.Services.GroupMeetingAttendanceLineDto
+        {
+            GroupMemberId = member.Id,
+            CustomerId = member.CustomerId,
+            AttendanceStatus = "PRESENT"
+        }).ToList();
+    }
+
+    private void UpdateAttendanceStatus(CoreBanker.Services.GroupMeetingAttendanceLineDto line, string value)
+    {
+        line.AttendanceStatus = value;
+    }
+
+    private string GetMemberName(string? customerId)
+    {
+        if (string.IsNullOrWhiteSpace(customerId))
+        {
+            return "Unknown member";
+        }
+
+        return _clients.FirstOrDefault(client => client.Id == customerId)?.Name ?? customerId;
+    }
+
+    private static string GetField(CoreBanker.Services.GroupReportRowDto row, string key) => row.Fields.TryGetValue(key, out var value) ? value : "-";
+    private static string DisplayValue(string? value) => string.IsNullOrWhiteSpace(value) ? "Not provided" : value;
+    private static string FormatCurrency(decimal amount) => amount.ToString("C");
 }

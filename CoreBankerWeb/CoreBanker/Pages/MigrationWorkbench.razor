@@ -1,5 +1,239 @@
 @page "/migration"
 @layout CoreBanker.Layouts.MainLayout
 
-<MudText Typo="Typo.h4">Migration Workbench</MudText>
-<!-- TODO: Implement dataset catalog, CSV import, preview, results -->
+@using Microsoft.AspNetCore.Components.Forms
+@inject CoreBanker.Services.MigrationService MigrationService
+
+<MudGrid>
+    <MudItem xs="12" lg="6">
+        <MudStack Spacing="3">
+            <MudGrid>
+                <MudItem xs="12" sm="6">
+                    <MudPaper Class="pa-4">
+                        <MudText Typo="Typo.caption">Datasets</MudText>
+                        <MudText Typo="Typo.h5">@_datasets.Count</MudText>
+                    </MudPaper>
+                </MudItem>
+                <MudItem xs="12" sm="6">
+                    <MudPaper Class="pa-4">
+                        <MudText Typo="Typo.caption">Preview Rows</MudText>
+                        <MudText Typo="Typo.h5">@(_preview?.RowCount ?? 0)</MudText>
+                    </MudPaper>
+                </MudItem>
+            </MudGrid>
+            <MudPaper Class="pa-4">
+                <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+                    <div>
+                        <MudText Typo="Typo.h4">Migration Workbench</MudText>
+                        <MudText Typo="Typo.body2" Class="mud-text-secondary">Select a supported dataset, preview the uploaded CSV locally, and send the import to the migration backend.</MudText>
+                    </div>
+                    <MudButton Variant="Variant.Outlined" Color="Color.Secondary" OnClick="LoadDatasetsAsync">Refresh</MudButton>
+                </MudStack>
+            </MudPaper>
+
+            <MudPaper Class="pa-4">
+                <MudSelect @bind-Value="_selectedDatasetId" Label="Dataset" Variant="Variant.Outlined">
+                    @foreach (var dataset in _datasets.OrderBy(dataset => dataset.Name))
+                    {
+                        <MudSelectItem Value="@dataset.Id">@($"{dataset.Name} ({dataset.Id})")</MudSelectItem>
+                    }
+                </MudSelect>
+                <MudText Typo="Typo.body2" Class="mud-text-secondary mt-2">@SelectedDatasetDescription</MudText>
+
+                <div class="mt-4">
+                    <InputFile OnChange="HandleFileSelectedAsync" accept=".csv" />
+                </div>
+
+                @if (!string.IsNullOrWhiteSpace(_selectedFileName))
+                {
+                    <MudText Typo="Typo.body2" Class="mt-3">Selected file: @_selectedFileName</MudText>
+                }
+
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="mt-4" Disabled="@(!_canImport || _isImporting)" OnClick="ImportAsync">Run Import</MudButton>
+            </MudPaper>
+
+            @if (!string.IsNullOrWhiteSpace(_message))
+            {
+                <MudAlert Severity="@(_isSuccess ? Severity.Success : Severity.Error)">@_message</MudAlert>
+            }
+
+            @if (_importErrors.Count > 0)
+            {
+                <MudPaper Class="pa-4">
+                    <MudText Typo="Typo.subtitle1">Import Errors</MudText>
+                    <MudList T="string" Dense="true" Class="mt-2">
+                        @foreach (var error in _importErrors)
+                        {
+                            <MudListItem T="string" Text="@error" />
+                        }
+                    </MudList>
+                </MudPaper>
+            }
+        </MudStack>
+    </MudItem>
+
+    <MudItem xs="12" lg="6">
+        <MudStack Spacing="3">
+            <MudPaper Class="pa-4">
+                <MudText Typo="Typo.h5">CSV Preview</MudText>
+                @if (_preview is null)
+                {
+                    <MudText Typo="Typo.body2" Class="mud-text-secondary mt-2">Upload a CSV file to preview the header and first rows before importing.</MudText>
+                }
+                else
+                {
+                    <MudText Typo="Typo.body2" Class="mud-text-secondary">Detected @_preview.RowCount row(s) in the local preview.</MudText>
+                    <MudTable T="List<string>" Items="@_preview.Rows" Dense="true" Hover="true" Class="mt-3">
+                        <HeaderContent>
+                            @foreach (var header in _preview.Headers)
+                            {
+                                <MudTh>@header</MudTh>
+                            }
+                        </HeaderContent>
+                        <RowTemplate>
+                            @for (var index = 0; index < _preview.Headers.Count; index++)
+                            {
+                                <MudTd DataLabel="@_preview.Headers[index]">@GetCell(context, index)</MudTd>
+                            }
+                        </RowTemplate>
+                    </MudTable>
+                }
+            </MudPaper>
+        </MudStack>
+    </MudItem>
+</MudGrid>
+
+@code {
+    private const long MaxUploadSize = 25 * 1024 * 1024;
+
+    private List<CoreBanker.Services.MigrationDatasetDto> _datasets = new();
+    private CoreBanker.Services.MigrationPreviewDto? _preview;
+    private byte[]? _fileBytes;
+    private string _selectedDatasetId = string.Empty;
+    private string _selectedFileName = string.Empty;
+    private string _message = string.Empty;
+    private List<string> _importErrors = new();
+    private bool _isSuccess;
+    private bool _isImporting;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadDatasetsAsync();
+    }
+
+    private async Task LoadDatasetsAsync()
+    {
+        try
+        {
+            _datasets = await MigrationService.GetDatasetsAsync();
+        }
+        catch (CoreBanker.Services.ApiClientException ex)
+        {
+            _isSuccess = false;
+            _message = ex.Message;
+        }
+    }
+
+    private async Task HandleFileSelectedAsync(InputFileChangeEventArgs args)
+    {
+        var file = args.File;
+        if (file is null)
+        {
+            return;
+        }
+
+        await using var stream = file.OpenReadStream(MaxUploadSize);
+        await using var memoryStream = new MemoryStream();
+        await stream.CopyToAsync(memoryStream);
+        _fileBytes = memoryStream.ToArray();
+        _selectedFileName = file.Name;
+        _preview = BuildPreview(_fileBytes);
+        _message = string.Empty;
+        _importErrors.Clear();
+    }
+
+    private async Task ImportAsync()
+    {
+        if (!_canImport || _fileBytes is null)
+        {
+            return;
+        }
+
+        _isImporting = true;
+        _message = string.Empty;
+        _importErrors.Clear();
+
+        try
+        {
+            await using var stream = new MemoryStream(_fileBytes, writable: false);
+            var result = await MigrationService.ImportAsync(_selectedDatasetId, stream, _selectedFileName);
+            _isSuccess = result?.Success ?? true;
+            _message = result?.Message ?? "Import completed.";
+
+            if (result?.Errors?.Count > 0)
+            {
+                _isSuccess = false;
+                _importErrors = result.Errors.ToList();
+                _message = $"Import completed with {_importErrors.Count} issue(s).";
+            }
+        }
+        catch (CoreBanker.Services.ApiClientException ex)
+        {
+            _isSuccess = false;
+            _message = ex.Message;
+        }
+        finally
+        {
+            _isImporting = false;
+        }
+    }
+
+    private string SelectedDatasetDescription =>
+        _datasets.FirstOrDefault(dataset => dataset.Id == _selectedDatasetId)?.Description ?? "Choose a dataset to see its migration target.";
+
+    private bool _canImport => !string.IsNullOrWhiteSpace(_selectedDatasetId) && _fileBytes is { Length: > 0 };
+
+    private static CoreBanker.Services.MigrationPreviewDto BuildPreview(byte[] fileBytes)
+    {
+        using var stream = new MemoryStream(fileBytes, writable: false);
+        using var reader = new StreamReader(stream);
+
+        var rows = new List<List<string>>();
+        var rowCount = 0;
+        List<string>? headers = null;
+
+        while (!reader.EndOfStream)
+        {
+            var line = reader.ReadLine();
+            if (line is null)
+            {
+                continue;
+            }
+
+            var parsed = line.Split(',').Select(cell => cell.Trim()).ToList();
+            if (headers is null)
+            {
+                headers = parsed;
+                continue;
+            }
+
+            rowCount++;
+            if (rows.Count < 10)
+            {
+                rows.Add(parsed);
+            }
+        }
+
+        return new CoreBanker.Services.MigrationPreviewDto
+        {
+            Headers = headers ?? new List<string>(),
+            Rows = rows,
+            RowCount = rowCount
+        };
+    }
+
+    private static string GetCell(List<string> row, int index)
+    {
+        return index < row.Count ? row[index] : string.Empty;
+    }
+}

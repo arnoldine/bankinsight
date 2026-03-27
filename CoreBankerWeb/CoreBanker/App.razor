@@ -22,6 +22,10 @@ else
             {
                 Navigation.NavigateTo("/login", true);
             }
+            else if (RequiresPermission(routeData.PageType, out var permission) && !AuthStateProvider.HasPermission(permission))
+            {
+                Navigation.NavigateTo($"/access-denied?required={Uri.EscapeDataString(permission)}", true);
+            }
             else
             {
                 <RouteView RouteData="@routeData" DefaultLayout="@typeof(Layouts.MainLayout)"/>
@@ -37,33 +41,38 @@ else
         await AuthService.InitializeAsync();
     }
 
-    private static readonly HashSet<Type> ProtectedPages = new()
+    private static readonly Dictionary<Type, string> ProtectedPagePermissions = new()
     {
-        typeof(Pages.Dashboard),
-        typeof(Pages.Clients),
-        typeof(Pages.Accounts),
-        typeof(Pages.Teller),
-        typeof(Pages.Transactions),
-        typeof(Pages.LoanManagement),
-        typeof(Pages.Approvals),
-        typeof(Pages.Accounting),
-        typeof(Pages.Reporting),
-        typeof(Pages.Audit),
-        typeof(Pages.SecurityOps),
-        typeof(Pages.MigrationWorkbench),
-        typeof(Pages.BankingOSControl),
-        typeof(Pages.GroupLending),
-        typeof(Pages.Treasury),
-        typeof(Pages.Vault),
-        typeof(Pages.OperationsRisk),
-        typeof(Pages.Products),
-        typeof(Pages.Settings),
-        typeof(Pages.Statements),
-        typeof(Pages.WorkspaceViews),
-        typeof(Pages.Extensibility),
-        typeof(Pages.EndOfDay)
+        [typeof(Pages.Dashboard)] = "dashboard.view",
+        [typeof(Pages.Clients)] = "customers.view",
+        [typeof(Pages.ClientsOnboard)] = "customers.create",
+        [typeof(Pages.Accounts)] = "accounts.view",
+        [typeof(Pages.Teller)] = "transactions.create",
+        [typeof(Pages.Transactions)] = "transactions.view",
+        [typeof(Pages.LoanManagement)] = "loans.view",
+        [typeof(Pages.Approvals)] = "approvals.view",
+        [typeof(Pages.Accounting)] = "gl.view",
+        [typeof(Pages.Reporting)] = "reports.view",
+        [typeof(Pages.Audit)] = "audit.view",
+        [typeof(Pages.Security)] = "security.view",
+        [typeof(Pages.SecurityOps)] = "security.view",
+        [typeof(Pages.MigrationWorkbench)] = "migration.view",
+        [typeof(Pages.BankingOSControl)] = "bankingos.view",
+        [typeof(Pages.GroupLending)] = "groups.view",
+        [typeof(Pages.Treasury)] = "treasury.view",
+        [typeof(Pages.Vault)] = "vault.view",
+        [typeof(Pages.OperationsRisk)] = "operations.view",
+        [typeof(Pages.Products)] = "products.view",
+        [typeof(Pages.Settings)] = "settings.view",
+        [typeof(Pages.Statements)] = "statements.view",
+        [typeof(Pages.WorkspaceViews)] = "workspaces.view",
+        [typeof(Pages.Extensibility)] = "extensibility.view",
+        [typeof(Pages.EndOfDay)] = "eod.view"
     };
 
     private bool IsProtectedRoute(Type pageType)
-        => ProtectedPages.Contains(pageType);
+        => ProtectedPagePermissions.ContainsKey(pageType);
+
+    private static bool RequiresPermission(Type pageType, out string permission)
+        => ProtectedPagePermissions.TryGetValue(pageType, out permission!);
 }

@@ -9,8 +9,30 @@ namespace CoreBanker.Services
 
         public async Task<UserDto> GetCurrentUserAsync()
         {
-            // TODO: Call backend API to get current user
-            return new UserDto { Id = "1", Email = "user@bank.com", Roles = new[] { "Admin" }, Permissions = new[] { "Dashboard.View" } };
+            var currentUser = await GetAsync<CurrentUserApiModel>("/api/auth/me");
+            if (currentUser is null)
+            {
+                return new UserDto();
+            }
+
+            return new UserDto
+            {
+                Id = currentUser.Id ?? string.Empty,
+                Name = currentUser.Name ?? string.Empty,
+                Email = currentUser.Email ?? string.Empty,
+                Role = currentUser.Role ?? string.Empty,
+                Roles = string.IsNullOrWhiteSpace(currentUser.Role) ? Array.Empty<string>() : [currentUser.Role],
+                Permissions = currentUser.Permissions ?? Array.Empty<string>()
+            };
+        }
+
+        private sealed class CurrentUserApiModel
+        {
+            public string? Id { get; set; }
+            public string? Name { get; set; }
+            public string? Email { get; set; }
+            public string? Role { get; set; }
+            public string[]? Permissions { get; set; }
         }
     }
 }

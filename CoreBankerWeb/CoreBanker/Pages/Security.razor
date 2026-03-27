@@ -1,158 +1,102 @@
 @page "/security"
 @layout CoreBanker.Layouts.MainLayout
 
-<MudText Typo="Typo.h4">Security Operations</MudText>
+@inject CoreBanker.Services.SecurityService SecurityService
+@inject NavigationManager Navigation
 
-<MudTabs>
-    <MudTabPanel Text="Overview">
-        <MudPaper Class="pa-4">
-            <MudText Typo="Typo.h6">Security Summary</MudText>
-            <MudTable Items="_alerts" Hover="true" Dense="true">
-                <HeaderContent>
-                    <MudTh>Type</MudTh>
-                    <MudTh>Message</MudTh>
-                    <MudTh>Severity</MudTh>
-                    <MudTh>Timestamp</MudTh>
-                </HeaderContent>
-                <RowTemplate>
-                    <MudTd DataLabel="Type">@context.Type</MudTd>
-                    <MudTd DataLabel="Message">@context.Message</MudTd>
-                    <MudTd DataLabel="Severity">
-                        <MudChip T="string" Color="@(context.Severity == "High" ? Color.Error : context.Severity == "Medium" ? Color.Warning : Color.Info)">@context.Severity</MudChip>
-                    </MudTd>
-                    <MudTd DataLabel="Timestamp">@context.Timestamp</MudTd>
-                </RowTemplate>
-            </MudTable>
-        </MudPaper>
-    </MudTabPanel>
-    <MudTabPanel Text="Terminal Registry">
-        <MudPaper Class="pa-4">
-            <MudText Typo="Typo.h6">Terminals</MudText>
-            <MudTable Items="_terminals" Hover="true" Dense="true">
-                <HeaderContent>
-                    <MudTh>ID</MudTh>
-                    <MudTh>Branch</MudTh>
-                    <MudTh>Staff</MudTh>
-                    <MudTh>IP</MudTh>
-                    <MudTh>Status</MudTh>
-                    <MudTh>Risk</MudTh>
-                    <MudTh>Version</MudTh>
-                    <MudTh></MudTh>
-                </HeaderContent>
-                <RowTemplate>
-                    <MudTd DataLabel="ID">@context.Id</MudTd>
-                    <MudTd DataLabel="Branch">@context.Branch</MudTd>
-                    <MudTd DataLabel="Staff">@context.Staff</MudTd>
-                    <MudTd DataLabel="IP">@context.IP</MudTd>
-                    <MudTd DataLabel="Status">@context.Status</MudTd>
-                    <MudTd DataLabel="Risk">
-                        <MudChip T="string" Color="@(context.Risk == "High" ? Color.Error : context.Risk == "Medium" ? Color.Warning : Color.Info)">@context.Risk</MudChip>
-                    </MudTd>
-                    <MudTd DataLabel="Version">@context.Version</MudTd>
-                    <MudTd>
-                        <MudButton Variant="Variant.Outlined" Color="Color.Primary" OnClick="@(() => EditTerminal(context))">Edit</MudButton>
-                    </MudTd>
-                </RowTemplate>
-            </MudTable>
-        </MudPaper>
-    </MudTabPanel>
-    <MudTabPanel Text="Alerts">
-        <MudPaper Class="pa-4">
-            <MudText Typo="Typo.h6">Security Alerts</MudText>
-            <MudTable Items="_alerts" Hover="true" Dense="true">
-                <HeaderContent>
-                    <MudTh>Type</MudTh>
-                    <MudTh>Message</MudTh>
-                    <MudTh>Severity</MudTh>
-                    <MudTh>Timestamp</MudTh>
-                </HeaderContent>
-                <RowTemplate>
-                    <MudTd DataLabel="Type">@context.Type</MudTd>
-                    <MudTd DataLabel="Message">@context.Message</MudTd>
-                    <MudTd DataLabel="Severity">
-                        <MudChip T="string" Color="@(context.Severity == "High" ? Color.Error : context.Severity == "Medium" ? Color.Warning : Color.Info)">@context.Severity</MudChip>
-                    </MudTd>
-                    <MudTd DataLabel="Timestamp">@context.Timestamp</MudTd>
-                </RowTemplate>
-            </MudTable>
-        </MudPaper>
-    </MudTabPanel>
-</MudTabs>
+<MudStack Spacing="3">
+    <MudPaper Class="pa-4">
+        <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+            <div>
+                <MudText Typo="Typo.h4">Security Overview</MudText>
+                <MudText Typo="Typo.body2" Class="mud-text-secondary">Quick operational summary of alerts, device posture, and active user sessions.</MudText>
+            </div>
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="@(() => Navigation.NavigateTo("/security-ops"))">Open Security Ops</MudButton>
+        </MudStack>
+    </MudPaper>
 
-<MudDialog @bind-IsOpen="_editOpen" MaxWidth="MaxWidth.Medium">
-    <DialogContent>
-        <MudText Typo="Typo.h6">Edit Terminal</MudText>
-        @if (_editTerminal != null)
-        {
-            <MudForm @ref="_editForm" OnValidSubmit="SaveTerminal">
-                <MudTextField @bind-Value="_editTerminal.Branch" Label="Branch" />
-                <MudTextField @bind-Value="_editTerminal.Staff" Label="Staff" />
-                <MudTextField @bind-Value="_editTerminal.IP" Label="IP" />
-                <MudTextField @bind-Value="_editTerminal.Status" Label="Status" />
-                <MudTextField @bind-Value="_editTerminal.Risk" Label="Risk" />
-                <MudTextField @bind-Value="_editTerminal.Version" Label="Version" />
-                <MudButton Type="Submit" Variant="Variant.Filled" Color="Color.Primary">Save</MudButton>
-            </MudForm>
-        }
-    </DialogContent>
-    <DialogActions>
-        <MudButton OnClick="@(() => _editOpen = false)">Cancel</MudButton>
-    </DialogActions>
-</MudDialog>
+    @if (!string.IsNullOrWhiteSpace(_error))
+    {
+        <MudAlert Severity="Severity.Error">@_error</MudAlert>
+    }
+
+    <MudGrid>
+        <MudItem xs="12" sm="6" md="3"><MudCard><MudCardContent><MudText Typo="Typo.subtitle2">Alerts</MudText><MudText Typo="Typo.h5">@(_summary?.SecurityAlertCount ?? 0)</MudText></MudCardContent></MudCard></MudItem>
+        <MudItem xs="12" sm="6" md="3"><MudCard><MudCardContent><MudText Typo="Typo.subtitle2">Active Sessions</MudText><MudText Typo="Typo.h5">@(_summary?.ActiveSessions ?? 0)</MudText></MudCardContent></MudCard></MudItem>
+        <MudItem xs="12" sm="6" md="3"><MudCard><MudCardContent><MudText Typo="Typo.subtitle2">Outdated Devices</MudText><MudText Typo="Typo.h5">@(_summary?.OutdatedDevices ?? 0)</MudText></MudCardContent></MudCard></MudItem>
+        <MudItem xs="12" sm="6" md="3"><MudCard><MudCardContent><MudText Typo="Typo.subtitle2">Irregular Activity</MudText><MudText Typo="Typo.h5">@(_summary?.IrregularActivityCount ?? 0)</MudText></MudCardContent></MudCard></MudItem>
+    </MudGrid>
+
+    <MudGrid>
+        <MudItem xs="12" lg="7">
+            <MudPaper Class="pa-4">
+                <MudText Typo="Typo.h6">Recent Alerts</MudText>
+                <MudTable T="CoreBanker.Services.SecurityAlertDto" Items="@_alerts" Dense="true" Hover="true" Loading="@_isLoading" Class="mt-2">
+                    <HeaderContent>
+                        <MudTh>Action</MudTh>
+                        <MudTh>Status</MudTh>
+                        <MudTh>Date</MudTh>
+                    </HeaderContent>
+                    <RowTemplate>
+                        <MudTd DataLabel="Action">@context.Action</MudTd>
+                        <MudTd DataLabel="Status">@context.Status</MudTd>
+                        <MudTd DataLabel="Date">@context.CreatedAt.ToLocalTime().ToString("dd MMM yyyy HH:mm")</MudTd>
+                    </RowTemplate>
+                </MudTable>
+            </MudPaper>
+        </MudItem>
+        <MudItem xs="12" lg="5">
+            <MudPaper Class="pa-4">
+                <MudText Typo="Typo.h6">Flagged Devices</MudText>
+                <MudTable T="CoreBanker.Services.SecurityDeviceDto" Items="@FlaggedDevices" Dense="true" Hover="true" Loading="@_isLoading" Class="mt-2">
+                    <HeaderContent>
+                        <MudTh>Name</MudTh>
+                        <MudTh>Risk</MudTh>
+                        <MudTh>Software</MudTh>
+                    </HeaderContent>
+                    <RowTemplate>
+                        <MudTd DataLabel="Name">@context.Name</MudTd>
+                        <MudTd DataLabel="Risk">@context.RiskLevel</MudTd>
+                        <MudTd DataLabel="Software">@context.SoftwareStatus</MudTd>
+                    </RowTemplate>
+                </MudTable>
+            </MudPaper>
+        </MudItem>
+    </MudGrid>
+</MudStack>
 
 @code {
-    [Inject] private CoreBanker.Services.SecurityService? SecurityService { get; set; }
-    [Inject] private ISnackbar? Snackbar { get; set; }
-
-    private List<CoreBanker.Services.TerminalDto> _terminals = new();
+    private CoreBanker.Services.SecuritySummaryDto? _summary;
     private List<CoreBanker.Services.SecurityAlertDto> _alerts = new();
-    private bool _editOpen = false;
-    private CoreBanker.Services.TerminalDto? _editTerminal;
-    private MudForm? _editForm;
+    private List<CoreBanker.Services.SecurityDeviceDto> _devices = new();
+    private bool _isLoading;
+    private string _error = string.Empty;
 
     protected override async Task OnInitializedAsync()
     {
-        if (SecurityService != null)
+        _isLoading = true;
+        try
         {
-            _terminals = await SecurityService.GetTerminalsAsync();
-            _alerts = await SecurityService.GetAlertsAsync();
+            var summaryTask = SecurityService.GetSummaryAsync();
+            var alertsTask = SecurityService.GetAlertsAsync(10);
+            var devicesTask = SecurityService.GetDevicesAsync();
+            await Task.WhenAll(summaryTask, alertsTask, devicesTask);
+            _summary = summaryTask.Result;
+            _alerts = alertsTask.Result;
+            _devices = devicesTask.Result;
+        }
+        catch (CoreBanker.Services.ApiClientException ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _isLoading = false;
         }
     }
 
-    private void EditTerminal(CoreBanker.Services.TerminalDto terminal)
-    {
-        _editTerminal = new CoreBanker.Services.TerminalDto
-        {
-            Id = terminal.Id,
-            Branch = terminal.Branch,
-            Staff = terminal.Staff,
-            IP = terminal.IP,
-            Status = terminal.Status,
-            Risk = terminal.Risk,
-            Version = terminal.Version
-        };
-        _editOpen = true;
-    }
-
-    private async Task SaveTerminal()
-    {
-        if (_editForm != null)
-        {
-            await _editForm.ValidateAsync();
-            if (_editForm.IsValid && SecurityService != null && _editTerminal != null)
-            {
-                var success = await SecurityService.UpdateTerminalAsync(_editTerminal);
-                if (success && Snackbar != null)
-                {
-                    Snackbar.Add("Terminal updated.", Severity.Success);
-                    _terminals = await SecurityService.GetTerminalsAsync();
-                    _editOpen = false;
-                }
-                else if (Snackbar != null)
-                {
-                    Snackbar.Add("Failed to update terminal.", Severity.Error);
-                }
-            }
-        }
-    }
+    private IEnumerable<CoreBanker.Services.SecurityDeviceDto> FlaggedDevices =>
+        _devices.Where(device => device.RequiresReview || device.SoftwareStatus == "OUTDATED" || device.RiskLevel == "HIGH")
+            .OrderByDescending(device => device.RiskLevel)
+            .Take(8);
 }

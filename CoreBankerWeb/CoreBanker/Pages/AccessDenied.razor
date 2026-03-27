@@ -1,0 +1,58 @@
+@page "/access-denied"
+@layout CoreBanker.Layouts.MainLayout
+
+@inject NavigationManager Navigation
+@inject CoreBanker.State.AppState AppState
+
+<MudPaper Class="pa-6">
+    <MudText Typo="Typo.h4">Access Denied</MudText>
+    <MudText Typo="Typo.body1" Class="mt-2">Your current role does not have permission to open this workspace.</MudText>
+    @if (!string.IsNullOrWhiteSpace(_requiredPermission))
+    {
+        <MudAlert Severity="Severity.Warning" Dense="true" Class="mt-4">
+            Required permission: @_requiredPermission
+        </MudAlert>
+    }
+    <MudStack Row="true" Spacing="2" Class="mt-4">
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="GoToDefaultWorkspace">Go To My Workspace</MudButton>
+        <MudButton Variant="Variant.Outlined" Color="Color.Secondary" OnClick="GoBack">Go Back</MudButton>
+    </MudStack>
+</MudPaper>
+
+@code {
+    private string _requiredPermission = string.Empty;
+
+    protected override void OnInitialized()
+    {
+        var uri = Navigation.ToAbsoluteUri(Navigation.Uri);
+        if (!string.IsNullOrWhiteSpace(uri.Query))
+        {
+            _requiredPermission = TryReadQueryValue(uri.Query, "required");
+        }
+    }
+
+    private void GoToDefaultWorkspace()
+    {
+        Navigation.NavigateTo(AppState.GetDefaultRoute(), true);
+    }
+
+    private void GoBack()
+    {
+        Navigation.NavigateTo(AppState.GetDefaultRoute());
+    }
+
+    private static string TryReadQueryValue(string query, string key)
+    {
+        var trimmed = query.TrimStart('?');
+        foreach (var segment in trimmed.Split('&', StringSplitOptions.RemoveEmptyEntries))
+        {
+            var parts = segment.Split('=', 2);
+            if (parts.Length == 2 && string.Equals(parts[0], key, StringComparison.OrdinalIgnoreCase))
+            {
+                return Uri.UnescapeDataString(parts[1]);
+            }
+        }
+
+        return string.Empty;
+    }
+}

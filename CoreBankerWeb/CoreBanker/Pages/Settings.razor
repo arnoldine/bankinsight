@@ -1,5 +1,381 @@
 @page "/settings"
 @layout CoreBanker.Layouts.MainLayout
 
-<MudText Typo="Typo.h4">Settings</MudText>
-<!-- TODO: Implement system settings, menu/config management, forms registry -->
+@inject CoreBanker.Services.AdminService AdminService
+
+<MudStack Spacing="3">
+    <MudPaper Class="pa-4">
+        <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+            <div>
+                <MudText Typo="Typo.h4">Settings & Control Room</MudText>
+                <MudText Typo="Typo.body2" Class="mud-text-secondary">Manage platform configuration, credit-bureau policy, EOD scheduling, and ORASS readiness.</MudText>
+            </div>
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="LoadWorkspaceAsync">Refresh</MudButton>
+        </MudStack>
+    </MudPaper>
+
+    @if (!string.IsNullOrWhiteSpace(_message))
+    {
+        <MudAlert Severity="@(_success ? Severity.Success : Severity.Error)">@_message</MudAlert>
+    }
+
+    <MudGrid>
+        <MudItem xs="12" md="3">
+            <MudPaper Class="pa-4">
+                <MudText Typo="Typo.caption">Credit Bureau</MudText>
+                <MudText Typo="Typo.h5">@(_snapshot.LoanCreditBureauRequiredForApproval ? "Mandatory" : "Optional")</MudText>
+            </MudPaper>
+        </MudItem>
+        <MudItem xs="12" md="3">
+            <MudPaper Class="pa-4">
+                <MudText Typo="Typo.caption">EOD Scheduler</MudText>
+                <MudText Typo="Typo.h5">@(_snapshot.EodSchedulerEnabled ? _snapshot.EodSchedulerTimeUtc : "Disabled")</MudText>
+            </MudPaper>
+        </MudItem>
+        <MudItem xs="12" md="3">
+            <MudPaper Class="pa-4">
+                <MudText Typo="Typo.caption">ORASS Status</MudText>
+                <MudText Typo="Typo.h5">@(_orassReadiness?.ReadyForSubmission == true ? "Ready" : "Attention")</MudText>
+            </MudPaper>
+        </MudItem>
+        <MudItem xs="12" md="3">
+            <MudPaper Class="pa-4">
+                <MudText Typo="Typo.caption">Pending Returns</MudText>
+                <MudText Typo="Typo.h5">@(_orassReadiness?.PendingReturns ?? 0)</MudText>
+            </MudPaper>
+        </MudItem>
+    </MudGrid>
+
+    <MudTabs Rounded="true">
+        <MudTabPanel Text="Configuration">
+            <MudGrid>
+                <MudItem xs="12" lg="5">
+                    <MudPaper Class="pa-4">
+                        <MudText Typo="Typo.h6">Operational Policies</MudText>
+                        <MudCheckBox @bind-Value="_snapshot.LoanCreditBureauRequiredForApproval" Label="Require credit bureau for approvals" Class="mt-3" />
+                        <MudTextField @bind-Value="_snapshot.ActiveCreditProvider" Label="Active Credit Provider" Variant="Variant.Outlined" Class="mt-3" />
+                        <MudNumericField T="decimal?" @bind-Value="_snapshot.DefaultTransactionLimit" Label="Default Transaction Limit" Variant="Variant.Outlined" Class="mt-3" />
+                        <MudCheckBox @bind-Value="_snapshot.EodSchedulerEnabled" Label="Enable EOD scheduler" Class="mt-3" />
+                        <MudTextField @bind-Value="_snapshot.EodSchedulerTimeUtc" Label="EOD Time (UTC)" Variant="Variant.Outlined" Class="mt-3" />
+                        <MudTextField Value="@_snapshot.EodSchedulerLastRunDate" Label="Last EOD Run" Variant="Variant.Outlined" Disabled="true" Class="mt-3" />
+                        <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="mt-4" Disabled="@_isSavingConfig" OnClick="SaveConfigAsync">Save Configuration</MudButton>
+                    </MudPaper>
+                </MudItem>
+
+                <MudItem xs="12" lg="7">
+                    <MudPaper Class="pa-4">
+                        <MudText Typo="Typo.h6">Raw Key/Value Store</MudText>
+                        <MudTable T="CoreBanker.Services.ConfigItemDto" Items="@_configItems" Dense="true" Hover="true" Class="mt-3">
+                            <HeaderContent>
+                                <MudTh>Key</MudTh>
+                                <MudTh>Value</MudTh>
+                            </HeaderContent>
+                            <RowTemplate>
+                                <MudTd DataLabel="Key">@context.Key</MudTd>
+                                <MudTd DataLabel="Value">@context.Value</MudTd>
+                            </RowTemplate>
+                        </MudTable>
+                    </MudPaper>
+                </MudItem>
+            </MudGrid>
+        </MudTabPanel>
+
+        <MudTabPanel Text="ORASS">
+            <MudGrid>
+                <MudItem xs="12" lg="4">
+                    <MudPaper Class="pa-4">
+                        <MudText Typo="Typo.h6">Profile</MudText>
+                        @if (_orassProfile is null)
+                        {
+                            <MudText Typo="Typo.body2" Class="mud-text-secondary mt-3">ORASS profile details are unavailable for this environment.</MudText>
+                        }
+                        else
+                        {
+                            <MudText Typo="Typo.body2" Class="mt-3">@_orassProfile.InstitutionCode</MudText>
+                            <MudText Typo="Typo.caption" Class="mud-text-secondary">@_orassProfile.EndpointUrl</MudText>
+                            <MudText Typo="Typo.body2" Class="mt-2">@($"Mode {_orassProfile.SubmissionMode} | Cutoff {_orassProfile.CutoffTimeUtc}")</MudText>
+                            <MudText Typo="Typo.body2">@($"Source {_orassProfile.SourceReportCode} | Auto submit {(_orassProfile.AutoSubmit ? "Enabled" : "Disabled")}")</MudText>
+                        }
+                    </MudPaper>
+                </MudItem>
+                <MudItem xs="12" lg="8">
+                    <MudPaper Class="pa-4">
+                        <MudText Typo="Typo.h6">Readiness</MudText>
+                        @if (_orassReadiness is null)
+                        {
+                            <MudText Typo="Typo.body2" Class="mud-text-secondary mt-3">Regulatory readiness data is not available.</MudText>
+                        }
+                        else
+                        {
+                            <MudText Typo="Typo.body2" Class="mt-2">@($"Submission mode {_orassReadiness.SubmissionMode} | Source {_orassReadiness.SourceReportCode}")</MudText>
+                            <MudText Typo="Typo.body2">@($"Pending {_orassReadiness.PendingReturns} | Ready {_orassReadiness.ReturnsReadyForSubmission}")</MudText>
+                            @if (_orassReadiness.MissingRequirements.Length > 0)
+                            {
+                                <MudAlert Severity="Severity.Warning" Dense="true" Class="mt-3">@string.Join(" | ", _orassReadiness.MissingRequirements)</MudAlert>
+                            }
+                            @if (_orassReadiness.Notes.Length > 0)
+                            {
+                                <MudAlert Severity="Severity.Info" Dense="true" Class="mt-2">@string.Join(" | ", _orassReadiness.Notes)</MudAlert>
+                            }
+                            <MudButton Variant="Variant.Outlined" Color="Color.Primary" Class="mt-3" Disabled="@_isActingOnOrass" OnClick="ReconcileAsync">Reconcile Acknowledgements</MudButton>
+                        }
+                    </MudPaper>
+                </MudItem>
+            </MudGrid>
+
+            <MudGrid Class="mt-1">
+                <MudItem xs="12" lg="7">
+                    <MudPaper Class="pa-4">
+                        <MudText Typo="Typo.h6">Submission Queue</MudText>
+                        <MudTable T="CoreBanker.Services.OrassQueueItemDto" Items="@_queueItems" Dense="true" Hover="true" Class="mt-3">
+                            <HeaderContent>
+                                <MudTh>Return</MudTh>
+                                <MudTh>Date</MudTh>
+                                <MudTh>Status</MudTh>
+                                <MudTh>Records</MudTh>
+                                <MudTh></MudTh>
+                            </HeaderContent>
+                            <RowTemplate>
+                                <MudTd DataLabel="Return">@context.ReturnType</MudTd>
+                                <MudTd DataLabel="Date">@context.ReturnDate</MudTd>
+                                <MudTd DataLabel="Status">@context.SubmissionStatus</MudTd>
+                                <MudTd DataLabel="Records">@context.TotalRecords</MudTd>
+                                <MudTd DataLabel="Actions">
+                                    <MudButton Variant="Variant.Text" Color="Color.Primary" Disabled="@(!context.IsReadyForSubmission || _isActingOnOrass)" OnClick="@(() => SubmitReturnAsync(context.Id))">Submit</MudButton>
+                                </MudTd>
+                            </RowTemplate>
+                        </MudTable>
+                    </MudPaper>
+                </MudItem>
+                <MudItem xs="12" lg="5">
+                    <MudPaper Class="pa-4">
+                        <MudText Typo="Typo.h6">History & Evidence</MudText>
+                        <MudTable T="CoreBanker.Services.OrassSubmissionHistoryItemDto" Items="@_historyItems" Dense="true" Hover="true" Class="mt-3">
+                            <HeaderContent>
+                                <MudTh>Return</MudTh>
+                                <MudTh>Status</MudTh>
+                                <MudTh></MudTh>
+                            </HeaderContent>
+                            <RowTemplate>
+                                <MudTd DataLabel="Return">@context.ReturnType</MudTd>
+                                <MudTd DataLabel="Status">@context.SubmissionStatus</MudTd>
+                                <MudTd DataLabel="Actions">
+                                    <MudButton Variant="Variant.Text" Color="Color.Primary" Disabled="@_isActingOnOrass" OnClick="@(() => LoadEvidenceAsync(context.Id))">Inspect</MudButton>
+                                </MudTd>
+                            </RowTemplate>
+                        </MudTable>
+
+                        @if (_selectedEvidence is not null)
+                        {
+                            <MudDivider Class="my-3" />
+                            <MudText Typo="Typo.subtitle2">Selected Evidence</MudText>
+                            <MudText Typo="Typo.body2" Class="mt-2">@($"Transmission {_selectedEvidence.TransmissionId}")</MudText>
+                            <MudText Typo="Typo.body2">@($"Transport {_selectedEvidence.TransportStatus} | Ack {_selectedEvidence.AcknowledgementStatus}")</MudText>
+                            <MudText Typo="Typo.caption" Class="mud-text-secondary">@_selectedEvidence.EndpointUrl</MudText>
+                            <MudTextField @bind-Value="_acknowledgementReference" Label="Acknowledgement Reference" Variant="Variant.Outlined" Class="mt-3" />
+                            <MudTextField @bind-Value="_acknowledgementMessage" Label="Acknowledgement Message" Variant="Variant.Outlined" Lines="2" Class="mt-3" />
+                            <MudStack Row="true" Spacing="2" Class="mt-3">
+                                <MudButton Variant="Variant.Outlined" Color="Color.Info" Disabled="@_isActingOnOrass" OnClick="@(() => AcknowledgeAsync("RECEIVED"))">Mark Received</MudButton>
+                                <MudButton Variant="Variant.Outlined" Color="Color.Success" Disabled="@_isActingOnOrass" OnClick="@(() => AcknowledgeAsync("ACCEPTED"))">Accept</MudButton>
+                                <MudButton Variant="Variant.Outlined" Color="Color.Error" Disabled="@_isActingOnOrass" OnClick="@(() => AcknowledgeAsync("REJECTED"))">Reject</MudButton>
+                            </MudStack>
+                        }
+                    </MudPaper>
+                </MudItem>
+            </MudGrid>
+        </MudTabPanel>
+    </MudTabs>
+</MudStack>
+
+@code {
+    private List<CoreBanker.Services.ConfigItemDto> _configItems = new();
+    private CoreBanker.Services.ConfigSnapshotDto _snapshot = new();
+    private CoreBanker.Services.OrassProfileDto? _orassProfile;
+    private CoreBanker.Services.OrassReadinessDto? _orassReadiness;
+    private List<CoreBanker.Services.OrassQueueItemDto> _queueItems = new();
+    private List<CoreBanker.Services.OrassSubmissionHistoryItemDto> _historyItems = new();
+    private CoreBanker.Services.OrassSubmissionEvidenceDto? _selectedEvidence;
+    private int? _selectedReturnId;
+    private string _acknowledgementReference = string.Empty;
+    private string _acknowledgementMessage = string.Empty;
+    private string _message = string.Empty;
+    private bool _success;
+    private bool _isSavingConfig;
+    private bool _isActingOnOrass;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadWorkspaceAsync();
+    }
+
+    private async Task LoadWorkspaceAsync()
+    {
+        _message = string.Empty;
+        try
+        {
+            var configTask = AdminService.GetConfigAsync();
+            var profileTask = AdminService.GetOrassProfileAsync();
+            var readinessTask = AdminService.GetOrassReadinessAsync();
+            var queueTask = AdminService.GetOrassQueueAsync();
+            var historyTask = AdminService.GetOrassHistoryAsync();
+            await Task.WhenAll(configTask, profileTask, readinessTask, queueTask, historyTask);
+
+            _configItems = configTask.Result;
+            _orassProfile = profileTask.Result;
+            _orassReadiness = readinessTask.Result;
+            _queueItems = queueTask.Result;
+            _historyItems = historyTask.Result;
+            _snapshot = BuildSnapshot(_configItems);
+        }
+        catch (CoreBanker.Services.ApiClientException ex)
+        {
+            _success = false;
+            _message = ex.Message;
+        }
+    }
+
+    private async Task SaveConfigAsync()
+    {
+        _isSavingConfig = true;
+        try
+        {
+            UpsertConfig("loan.credit_bureau_required_for_approval", _snapshot.LoanCreditBureauRequiredForApproval.ToString().ToLowerInvariant());
+            UpsertConfig("eod_scheduler_enabled", _snapshot.EodSchedulerEnabled.ToString().ToLowerInvariant());
+            UpsertConfig("eod_scheduler_time_utc", _snapshot.EodSchedulerTimeUtc);
+            UpsertConfig("CreditBureau__ActiveProvider", _snapshot.ActiveCreditProvider);
+            if (_snapshot.DefaultTransactionLimit.HasValue)
+            {
+                UpsertConfig("transactions.default_limit", _snapshot.DefaultTransactionLimit.Value.ToString(System.Globalization.CultureInfo.InvariantCulture));
+            }
+
+            await AdminService.UpdateConfigAsync(_configItems);
+            _success = true;
+            _message = "Configuration updated successfully.";
+            await LoadWorkspaceAsync();
+        }
+        catch (CoreBanker.Services.ApiClientException ex)
+        {
+            _success = false;
+            _message = ex.Message;
+        }
+        finally
+        {
+            _isSavingConfig = false;
+        }
+    }
+
+    private async Task SubmitReturnAsync(int returnId)
+    {
+        _isActingOnOrass = true;
+        try
+        {
+            await AdminService.SubmitOrassReturnAsync(returnId);
+            _success = true;
+            _message = $"ORASS return {returnId} submitted.";
+            await LoadWorkspaceAsync();
+        }
+        catch (CoreBanker.Services.ApiClientException ex)
+        {
+            _success = false;
+            _message = ex.Message;
+        }
+        finally
+        {
+            _isActingOnOrass = false;
+        }
+    }
+
+    private async Task LoadEvidenceAsync(int returnId)
+    {
+        _selectedReturnId = returnId;
+        _acknowledgementReference = string.Empty;
+        _acknowledgementMessage = string.Empty;
+        try
+        {
+            _selectedEvidence = await AdminService.GetOrassEvidenceAsync(returnId);
+        }
+        catch (CoreBanker.Services.ApiClientException ex)
+        {
+            _success = false;
+            _message = ex.Message;
+        }
+    }
+
+    private async Task AcknowledgeAsync(string status)
+    {
+        if (!_selectedReturnId.HasValue)
+        {
+            return;
+        }
+
+        _isActingOnOrass = true;
+        try
+        {
+            await AdminService.AcknowledgeOrassReturnAsync(_selectedReturnId.Value, new CoreBanker.Services.UpdateOrassAcknowledgementRequest
+            {
+                Status = status,
+                AcknowledgementReference = _acknowledgementReference,
+                Message = _acknowledgementMessage
+            });
+
+            _success = true;
+            _message = $"Return {_selectedReturnId.Value} marked {status}.";
+            await LoadWorkspaceAsync();
+        }
+        catch (CoreBanker.Services.ApiClientException ex)
+        {
+            _success = false;
+            _message = ex.Message;
+        }
+        finally
+        {
+            _isActingOnOrass = false;
+        }
+    }
+
+    private async Task ReconcileAsync()
+    {
+        _isActingOnOrass = true;
+        try
+        {
+            var result = await AdminService.ReconcileOrassAcknowledgementsAsync();
+            _success = true;
+            _message = result is null ? "ORASS reconciliation completed." : $"Reconciliation scanned {result.ScannedCount} return(s) and updated {result.UpdatedCount}.";
+            await LoadWorkspaceAsync();
+        }
+        catch (CoreBanker.Services.ApiClientException ex)
+        {
+            _success = false;
+            _message = ex.Message;
+        }
+        finally
+        {
+            _isActingOnOrass = false;
+        }
+    }
+
+    private void UpsertConfig(string key, string value)
+    {
+        var existing = _configItems.FirstOrDefault(item => string.Equals(item.Key, key, StringComparison.OrdinalIgnoreCase));
+        if (existing is null)
+        {
+            _configItems.Add(new CoreBanker.Services.ConfigItemDto { Key = key, Value = value });
+            return;
+        }
+
+        existing.Value = value;
+    }
+
+    private static CoreBanker.Services.ConfigSnapshotDto BuildSnapshot(List<CoreBanker.Services.ConfigItemDto> items)
+    {
+        return new CoreBanker.Services.ConfigSnapshotDto
+        {
+            LoanCreditBureauRequiredForApproval = CoreBanker.Services.AdminService.GetBoolConfig(items, "loan.credit_bureau_required_for_approval"),
+            EodSchedulerEnabled = CoreBanker.Services.AdminService.GetBoolConfig(items, "eod_scheduler_enabled"),
+            EodSchedulerTimeUtc = CoreBanker.Services.AdminService.GetStringConfig(items, "eod_scheduler_time_utc", "23:00"),
+            EodSchedulerLastRunDate = CoreBanker.Services.AdminService.GetStringConfig(items, "eod_scheduler_last_run_date"),
+            ActiveCreditProvider = CoreBanker.Services.AdminService.GetStringConfig(items, "CreditBureau__ActiveProvider"),
+            DefaultTransactionLimit = CoreBanker.Services.AdminService.GetDecimalConfig(items, "transactions.default_limit")
+        };
+    }
+}
