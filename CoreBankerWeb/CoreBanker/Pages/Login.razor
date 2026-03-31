@@ -10,6 +10,11 @@
         <MudText Typo="Typo.overline" Class="login-eyebrow">CoreBanker</MudText>
         <MudText Typo="Typo.h4" Class="mb-2">Sign in to your banking workspace</MudText>
         <MudText Typo="Typo.body1" Class="mb-4">Use your BankInsight operator credentials to open the live operational console.</MudText>
+        <div class="login-trust-row">
+            <span class="login-trust-pill">MFA enforced</span>
+            <span class="login-trust-pill">Permission-aware workspace</span>
+            <span class="login-trust-pill">Audited access</span>
+        </div>
     </div>
 
     @if (!string.IsNullOrWhiteSpace(AppState.WorkspaceMessage))
@@ -26,10 +31,31 @@
 
     @if (!mfaRequired)
     {
-        <MudForm @ref="form">
-            <MudTextField @bind-Value="Email" Label="Email" Placeholder="name@bankinsight.local" Required="true" For="@(() => Email)" Immediate="true" Variant="Variant.Outlined" />
-            <MudTextField @bind-Value="Password" Label="Password" InputType="InputType.Password" Required="true" For="@(() => Password)" Immediate="true" Variant="Variant.Outlined" Class="mt-3" />
-            <MudButton OnClick="HandleLogin" Color="Color.Primary" Variant="Variant.Filled" Class="mt-4 login-primary-action" Disabled="@loading" FullWidth="true">Login</MudButton>
+        <MudForm @ref="form" OnValidSubmit="HandleLogin">
+            <MudTextField @bind-Value="Email"
+                          Label="Work Email"
+                          Placeholder="name@bankinsight.local"
+                          Required="true"
+                          For="@(() => Email)"
+                          Immediate="true"
+                          Variant="Variant.Outlined"
+                          HelperText="Use your provisioned operator identity."
+                          Adornment="Adornment.Start"
+                          AdornmentIcon="@Icons.Material.Filled.AlternateEmail" />
+            <MudTextField @bind-Value="Password"
+                          Label="Password"
+                          InputType="InputType.Password"
+                          Required="true"
+                          For="@(() => Password)"
+                          Immediate="true"
+                          Variant="Variant.Outlined"
+                          Class="mt-3"
+                          HelperText="Passwords are never stored in the browser."
+                          Adornment="Adornment.Start"
+                          AdornmentIcon="@Icons.Material.Filled.Lock" />
+            <MudButton ButtonType="ButtonType.Submit" Color="Color.Primary" Variant="Variant.Filled" Class="mt-4 login-primary-action" Disabled="@loading" FullWidth="true">
+                @(loading ? "Signing In..." : "Login")
+            </MudButton>
         </MudForm>
         <MudProgressLinear Indeterminate="true" Visible="@loading" Class="mt-3" />
         @if (!string.IsNullOrEmpty(error))
@@ -37,6 +63,9 @@
             <MudAlert Severity="Severity.Error" Dense="true" Class="mt-3">@error</MudAlert>
         }
 
+        <MudAlert Severity="Severity.Info" Dense="true" Variant="Variant.Outlined" Class="mt-4">
+            Only authorized banking staff should sign in here. Contact your system administrator if access has not been provisioned.
+        </MudAlert>
         <MudText Typo="Typo.caption" Class="login-help-copy mt-4">Use the local admin credentials or your provisioned BankInsight operator account to continue.</MudText>
     }
     else
@@ -49,9 +78,20 @@
             }
         </MudAlert>
 
-        <MudForm @ref="mfaForm">
-            <MudTextField @bind-Value="MfaCode" Label="MFA Code" Placeholder="Enter 6-digit code" Required="true" For="@(() => MfaCode)" Immediate="true" Variant="Variant.Outlined" />
-            <MudButton OnClick="HandleMfa" Color="Color.Primary" Variant="Variant.Filled" Class="mt-4 login-primary-action" Disabled="@mfaLoading" FullWidth="true">Verify</MudButton>
+        <MudForm @ref="mfaForm" OnValidSubmit="HandleMfa">
+            <MudTextField @bind-Value="MfaCode"
+                          Label="MFA Code"
+                          Placeholder="Enter 6-digit code"
+                          Required="true"
+                          For="@(() => MfaCode)"
+                          Immediate="true"
+                          Variant="Variant.Outlined"
+                          HelperText="Codes expire quickly for security."
+                          Adornment="Adornment.Start"
+                          AdornmentIcon="@Icons.Material.Filled.Shield" />
+            <MudButton ButtonType="ButtonType.Submit" Color="Color.Primary" Variant="Variant.Filled" Class="mt-4 login-primary-action" Disabled="@mfaLoading" FullWidth="true">
+                @(mfaLoading ? "Verifying..." : "Verify")
+            </MudButton>
         </MudForm>
         <MudProgressLinear Indeterminate="true" Visible="@mfaLoading" Class="mt-3" />
         @if (!string.IsNullOrEmpty(mfaError))
@@ -63,6 +103,10 @@
             <MudButton Variant="Variant.Text" Color="Color.Secondary" OnClick="RestartLogin" Disabled="@mfaLoading" Class="mt-2">Use different account</MudButton>
         </div>
     }
+
+    <div class="login-footer-note">
+        <MudText Typo="Typo.caption">This workspace records access activity for operational governance and audit review.</MudText>
+    </div>
 </MudPaper>
 
 @code {
