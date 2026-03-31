@@ -10,7 +10,7 @@
         <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
             <div>
                 <MudText Typo="Typo.h4">Loan Management Hub</MudText>
-                <MudText Typo="Typo.body2" Class="mud-text-secondary">Portfolio, origination, review, repayment, and schedule operations backed by the live loan APIs.</MudText>
+                <MudText Typo="Typo.body2" Class="mud-text-secondary">Portfolio, origination, schedule, review, disbursement, and servicing workflows backed by the live loan APIs.</MudText>
             </div>
             <MudButton Variant="Variant.Outlined" Color="Color.Secondary" OnClick="LoadWorkspaceAsync">Refresh</MudButton>
         </MudStack>
@@ -30,82 +30,126 @@
 
     <MudPaper Class="pa-4 corebanker-friendly-guide" Elevation="0">
         <MudGrid>
-            <MudItem xs="12" md="4">
+            <MudItem xs="12" md="3">
                 <MudText Typo="Typo.subtitle2">1. Originate</MudText>
-                <MudText Typo="Typo.body2" Class="mud-text-secondary">Choose customer and product, then run credit and schedule preview before submission.</MudText>
+                <MudText Typo="Typo.body2" Class="mud-text-secondary">Choose customer and product, confirm KYC readiness, then run credit and schedule preview.</MudText>
             </MudItem>
-            <MudItem xs="12" md="4">
+            <MudItem xs="12" md="3">
                 <MudText Typo="Typo.subtitle2">2. Review</MudText>
-                <MudText Typo="Typo.body2" Class="mud-text-secondary">Appraise or approve loans waiting in the decision queue with notes captured for audit.</MudText>
+                <MudText Typo="Typo.body2" Class="mud-text-secondary">Appraise, approve, and prepare approved facilities for disbursement with maker-checker notes.</MudText>
             </MudItem>
-            <MudItem xs="12" md="4">
-                <MudText Typo="Typo.subtitle2">3. Collect</MudText>
-                <MudText Typo="Typo.body2" Class="mud-text-secondary">Post repayments from linked active accounts and monitor the live schedule panel.</MudText>
+            <MudItem xs="12" md="3">
+                <MudText Typo="Typo.subtitle2">3. Operate</MudText>
+                <MudText Typo="Typo.body2" Class="mud-text-secondary">Disburse approved facilities, assess penalties, and classify delinquent loans from one control panel.</MudText>
+            </MudItem>
+            <MudItem xs="12" md="3">
+                <MudText Typo="Typo.subtitle2">4. Collect</MudText>
+                <MudText Typo="Typo.body2" Class="mud-text-secondary">Post repayments from active accounts and inspect live schedule lines before or after collection.</MudText>
             </MudItem>
         </MudGrid>
     </MudPaper>
 
-    <MudTabs Rounded="true">
+    <MudTabs Rounded="true" @bind-ActivePanelIndex="_activeTabIndex">
         <MudTabPanel Text="Portfolio">
-            <MudPaper Class="pa-4">
-                <MudGrid>
-                    <MudItem xs="12" md="8">
-                        <MudTextField @bind-Value="_searchTerm" Label="Search by loan, customer, product, or PAR bucket" Variant="Variant.Outlined" FullWidth="true" />
-                    </MudItem>
-                    <MudItem xs="12" md="4">
-                        <MudSelect T="string" @bind-Value="_statusFilter" Label="Status" Variant="Variant.Outlined">
-                            <MudSelectItem T="string" Value="@string.Empty">All</MudSelectItem>
-                            <MudSelectItem T="string" Value="@("PENDING")">Pending</MudSelectItem>
-                            <MudSelectItem T="string" Value="@("APPRAISED")">Appraised</MudSelectItem>
-                            <MudSelectItem T="string" Value="@("APPROVED")">Approved</MudSelectItem>
-                            <MudSelectItem T="string" Value="@("ACTIVE")">Active</MudSelectItem>
-                            <MudSelectItem T="string" Value="@("CLOSED")">Closed</MudSelectItem>
-                        </MudSelect>
-                    </MudItem>
-                </MudGrid>
+            <MudGrid>
+                <MudItem xs="12" lg="8">
+                    <MudPaper Class="pa-4">
+                        <MudGrid>
+                            <MudItem xs="12" md="8">
+                                <MudTextField @bind-Value="_searchTerm" Label="Search by loan, customer, product, or PAR bucket" Variant="Variant.Outlined" FullWidth="true" />
+                            </MudItem>
+                            <MudItem xs="12" md="4">
+                                <MudSelect T="string" @bind-Value="_statusFilter" Label="Status" Variant="Variant.Outlined">
+                                    <MudSelectItem T="string" Value="@string.Empty">All</MudSelectItem>
+                                    <MudSelectItem T="string" Value="@("PENDING")">Pending</MudSelectItem>
+                                    <MudSelectItem T="string" Value="@("APPRAISED")">Appraised</MudSelectItem>
+                                    <MudSelectItem T="string" Value="@("APPROVED")">Approved</MudSelectItem>
+                                    <MudSelectItem T="string" Value="@("ACTIVE")">Active</MudSelectItem>
+                                    <MudSelectItem T="string" Value="@("DISBURSED")">Disbursed</MudSelectItem>
+                                    <MudSelectItem T="string" Value="@("CLOSED")">Closed</MudSelectItem>
+                                </MudSelect>
+                            </MudItem>
+                        </MudGrid>
 
-                @if (!_isLoading && !FilteredLoans.Any())
-                {
-                    <MudPaper Class="pa-6 mt-4 corebanker-empty-state" Elevation="0">
-                        <MudText Typo="Typo.h6">No loans match the current view</MudText>
-                        <MudText Typo="Typo.body2" Class="mud-text-secondary">Clear the search or status filter to return to the wider portfolio.</MudText>
+                        @if (!_isLoading && !FilteredLoans.Any())
+                        {
+                            <MudPaper Class="pa-6 mt-4 corebanker-empty-state" Elevation="0">
+                                <MudText Typo="Typo.h6">No loans match the current view</MudText>
+                                <MudText Typo="Typo.body2" Class="mud-text-secondary">Clear the search or status filter to return to the wider portfolio.</MudText>
+                            </MudPaper>
+                        }
+
+                        @if (FilteredLoans.Any())
+                        {
+                            <MudTable T="CoreBanker.Services.LoanDto" Items="@FilteredLoans" Dense="true" Hover="true" Loading="@_isLoading" Class="mt-4">
+                                <HeaderContent>
+                                    <MudTh>Loan</MudTh>
+                                    <MudTh>Customer</MudTh>
+                                    <MudTh>Product</MudTh>
+                                    <MudTh>Principal</MudTh>
+                                    <MudTh>Outstanding</MudTh>
+                                    <MudTh>PAR</MudTh>
+                                    <MudTh>Status</MudTh>
+                                    <MudTh></MudTh>
+                                </HeaderContent>
+                                <RowTemplate>
+                                    <MudTd DataLabel="Loan">@context.Id</MudTd>
+                                    <MudTd DataLabel="Customer">@GetCustomerLabel(context.Cif)</MudTd>
+                                    <MudTd DataLabel="Product">@DisplayLoanProduct(context)</MudTd>
+                                    <MudTd DataLabel="Principal">@FormatCurrency(context.Principal)</MudTd>
+                                    <MudTd DataLabel="Outstanding">@FormatCurrency(context.OutstandingBalance ?? 0m)</MudTd>
+                                    <MudTd DataLabel="PAR">@DisplayParBucket(context.ParBucket)</MudTd>
+                                    <MudTd DataLabel="Status">
+                                        <MudChip T="string" Size="Size.Small" Variant="Variant.Text" Color="@GetStatusColor(NormalizeStatus(context.Status))">@NormalizeStatus(context.Status)</MudChip>
+                                    </MudTd>
+                                    <MudTd DataLabel="Actions">
+                                        <MudStack Row="true" Spacing="1">
+                                            <MudButton Variant="Variant.Text" Color="Color.Primary" OnClick="@(() => OpenReview(context))">Review</MudButton>
+                                            <MudButton Variant="Variant.Text" Color="Color.Info" OnClick="@(() => OpenScheduleAsync(context.Id, true))">Schedule</MudButton>
+                                            <MudButton Variant="Variant.Text" Color="Color.Success" OnClick="@(() => OpenRepayment(context))">Repay</MudButton>
+                                        </MudStack>
+                                    </MudTd>
+                                </RowTemplate>
+                            </MudTable>
+                        }
                     </MudPaper>
-                }
-
-                @if (FilteredLoans.Any())
-                {
-                    <MudTable T="CoreBanker.Services.LoanDto" Items="@FilteredLoans" Dense="true" Hover="true" Loading="@_isLoading" Class="mt-4">
-                        <HeaderContent>
-                            <MudTh>Loan</MudTh>
-                            <MudTh>Customer</MudTh>
-                            <MudTh>Product</MudTh>
-                            <MudTh>Principal</MudTh>
-                            <MudTh>Outstanding</MudTh>
-                            <MudTh>PAR</MudTh>
-                            <MudTh>Status</MudTh>
-                            <MudTh></MudTh>
-                        </HeaderContent>
-                        <RowTemplate>
-                            <MudTd DataLabel="Loan">@context.Id</MudTd>
-                            <MudTd DataLabel="Customer">@GetCustomerLabel(context.Cif)</MudTd>
-                            <MudTd DataLabel="Product">@DisplayLoanProduct(context)</MudTd>
-                            <MudTd DataLabel="Principal">@FormatCurrency(context.Principal)</MudTd>
-                            <MudTd DataLabel="Outstanding">@FormatCurrency(context.OutstandingBalance ?? 0m)</MudTd>
-                            <MudTd DataLabel="PAR">@DisplayParBucket(context.ParBucket)</MudTd>
-                            <MudTd DataLabel="Status">
-                                <MudChip T="string" Size="Size.Small" Variant="Variant.Text" Color="@GetStatusColor(NormalizeStatus(context.Status))">@NormalizeStatus(context.Status)</MudChip>
-                            </MudTd>
-                            <MudTd DataLabel="Actions">
+                </MudItem>
+                <MudItem xs="12" lg="4">
+                    <MudPaper Class="pa-4">
+                        <MudText Typo="Typo.h6">Selected Facility</MudText>
+                        @if (_selectedLoan is null)
+                        {
+                            <MudText Typo="Typo.body2" Class="mud-text-secondary mt-2">Choose a loan from the portfolio to load schedule, repayment, and operations context.</MudText>
+                        }
+                        else
+                        {
+                            <MudStack Spacing="2" Class="mt-3">
+                                <div>
+                                    <MudText Typo="Typo.body1">@_selectedLoan.Id</MudText>
+                                    <MudText Typo="Typo.body2" Class="mud-text-secondary">@GetCustomerLabel(_selectedLoan.Cif)</MudText>
+                                </div>
+                                <MudGrid>
+                                    <MudItem xs="6"><MudPaper Class="pa-3 mud-theme-surface"><MudText Typo="Typo.caption">Product</MudText><MudText Typo="Typo.body2">@DisplayLoanProduct(_selectedLoan)</MudText></MudPaper></MudItem>
+                                    <MudItem xs="6"><MudPaper Class="pa-3 mud-theme-surface"><MudText Typo="Typo.caption">Status</MudText><MudText Typo="Typo.body2">@NormalizeStatus(_selectedLoan.Status)</MudText></MudPaper></MudItem>
+                                    <MudItem xs="6"><MudPaper Class="pa-3 mud-theme-surface"><MudText Typo="Typo.caption">Principal</MudText><MudText Typo="Typo.body2">@FormatCurrency(_selectedLoan.Principal)</MudText></MudPaper></MudItem>
+                                    <MudItem xs="6"><MudPaper Class="pa-3 mud-theme-surface"><MudText Typo="Typo.caption">Outstanding</MudText><MudText Typo="Typo.body2">@FormatCurrency(_selectedLoan.OutstandingBalance ?? _selectedLoan.Principal)</MudText></MudPaper></MudItem>
+                                </MudGrid>
+                                @if (!string.IsNullOrWhiteSpace(_selectedLoan.CollateralType))
+                                {
+                                    <MudAlert Severity="Severity.Info" Dense="true" Variant="Variant.Outlined">
+                                        @($"Collateral {_selectedLoan.CollateralType} valued at {FormatCurrency(_selectedLoan.CollateralValue ?? 0m)}")
+                                    </MudAlert>
+                                }
                                 <MudStack Row="true" Spacing="1">
-                                    <MudButton Variant="Variant.Text" Color="Color.Primary" OnClick="@(() => OpenReview(context))">Review</MudButton>
-                                    <MudButton Variant="Variant.Text" Color="Color.Info" OnClick="@(() => OpenScheduleAsync(context.Id))">Schedule</MudButton>
-                                    <MudButton Variant="Variant.Text" Color="Color.Success" OnClick="@(() => OpenRepayment(context))">Repay</MudButton>
+                                    <MudButton Variant="Variant.Text" Color="Color.Info" OnClick="@(() => OpenScheduleAsync(_selectedLoan.Id, true))">Open Schedule</MudButton>
+                                    <MudButton Variant="Variant.Text" Color="Color.Success" OnClick="@(() => OpenRepayment(_selectedLoan))">Collect</MudButton>
+                                    <MudButton Variant="Variant.Text" Color="Color.Warning" OnClick="@(() => OpenOperations(_selectedLoan))">Operate</MudButton>
                                 </MudStack>
-                            </MudTd>
-                        </RowTemplate>
-                    </MudTable>
-                }
-            </MudPaper>
+                            </MudStack>
+                        }
+                    </MudPaper>
+                </MudItem>
+            </MudGrid>
         </MudTabPanel>
 
         <MudTabPanel Text="Origination">
@@ -243,16 +287,25 @@
                         <MudText Typo="Typo.h6">Review Action</MudText>
                         @if (_reviewLoan is null)
                         {
-                            <MudText Typo="Typo.body2" Class="mud-text-secondary mt-2">Select a loan to appraise or approve it.</MudText>
+                            <MudText Typo="Typo.body2" Class="mud-text-secondary mt-2">Select a loan to appraise, approve, or route into disbursement.</MudText>
                         }
                         else
                         {
-                            <MudText Typo="Typo.body1" Class="mt-2">@_reviewLoan.Id</MudText>
-                            <MudText Typo="Typo.body2">@GetCustomerLabel(_reviewLoan.Cif)</MudText>
-                            <MudTextField @bind-Value="_reviewNotes" Label="Decision Notes" Variant="Variant.Outlined" Lines="4" FullWidth="true" Class="mt-3" />
-                            <MudStack Row="true" Spacing="2" Class="mt-3">
-                                <MudButton Variant="Variant.Outlined" Color="Color.Info" Disabled="@_isActionBusy" OnClick="AppraiseSelectedLoanAsync">Appraise</MudButton>
-                                <MudButton Variant="Variant.Filled" Color="Color.Success" Disabled="@_isActionBusy" OnClick="ApproveSelectedLoanAsync">Approve</MudButton>
+                            <MudStack Spacing="2" Class="mt-2">
+                                <div>
+                                    <MudText Typo="Typo.body1">@_reviewLoan.Id</MudText>
+                                    <MudText Typo="Typo.body2">@GetCustomerLabel(_reviewLoan.Cif)</MudText>
+                                </div>
+                                <MudGrid>
+                                    <MudItem xs="6"><MudPaper Class="pa-3 mud-theme-surface"><MudText Typo="Typo.caption">Status</MudText><MudText Typo="Typo.body2">@NormalizeStatus(_reviewLoan.Status)</MudText></MudPaper></MudItem>
+                                    <MudItem xs="6"><MudPaper Class="pa-3 mud-theme-surface"><MudText Typo="Typo.caption">Exposure</MudText><MudText Typo="Typo.body2">@FormatCurrency(_reviewLoan.OutstandingBalance ?? _reviewLoan.Principal)</MudText></MudPaper></MudItem>
+                                </MudGrid>
+                                <MudTextField @bind-Value="_reviewNotes" Label="Decision Notes" Variant="Variant.Outlined" Lines="4" FullWidth="true" />
+                                <MudStack Row="true" Spacing="2">
+                                    <MudButton Variant="Variant.Outlined" Color="Color.Info" Disabled="@_isActionBusy" OnClick="AppraiseSelectedLoanAsync">Appraise</MudButton>
+                                    <MudButton Variant="Variant.Filled" Color="Color.Success" Disabled="@_isActionBusy" OnClick="ApproveSelectedLoanAsync">Approve</MudButton>
+                                    <MudButton Variant="Variant.Text" Color="Color.Warning" Disabled="@_isActionBusy" OnClick="SendSelectedLoanToOperations">Disbursement Desk</MudButton>
+                                </MudStack>
                             </MudStack>
                         }
                     </MudPaper>
@@ -285,8 +338,8 @@
                 </MudItem>
                 <MudItem xs="12" lg="5">
                     <MudPaper Class="pa-4">
-                        <MudText Typo="Typo.h6">Schedule</MudText>
-                        <MudTable T="CoreBanker.Services.LoanScheduleDto" Items="@_selectedSchedule.Take(8)" Dense="true" Hover="true" Loading="@_isScheduleLoading" Class="mt-3">
+                        <MudText Typo="Typo.h6">Schedule Snapshot</MudText>
+                        <MudTable T="CoreBanker.Services.LoanScheduleDto" Items="@SchedulePreviewRows" Dense="true" Hover="true" Loading="@_isScheduleLoading" Class="mt-3">
                             <HeaderContent>
                                 <MudTh>Period</MudTh>
                                 <MudTh>Due</MudTh>
@@ -304,10 +357,172 @@
                 </MudItem>
             </MudGrid>
         </MudTabPanel>
+
+        <MudTabPanel Text="Schedule">
+            <MudGrid>
+                <MudItem xs="12" lg="4">
+                    <MudPaper Class="pa-4">
+                        <MudSelect T="string" @bind-Value="_scheduleLoanId" Label="Loan" Variant="Variant.Outlined">
+                            @foreach (var loan in _loans.OrderByDescending(loan => loan.DisbursementDate))
+                            {
+                                <MudSelectItem T="string" Value="@loan.Id">@($"{loan.Id} | {GetCustomerLabel(loan.Cif)}")</MudSelectItem>
+                            }
+                        </MudSelect>
+                        <MudButton Variant="Variant.Outlined" Color="Color.Info" Class="mt-3" Disabled="@string.IsNullOrWhiteSpace(_scheduleLoanId)" OnClick="LoadScheduleFromTabAsync">Load Schedule</MudButton>
+
+                        @if (_selectedScheduleLoan is not null)
+                        {
+                            <MudStack Spacing="2" Class="mt-4">
+                                <MudPaper Class="pa-3 mud-theme-surface"><MudText Typo="Typo.caption">Customer</MudText><MudText Typo="Typo.body2">@GetCustomerLabel(_selectedScheduleLoan.Cif)</MudText></MudPaper>
+                                <MudPaper Class="pa-3 mud-theme-surface"><MudText Typo="Typo.caption">Facility</MudText><MudText Typo="Typo.body2">@FormatCurrency(_selectedScheduleLoan.OutstandingBalance ?? _selectedScheduleLoan.Principal)</MudText></MudPaper>
+                                <MudPaper Class="pa-3 mud-theme-surface"><MudText Typo="Typo.caption">Status</MudText><MudText Typo="Typo.body2">@NormalizeStatus(_selectedScheduleLoan.Status)</MudText></MudPaper>
+                            </MudStack>
+                        }
+                    </MudPaper>
+                </MudItem>
+                <MudItem xs="12" lg="8">
+                    <MudPaper Class="pa-4">
+                        <MudText Typo="Typo.h6">Amortization Schedule</MudText>
+                        <MudTable T="CoreBanker.Services.LoanScheduleDto" Items="@_selectedSchedule" Dense="true" Hover="true" Loading="@_isScheduleLoading" Class="mt-3">
+                            <HeaderContent>
+                                <MudTh>Period</MudTh>
+                                <MudTh>Due</MudTh>
+                                <MudTh>Principal</MudTh>
+                                <MudTh>Interest</MudTh>
+                                <MudTh>Total</MudTh>
+                                <MudTh>Balance</MudTh>
+                                <MudTh>Status</MudTh>
+                            </HeaderContent>
+                            <RowTemplate>
+                                <MudTd DataLabel="Period">@context.Period</MudTd>
+                                <MudTd DataLabel="Due">@context.DueDate.ToString("dd MMM yyyy")</MudTd>
+                                <MudTd DataLabel="Principal">@FormatCurrency(context.Principal)</MudTd>
+                                <MudTd DataLabel="Interest">@FormatCurrency(context.Interest)</MudTd>
+                                <MudTd DataLabel="Total">@FormatCurrency(context.Total)</MudTd>
+                                <MudTd DataLabel="Balance">@FormatCurrency(context.Balance)</MudTd>
+                                <MudTd DataLabel="Status">@context.Status</MudTd>
+                            </RowTemplate>
+                            <NoRecordsContent>
+                                <MudText Typo="Typo.body2" Class="pa-4 mud-text-secondary">Select a loan to load its repayment schedule.</MudText>
+                            </NoRecordsContent>
+                        </MudTable>
+                    </MudPaper>
+                </MudItem>
+            </MudGrid>
+        </MudTabPanel>
+
+        <MudTabPanel Text="Operations">
+            <MudGrid>
+                <MudItem xs="12" lg="5">
+                    <MudPaper Class="pa-4">
+                        <MudSelect T="string" @bind-Value="_operationsLoanId" Label="Loan" Variant="Variant.Outlined">
+                            @foreach (var loan in OperationsLoans)
+                            {
+                                <MudSelectItem T="string" Value="@loan.Id">@($"{loan.Id} | {GetCustomerLabel(loan.Cif)}")</MudSelectItem>
+                            }
+                        </MudSelect>
+                        <MudButton Variant="Variant.Outlined" Color="Color.Info" Class="mt-3" Disabled="@string.IsNullOrWhiteSpace(_operationsLoanId)" OnClick="LoadOperationsLoan">Load Facility</MudButton>
+
+                        @if (_operationsLoan is not null)
+                        {
+                            <MudStack Spacing="2" Class="mt-4">
+                                <MudPaper Class="pa-3 mud-theme-surface"><MudText Typo="Typo.caption">Customer</MudText><MudText Typo="Typo.body2">@GetCustomerLabel(_operationsLoan.Cif)</MudText></MudPaper>
+                                <MudPaper Class="pa-3 mud-theme-surface"><MudText Typo="Typo.caption">Status</MudText><MudText Typo="Typo.body2">@NormalizeStatus(_operationsLoan.Status)</MudText></MudPaper>
+                                <MudPaper Class="pa-3 mud-theme-surface"><MudText Typo="Typo.caption">Outstanding</MudText><MudText Typo="Typo.body2">@FormatCurrency(_operationsLoan.OutstandingBalance ?? _operationsLoan.Principal)</MudText></MudPaper>
+                            </MudStack>
+                        }
+                    </MudPaper>
+                </MudItem>
+                <MudItem xs="12" lg="7">
+                    <MudStack Spacing="3">
+                        <MudPaper Class="pa-4">
+                            <MudText Typo="Typo.h6">Disbursement Desk</MudText>
+                            @if (_operationsLoan is null)
+                            {
+                                <MudText Typo="Typo.body2" Class="mud-text-secondary mt-2">Select an approved or active facility to manage disbursement and servicing controls.</MudText>
+                            }
+                            else
+                            {
+                                <MudGrid Class="mt-1">
+                                    <MudItem xs="12" md="6">
+                                        <MudSelect T="string" @bind-Value="_operationsServicingAccountId" Label="Servicing Account" Variant="Variant.Outlined">
+                                            <MudSelectItem T="string" Value="@string.Empty">Auto-select active account</MudSelectItem>
+                                            @foreach (var account in OperationsAccounts)
+                                            {
+                                                <MudSelectItem T="string" Value="@account.Id">@($"{account.Id} | {FormatCurrency(account.AvailableBalance)}")</MudSelectItem>
+                                            }
+                                        </MudSelect>
+                                    </MudItem>
+                                    <MudItem xs="12" md="6">
+                                        <MudSelect T="string" @bind-Value="_operationsCollateralAccountId" Label="Collateral Account" Variant="Variant.Outlined">
+                                            <MudSelectItem T="string" Value="@string.Empty">None</MudSelectItem>
+                                            @foreach (var account in OperationsAccounts)
+                                            {
+                                                <MudSelectItem T="string" Value="@account.Id">@($"{account.Id} | {FormatCurrency(account.AvailableBalance)}")</MudSelectItem>
+                                            }
+                                        </MudSelect>
+                                    </MudItem>
+                                    <MudItem xs="12">
+                                        <MudTextField @bind-Value="_operationsClientReference" Label="Client Reference" Variant="Variant.Outlined" />
+                                    </MudItem>
+                                </MudGrid>
+                                <MudButton Variant="Variant.Filled" Color="Color.Success" Class="mt-4" Disabled="@(_isActionBusy || !CanDisburseOperationsLoan)" OnClick="DisburseOperationsLoanAsync">Disburse Loan</MudButton>
+                            }
+                        </MudPaper>
+
+                        <MudPaper Class="pa-4">
+                            <MudText Typo="Typo.h6">Penalty and Classification</MudText>
+                            @if (_operationsLoan is null)
+                            {
+                                <MudText Typo="Typo.body2" Class="mud-text-secondary mt-2">Load a facility first to assess penalties or classify loan quality.</MudText>
+                            }
+                            else
+                            {
+                                <MudGrid Class="mt-1">
+                                    <MudItem xs="12" md="4">
+                                        <MudNumericField T="decimal" @bind-Value="_penaltyRate" Label="Penalty Rate %" Variant="Variant.Outlined" Min="0m" />
+                                    </MudItem>
+                                    <MudItem xs="12" md="8">
+                                        <MudTextField @bind-Value="_penaltyReason" Label="Reason" Variant="Variant.Outlined" />
+                                    </MudItem>
+                                </MudGrid>
+                                <MudStack Row="true" Spacing="2" Class="mt-4">
+                                    <MudButton Variant="Variant.Outlined" Color="Color.Warning" Disabled="@(_isActionBusy || !CanAssessPenalty)" OnClick="AssessPenaltyAsync">Assess Penalty</MudButton>
+                                    <MudButton Variant="Variant.Text" Color="Color.Info" Disabled="@(_isActionBusy || !CanClassifyLoan)" OnClick="ClassifyOperationsLoanAsync">Classify</MudButton>
+                                </MudStack>
+
+                                @if (_penaltyResult is not null)
+                                {
+                                    <MudAlert Severity="Severity.Warning" Dense="true" Variant="Variant.Outlined" Class="mt-4">
+                                        @($"Penalty {FormatCurrency(_penaltyResult.PenaltyAmount)} at {_penaltyResult.PenaltyRate}% for {_penaltyResult.DaysPastDue} day(s) past due.")
+                                    </MudAlert>
+                                }
+
+                                @if (_classificationResult is not null)
+                                {
+                                    <MudPaper Class="pa-3 mt-4 mud-theme-surface">
+                                        <MudText Typo="Typo.subtitle2">@($"BoG Tier {_classificationResult.BogTier}")</MudText>
+                                        <MudText Typo="Typo.body2" Class="mud-text-secondary mt-1">@($"{_classificationResult.DaysPastDue} day(s) past due")</MudText>
+                                        <MudText Typo="Typo.body2">@($"Provisioning {FormatCurrency(_classificationResult.ProvisioningAmount)} at {_classificationResult.ProvisioningRate:P0}")</MudText>
+                                    </MudPaper>
+                                }
+                            }
+                        </MudPaper>
+                    </MudStack>
+                </MudItem>
+            </MudGrid>
+        </MudTabPanel>
     </MudTabs>
 </MudStack>
 
 @code {
+    private const int PortfolioTabIndex = 0;
+    private const int OriginationTabIndex = 1;
+    private const int ReviewTabIndex = 2;
+    private const int RepaymentTabIndex = 3;
+    private const int ScheduleTabIndex = 4;
+    private const int OperationsTabIndex = 5;
+
     private List<CoreBanker.Services.LoanDto> _loans = new();
     private List<CoreBanker.Services.ClientDto> _clients = new();
     private List<CoreBanker.Services.AccountDto> _accounts = new();
@@ -316,7 +531,12 @@
     private List<CoreBanker.Services.LoanScheduleDto> _selectedSchedule = new();
     private CoreBanker.Services.LoanScheduleGenerationResultDto? _schedulePreview;
     private CoreBanker.Services.CreditCheckDto? _creditResult;
+    private CoreBanker.Services.LoanPenaltyDto? _penaltyResult;
+    private CoreBanker.Services.LoanClassificationDto? _classificationResult;
     private CoreBanker.Services.LoanDto? _reviewLoan;
+    private CoreBanker.Services.LoanDto? _selectedLoan;
+    private CoreBanker.Services.LoanDto? _selectedScheduleLoan;
+    private CoreBanker.Services.LoanDto? _operationsLoan;
     private CoreBanker.Services.ClientProfileDto? _originationCustomerProfile;
     private string _searchTerm = string.Empty;
     private string _statusFilter = string.Empty;
@@ -331,11 +551,19 @@
     private string _repaymentAccountId = string.Empty;
     private decimal _repaymentAmount;
     private string _repaymentReference = string.Empty;
+    private string _scheduleLoanId = string.Empty;
+    private string _operationsLoanId = string.Empty;
+    private string _operationsServicingAccountId = string.Empty;
+    private string _operationsCollateralAccountId = string.Empty;
+    private string _operationsClientReference = string.Empty;
+    private decimal _penaltyRate = 5m;
+    private string _penaltyReason = "Past due penalty";
     private string _message = string.Empty;
     private bool _isSuccess;
     private bool _isLoading;
     private bool _isActionBusy;
     private bool _isScheduleLoading;
+    private int _activeTabIndex;
 
     protected override async Task OnInitializedAsync()
     {
@@ -346,14 +574,21 @@
     private List<CoreBanker.Services.LoanDto> ActiveLoans => _loans.Where(loan => NormalizeStatus(loan.Status) is "ACTIVE" or "APPROVED" or "DISBURSED").OrderByDescending(loan => loan.DisbursementDate).ToList();
     private List<CoreBanker.Services.LoanDto> PendingLoans => _loans.Where(loan => NormalizeStatus(loan.Status) is "PENDING" or "PENDING_APPROVAL" or "APPRAISED").ToList();
     private List<CoreBanker.Services.LoanDto> ReviewLoans => _loans.Where(loan => NormalizeStatus(loan.Status) is "PENDING" or "PENDING_APPROVAL" or "APPRAISED" or "APPROVED").ToList();
+    private List<CoreBanker.Services.LoanDto> OperationsLoans => _loans.Where(loan => NormalizeStatus(loan.Status) is "APPROVED" or "ACTIVE" or "DISBURSED").OrderByDescending(loan => loan.DisbursementDate).ToList();
     private List<CoreBanker.Services.LoanDto> ArrearsLoans => _loans.Where(loan => !string.IsNullOrWhiteSpace(loan.ParBucket) && loan.ParBucket.Trim() != "0" && loan.ParBucket.Trim() != "PAR_0").ToList();
     private decimal TotalOutstanding => ActiveLoans.Sum(loan => loan.OutstandingBalance ?? loan.Principal);
-    private IEnumerable<CoreBanker.Services.AccountDto> RepaymentAccounts => _accounts.Where(account => account.CustomerId == SelectedRepaymentCustomerId && account.Status == "ACTIVE");
+    private IEnumerable<CoreBanker.Services.AccountDto> RepaymentAccounts => _accounts.Where(account => account.CustomerId == SelectedRepaymentCustomerId && NormalizeStatus(account.Status) == "ACTIVE");
+    private IEnumerable<CoreBanker.Services.AccountDto> OperationsAccounts => _accounts.Where(account => account.CustomerId == SelectedOperationsCustomerId && NormalizeStatus(account.Status) == "ACTIVE");
+    private IEnumerable<CoreBanker.Services.LoanScheduleDto> SchedulePreviewRows => _selectedSchedule.Take(8);
     private string SelectedRepaymentCustomerId => _loans.FirstOrDefault(loan => loan.Id == _repaymentLoanId)?.Cif ?? string.Empty;
+    private string SelectedOperationsCustomerId => _operationsLoan?.Cif ?? string.Empty;
     private bool CanRunCreditCheck => !string.IsNullOrWhiteSpace(_originationCustomerId);
     private bool CanGeneratePreview => SelectedProduct is not null && _originationPrincipal > 0m;
     private bool CanSubmitOrigination => !string.IsNullOrWhiteSpace(_originationCustomerId) && SelectedProduct is not null && _originationPrincipal >= SelectedProduct.MinAmount && _originationPrincipal <= SelectedProduct.MaxAmount && (_originationCustomerProfile?.KycReadiness?.IsReadyForLoanOrigination ?? false);
     private bool CanPostRepayment => !string.IsNullOrWhiteSpace(_repaymentLoanId) && !string.IsNullOrWhiteSpace(_repaymentAccountId) && _repaymentAmount > 0m;
+    private bool CanDisburseOperationsLoan => _operationsLoan is not null && NormalizeStatus(_operationsLoan.Status) == "APPROVED";
+    private bool CanAssessPenalty => _operationsLoan is not null && (_operationsLoan.OutstandingBalance ?? _operationsLoan.Principal) > 0m;
+    private bool CanClassifyLoan => _operationsLoan is not null;
 
     private IEnumerable<CoreBanker.Services.LoanDto> FilteredLoans =>
         _loans.Where(loan =>
@@ -393,6 +628,10 @@
             _loanProducts = productsTask.Result;
             _creditProviders = providersTask.Result;
             _originationProductId = string.IsNullOrWhiteSpace(_originationProductId) ? _loanProducts.FirstOrDefault(product => product.IsActive)?.Id ?? string.Empty : _originationProductId;
+            _selectedLoan = _selectedLoan is null ? _loans.FirstOrDefault() : _loans.FirstOrDefault(loan => loan.Id == _selectedLoan.Id) ?? _loans.FirstOrDefault();
+            _reviewLoan = _reviewLoan is null ? ReviewLoans.FirstOrDefault() : ReviewLoans.FirstOrDefault(loan => loan.Id == _reviewLoan.Id) ?? _reviewLoan;
+            _operationsLoan = _operationsLoan is null ? OperationsLoans.FirstOrDefault() : OperationsLoans.FirstOrDefault(loan => loan.Id == _operationsLoan.Id) ?? _operationsLoan;
+            _selectedScheduleLoan = _selectedScheduleLoan is null ? _selectedLoan : _loans.FirstOrDefault(loan => loan.Id == _selectedScheduleLoan.Id) ?? _selectedScheduleLoan;
             await OnOriginationCustomerChangedAsync();
         }
         catch (CoreBanker.Services.ApiClientException ex)
@@ -513,6 +752,10 @@
             _schedulePreview = null;
             _creditResult = null;
             await LoadWorkspaceAsync();
+            if (loan is not null)
+            {
+                OpenReview(loan);
+            }
         }
         catch (CoreBanker.Services.ApiClientException ex)
         {
@@ -527,8 +770,10 @@
 
     private void OpenReview(CoreBanker.Services.LoanDto loan)
     {
+        _selectedLoan = loan;
         _reviewLoan = loan;
         _reviewNotes = string.Empty;
+        _activeTabIndex = ReviewTabIndex;
     }
 
     private async Task AppraiseSelectedLoanAsync()
@@ -545,6 +790,7 @@
             _isSuccess = true;
             _message = $"Loan {_reviewLoan.Id} appraised successfully.";
             await LoadWorkspaceAsync();
+            _reviewLoan = ReviewLoans.FirstOrDefault(loan => loan.Id == _reviewLoan.Id) ?? _reviewLoan;
         }
         catch (CoreBanker.Services.ApiClientException ex)
         {
@@ -571,6 +817,7 @@
             _isSuccess = true;
             _message = $"Loan {_reviewLoan.Id} approved successfully.";
             await LoadWorkspaceAsync();
+            _reviewLoan = ReviewLoans.FirstOrDefault(loan => loan.Id == _reviewLoan.Id) ?? _reviewLoan;
         }
         catch (CoreBanker.Services.ApiClientException ex)
         {
@@ -583,12 +830,24 @@
         }
     }
 
+    private void SendSelectedLoanToOperations()
+    {
+        if (_reviewLoan is null)
+        {
+            return;
+        }
+
+        OpenOperations(_reviewLoan);
+    }
+
     private void OpenRepayment(CoreBanker.Services.LoanDto loan)
     {
+        _selectedLoan = loan;
         _repaymentLoanId = loan.Id;
         _repaymentAccountId = string.Empty;
         _repaymentAmount = loan.OutstandingBalance ?? loan.Principal;
-        _ = OpenScheduleAsync(loan.Id);
+        _activeTabIndex = RepaymentTabIndex;
+        _ = OpenScheduleAsync(loan.Id, false);
     }
 
     private async Task PostRepaymentAsync()
@@ -606,7 +865,7 @@
             _isSuccess = true;
             _message = $"Repayment posted to loan {_repaymentLoanId}.";
             await LoadWorkspaceAsync();
-            await OpenScheduleAsync(_repaymentLoanId);
+            await OpenScheduleAsync(_repaymentLoanId, false);
             _repaymentReference = string.Empty;
         }
         catch (CoreBanker.Services.ApiClientException ex)
@@ -620,12 +879,29 @@
         }
     }
 
-    private async Task OpenScheduleAsync(string loanId)
+    private async Task LoadScheduleFromTabAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_scheduleLoanId))
+        {
+            return;
+        }
+
+        await OpenScheduleAsync(_scheduleLoanId, false);
+    }
+
+    private async Task OpenScheduleAsync(string loanId, bool switchTab)
     {
         _isScheduleLoading = true;
         try
         {
+            _scheduleLoanId = loanId;
+            _selectedScheduleLoan = _loans.FirstOrDefault(loan => loan.Id == loanId);
+            _selectedLoan = _selectedScheduleLoan ?? _selectedLoan;
             _selectedSchedule = await LoanService.GetLoanScheduleAsync(loanId);
+            if (switchTab)
+            {
+                _activeTabIndex = ScheduleTabIndex;
+            }
         }
         catch (CoreBanker.Services.ApiClientException ex)
         {
@@ -635,6 +911,119 @@
         finally
         {
             _isScheduleLoading = false;
+        }
+    }
+
+    private void OpenOperations(CoreBanker.Services.LoanDto loan)
+    {
+        _selectedLoan = loan;
+        _operationsLoan = loan;
+        _operationsLoanId = loan.Id;
+        _operationsServicingAccountId = string.Empty;
+        _operationsCollateralAccountId = string.Empty;
+        _operationsClientReference = string.Empty;
+        _penaltyResult = null;
+        _classificationResult = null;
+        _activeTabIndex = OperationsTabIndex;
+    }
+
+    private void LoadOperationsLoan()
+    {
+        var loan = _loans.FirstOrDefault(item => item.Id == _operationsLoanId);
+        if (loan is null)
+        {
+            return;
+        }
+
+        OpenOperations(loan);
+    }
+
+    private async Task DisburseOperationsLoanAsync()
+    {
+        if (_operationsLoan is null)
+        {
+            return;
+        }
+
+        _isActionBusy = true;
+        try
+        {
+            await LoanService.DisburseLoanAsync(new CoreBanker.Services.DisburseApprovedLoanRequest
+            {
+                LoanId = _operationsLoan.Id,
+                ClientReference = string.IsNullOrWhiteSpace(_operationsClientReference) ? $"COREBANKER-DSB-{DateTime.UtcNow:yyyyMMddHHmmss}" : _operationsClientReference,
+                ServicingAccountId = string.IsNullOrWhiteSpace(_operationsServicingAccountId) ? null : _operationsServicingAccountId,
+                CollateralAccountId = string.IsNullOrWhiteSpace(_operationsCollateralAccountId) ? null : _operationsCollateralAccountId
+            });
+            _isSuccess = true;
+            _message = $"Loan {_operationsLoan.Id} disbursed successfully.";
+            await LoadWorkspaceAsync();
+            _operationsLoan = _loans.FirstOrDefault(loan => loan.Id == _operationsLoan.Id) ?? _operationsLoan;
+        }
+        catch (CoreBanker.Services.ApiClientException ex)
+        {
+            _isSuccess = false;
+            _message = ex.Message;
+        }
+        finally
+        {
+            _isActionBusy = false;
+        }
+    }
+
+    private async Task AssessPenaltyAsync()
+    {
+        if (_operationsLoan is null)
+        {
+            return;
+        }
+
+        _isActionBusy = true;
+        try
+        {
+            _penaltyResult = await LoanService.AssessPenaltyAsync(_operationsLoan.Id, new CoreBanker.Services.AssessLoanPenaltyRequest
+            {
+                PenaltyRate = _penaltyRate,
+                Reason = string.IsNullOrWhiteSpace(_penaltyReason) ? null : _penaltyReason,
+                ClientReference = string.IsNullOrWhiteSpace(_operationsClientReference) ? null : _operationsClientReference
+            });
+            _isSuccess = true;
+            _message = _penaltyResult is null ? "Penalty assessment completed." : $"Penalty assessed at {FormatCurrency(_penaltyResult.PenaltyAmount)}.";
+            await LoadWorkspaceAsync();
+        }
+        catch (CoreBanker.Services.ApiClientException ex)
+        {
+            _isSuccess = false;
+            _message = ex.Message;
+        }
+        finally
+        {
+            _isActionBusy = false;
+        }
+    }
+
+    private async Task ClassifyOperationsLoanAsync()
+    {
+        if (_operationsLoan is null)
+        {
+            return;
+        }
+
+        _isActionBusy = true;
+        try
+        {
+            _classificationResult = await LoanService.ClassifyLoanAsync(_operationsLoan.Id);
+            _isSuccess = true;
+            _message = _classificationResult is null ? "Loan classification completed." : $"Loan classified into {_classificationResult.BogTier}.";
+        }
+        catch (CoreBanker.Services.ApiClientException ex)
+        {
+            _isSuccess = false;
+            _message = ex.Message;
+        }
+        finally
+        {
+            _isActionBusy = false;
         }
     }
 
@@ -661,6 +1050,7 @@
     }
 
     private static string NormalizeStatus(string? status) => (status ?? string.Empty).Trim().ToUpperInvariant();
+
     private static Color GetStatusColor(string? status) =>
         status switch
         {
@@ -669,6 +1059,7 @@
             "CLOSED" => Color.Info,
             _ => Color.Default
         };
+
     private static string DisplayParBucket(string? parBucket) => string.IsNullOrWhiteSpace(parBucket) ? "PAR_0" : parBucket.Trim();
     private static string FormatCurrency(decimal amount) => CoreBanker.Utilities.CurrencyFormatter.Format(amount);
 }

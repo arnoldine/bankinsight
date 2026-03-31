@@ -33,6 +33,8 @@ export interface DisburseLoanRequest {
     clientReference?: string;
     collateralType?: string;
     collateralValue?: number;
+    servicingAccountId?: string;
+    collateralAccountId?: string;
 }
 
 export interface LoanProductDefinition {
@@ -200,6 +202,33 @@ export interface CreditProvider {
     providerName: string;
 }
 
+export interface LoanPenaltyAssessmentRequest {
+    penaltyRate: number;
+    reason?: string;
+    clientReference?: string;
+}
+
+export interface LoanPenaltyResult {
+    loanId: string;
+    penaltyAmount: number;
+    penaltyRate: number;
+    daysPastDue: number;
+    outstandingBalance: number;
+    reason: string;
+    assessedAt: string;
+}
+
+export interface LoanClassificationResult {
+    loanId: string;
+    bogTier: string;
+    daysPastDue: number;
+    outstandingPrincipal: number;
+    outstandingInterest: number;
+    provisioningAmount: number;
+    provisioningRate: number;
+    evaluationDate: string;
+}
+
 export interface LoanScheduleDto {
     period: number;
     dueDate: string;
@@ -278,6 +307,14 @@ class LoanService {
 
     async getLoanStatement(id: string): Promise<LoanStatement> {
         return httpClient.get<LoanStatement>(API_ENDPOINTS.loans.statement(id));
+    }
+
+    async assessPenalty(loanId: string, data: LoanPenaltyAssessmentRequest): Promise<LoanPenaltyResult> {
+        return httpClient.post<LoanPenaltyResult>(API_ENDPOINTS.loans.penalty(loanId), data);
+    }
+
+    async classifyLoan(loanId: string): Promise<LoanClassificationResult> {
+        return httpClient.post<LoanClassificationResult>(API_ENDPOINTS.loans.classify(loanId), {});
     }
 
     async checkCredit(data: CreditCheckRequest): Promise<CreditCheckResult> {

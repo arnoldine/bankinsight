@@ -59,6 +59,19 @@ namespace CoreBanker.Services
             return await PostAsync<AppraiseLoanRequest, LoanDto>("/api/loans/appraise", normalizedRequest, cancellationToken);
         }
 
+        public async Task<LoanDto?> DisburseLoanAsync(DisburseApprovedLoanRequest request, CancellationToken cancellationToken = default)
+        {
+            var normalizedRequest = new DisburseApprovedLoanRequest
+            {
+                LoanId = request.LoanId.Trim(),
+                ClientReference = string.IsNullOrWhiteSpace(request.ClientReference) ? null : request.ClientReference.Trim(),
+                ServicingAccountId = string.IsNullOrWhiteSpace(request.ServicingAccountId) ? null : request.ServicingAccountId.Trim(),
+                CollateralAccountId = string.IsNullOrWhiteSpace(request.CollateralAccountId) ? null : request.CollateralAccountId.Trim()
+            };
+
+            return await PostAsync<DisburseApprovedLoanRequest, LoanDto>("/api/loans/disburse", normalizedRequest, cancellationToken);
+        }
+
         public async Task<CreditCheckDto?> CheckCreditAsync(CheckCreditRequest request, CancellationToken cancellationToken = default)
         {
             var normalizedRequest = new CheckCreditRequest
@@ -175,6 +188,14 @@ namespace CoreBanker.Services
         public string LoanId { get; set; } = string.Empty;
         public string Decision { get; set; } = "APPRAISED";
         public string? Notes { get; set; }
+    }
+
+    public class DisburseApprovedLoanRequest
+    {
+        public string LoanId { get; set; } = string.Empty;
+        public string? ClientReference { get; set; }
+        public string? ServicingAccountId { get; set; }
+        public string? CollateralAccountId { get; set; }
     }
 
     public class RepayLoanRequest

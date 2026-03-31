@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useLoans } from '../../hooks/useApi';
-import { loanService, Loan, LoanProductDefinition } from '../../services/loanService';
+import { loanService, Loan, LoanClassificationResult, LoanPenaltyResult, LoanProductDefinition } from '../../services/loanService';
 import { authService } from '../../services/authService';
 import { Permissions } from '../../../lib/Permissions';
 
@@ -27,9 +27,9 @@ export default function LoanOperationsSuite({ loans, onReload }: Props) {
   const isSuperAdmin = currentUser?.role === 'Administrator';
   const canConfigureProducts = isSuperAdmin || Boolean(currentUser?.permissions?.includes(Permissions.Loans.ConfigureProducts));
   const availableTabs = (canConfigureProducts
-    ? ['products', 'workflow', 'credit', 'repayment', 'delinquency', 'postings', 'pnl', 'balancesheet']
-    : ['workflow', 'credit', 'repayment', 'delinquency', 'postings', 'pnl', 'balancesheet']) as Array<'products' | 'workflow' | 'credit' | 'repayment' | 'delinquency' | 'postings' | 'pnl' | 'balancesheet'>;
-  const [active, setActive] = useState<'products' | 'workflow' | 'credit' | 'repayment' | 'delinquency' | 'postings' | 'pnl' | 'balancesheet'>(canConfigureProducts ? 'products' : 'workflow');
+    ? ['products', 'workflow', 'servicing', 'credit', 'repayment', 'delinquency', 'postings', 'pnl', 'balancesheet']
+    : ['workflow', 'servicing', 'credit', 'repayment', 'delinquency', 'postings', 'pnl', 'balancesheet']) as Array<'products' | 'workflow' | 'servicing' | 'credit' | 'repayment' | 'delinquency' | 'postings' | 'pnl' | 'balancesheet'>;
+  const [active, setActive] = useState<'products' | 'workflow' | 'servicing' | 'credit' | 'repayment' | 'delinquency' | 'postings' | 'pnl' | 'balancesheet'>(canConfigureProducts ? 'products' : 'workflow');
   const [loanId, setLoanId] = useState('');
   const [customerId, setCustomerId] = useState('CUST0001');
   const [creditResult, setCreditResult] = useState<any>(null);
@@ -39,6 +39,8 @@ export default function LoanOperationsSuite({ loans, onReload }: Props) {
   const [balanceSheet, setBalanceSheet] = useState<any>(null);
   const [loanProducts, setLoanProducts] = useState<LoanProductDefinition[]>([]);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
+  const [penaltyResult, setPenaltyResult] = useState<LoanPenaltyResult | null>(null);
+  const [classificationResult, setClassificationResult] = useState<LoanClassificationResult | null>(null);
 
   const [productForm, setProductForm] = useState({
     id: 'LP_CONS_MONTHLY_EXT',
@@ -64,11 +66,24 @@ export default function LoanOperationsSuite({ loans, onReload }: Props) {
     accountId: 'ACC0001',
     amount: 100,
   });
+  const [servicingForm, setServicingForm] = useState({
+    loanId: '',
+    servicingAccountId: '',
+    collateralAccountId: '',
+    clientReference: '',
+    penaltyRate: 5,
+    reason: 'Past due penalty',
+  });
 
   const activeLoanOptions = useMemo(() => loans.filter(l => l.status !== 'CLOSED'), [loans]);
+  const approvedLoanOptions = useMemo(() => loans.filter(l => ['APPROVED', 'ACTIVE', 'DISBURSED'].includes(String(l.status || '').toUpperCase())), [loans]);
   const selectedWorkflowProduct = useMemo(
     () => loanProducts.find(product => product.id === workflowForm.loanProductId) || null,
     [loanProducts, workflowForm.loanProductId],
+  );
+  const selectedServicingLoan = useMemo(
+    () => loans.find(loan => loan.id === servicingForm.loanId) || null,
+    [loans, servicingForm.loanId],
   );
 
   useEffect(() => {
@@ -123,6 +138,37 @@ export default function LoanOperationsSuite({ loans, onReload }: Props) {
     setStatusMessage('Repayment posted.');
   };
 
+  const runDisbursement = async () => {
+    if (!servicingForm.loanId) return;
+    await loanService.disburseLoan({
+      loanId: servicingForm.loanId,
+      clientReference: servicingForm.clientReference || `WEB-DSB-${Date.now()}`,
+      servicingAccountId: servicingForm.servicingAccountId || undefined,
+      collateralAccountId: servicingForm.collateralAccountId || undefined,
+    });
+    await onReload();
+    setStatusMessage(`Loan ${servicingForm.loanId} disbursed successfully.`);
+  };
+
+  const runPenaltyAssessment = async () => {
+    if (!servicingForm.loanId) return;
+    const result = await loanService.assessPenalty(servicingForm.loanId, {
+      penaltyRate: Number(servicingForm.penaltyRate),
+      reason: servicingForm.reason,
+      clientReference: servicingForm.clientReference || undefined,
+    });
+    setPenaltyResult(result);
+    setStatusMessage(`Penalty assessed for ${servicingForm.loanId}.`);
+    await onReload();
+  };
+
+  const runClassification = async () => {
+    if (!servicingForm.loanId) return;
+    const result = await loanService.classifyLoan(servicingForm.loanId);
+    setClassificationResult(result);
+    setStatusMessage(`Classification completed for ${servicingForm.loanId}.`);
+  };
+
   const loadDelinquency = async () => {
     const res = await getDelinquencyDashboard();
     setDelinquency(res);
@@ -156,7 +202,7 @@ export default function LoanOperationsSuite({ loans, onReload }: Props) {
             onClick={() => setActive(tab as any)}
             className={`px-3 py-1 rounded text-sm border ${active === tab ? 'bg-blue-600 text-white border-blue-600' : 'bg-white dark:bg-slate-800 border-gray-200 dark:border-slate-700'}`}
           >
-            {tab === 'pnl' ? 'P&L' : tab === 'balancesheet' ? 'Balance Sheet' : tab.charAt(0).toUpperCase() + tab.slice(1)}
+            {tab === 'pnl' ? 'P&L' : tab === 'balancesheet' ? 'Balance Sheet' : tab === 'servicing' ? 'Servicing' : tab.charAt(0).toUpperCase() + tab.slice(1)}
           </button>
         ))}
       </div>
@@ -206,6 +252,73 @@ export default function LoanOperationsSuite({ loans, onReload }: Props) {
           <div className="text-xs text-slate-500 dark:text-slate-400">Product parameters are read-only here and managed only from the Product Definition tab.</div>
           <button disabled={loading || !workflowForm.loanProductId} onClick={runWorkflow} className="px-4 py-2 bg-blue-600 text-white rounded">Run Apply {'->'} Appraise {'->'} Approve {'->'} Disburse</button>
           {loanId && <div className="text-sm">Latest Loan ID: <span className="font-mono">{loanId}</span></div>}
+        </div>
+      )}
+
+      {active === 'servicing' && (
+        <div className="bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-lg p-4 space-y-4">
+          <h4 className="font-semibold">Disbursement and Servicing Controls</h4>
+          <div className="text-xs text-slate-500 dark:text-slate-400">
+            Operations desk for approved facilities. Use servicing and collateral accounts during disbursement, then run penalty and classification controls as the loan seasons.
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <select className="px-3 py-2 rounded border" value={servicingForm.loanId} onChange={e => setServicingForm({ ...servicingForm, loanId: e.target.value })}>
+              <option value="">Select Loan</option>
+              {approvedLoanOptions.map(loan => (
+                <option key={loan.id} value={loan.id}>{loan.id} | {loan.productName || loan.productCode} | {loan.status}</option>
+              ))}
+            </select>
+            <input className="px-3 py-2 rounded border" value={servicingForm.clientReference} onChange={e => setServicingForm({ ...servicingForm, clientReference: e.target.value })} placeholder="Client reference" />
+            <input className="px-3 py-2 rounded border" value={servicingForm.servicingAccountId} onChange={e => setServicingForm({ ...servicingForm, servicingAccountId: e.target.value })} placeholder="Servicing account ID" />
+            <input className="px-3 py-2 rounded border" value={servicingForm.collateralAccountId} onChange={e => setServicingForm({ ...servicingForm, collateralAccountId: e.target.value })} placeholder="Collateral account ID" />
+            <input className="px-3 py-2 rounded border" type="number" min="0" step="0.01" value={servicingForm.penaltyRate} onChange={e => setServicingForm({ ...servicingForm, penaltyRate: Number(e.target.value) })} placeholder="Penalty rate" />
+            <input className="px-3 py-2 rounded border" value={servicingForm.reason} onChange={e => setServicingForm({ ...servicingForm, reason: e.target.value })} placeholder="Penalty reason" />
+          </div>
+
+          {selectedServicingLoan && (
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-3 text-sm">
+              <div className="p-3 border rounded"><div className="text-gray-500">Status</div><div className="font-semibold">{selectedServicingLoan.status}</div></div>
+              <div className="p-3 border rounded"><div className="text-gray-500">Principal</div><div className="font-semibold">{Number(selectedServicingLoan.principal || 0).toFixed(2)}</div></div>
+              <div className="p-3 border rounded"><div className="text-gray-500">Outstanding</div><div className="font-semibold">{Number(selectedServicingLoan.outstandingBalance || 0).toFixed(2)}</div></div>
+              <div className="p-3 border rounded"><div className="text-gray-500">PAR</div><div className="font-semibold">{selectedServicingLoan.parBucket || '0'}</div></div>
+            </div>
+          )}
+
+          <div className="flex flex-wrap gap-2">
+            <button disabled={loading || !servicingForm.loanId} onClick={runDisbursement} className="px-4 py-2 bg-green-600 text-white rounded disabled:opacity-60">Disburse Loan</button>
+            <button disabled={loading || !servicingForm.loanId} onClick={runPenaltyAssessment} className="px-4 py-2 bg-amber-500 text-white rounded disabled:opacity-60">Assess Penalty</button>
+            <button disabled={loading || !servicingForm.loanId} onClick={runClassification} className="px-4 py-2 bg-blue-600 text-white rounded disabled:opacity-60">Classify Loan</button>
+          </div>
+
+          {(penaltyResult || classificationResult) && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+              <div className="p-3 border rounded">
+                <div className="font-medium mb-2">Penalty Result</div>
+                {penaltyResult ? (
+                  <div className="space-y-1">
+                    <div>Amount: <span className="font-semibold">{Number(penaltyResult.penaltyAmount || 0).toFixed(2)}</span></div>
+                    <div>Rate: <span className="font-semibold">{penaltyResult.penaltyRate}%</span></div>
+                    <div>Days Past Due: <span className="font-semibold">{penaltyResult.daysPastDue}</span></div>
+                  </div>
+                ) : (
+                  <div className="text-slate-500 dark:text-slate-400">No penalty assessment loaded yet.</div>
+                )}
+              </div>
+              <div className="p-3 border rounded">
+                <div className="font-medium mb-2">Classification Result</div>
+                {classificationResult ? (
+                  <div className="space-y-1">
+                    <div>BoG Tier: <span className="font-semibold">{classificationResult.bogTier}</span></div>
+                    <div>Provisioning Amount: <span className="font-semibold">{Number(classificationResult.provisioningAmount || 0).toFixed(2)}</span></div>
+                    <div>Provisioning Rate: <span className="font-semibold">{Number(classificationResult.provisioningRate || 0) * 100}%</span></div>
+                  </div>
+                ) : (
+                  <div className="text-slate-500 dark:text-slate-400">No classification loaded yet.</div>
+                )}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
