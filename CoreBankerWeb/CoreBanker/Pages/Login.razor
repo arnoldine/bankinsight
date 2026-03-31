@@ -31,7 +31,7 @@
 
     @if (!mfaRequired)
     {
-        <MudForm @ref="form" OnValidSubmit="HandleLogin">
+        <MudForm @ref="form">
             <MudTextField @bind-Value="Email"
                           Label="Work Email"
                           Placeholder="name@bankinsight.local"
@@ -53,7 +53,7 @@
                           HelperText="Passwords are never stored in the browser."
                           Adornment="Adornment.Start"
                           AdornmentIcon="@Icons.Material.Filled.Lock" />
-            <MudButton ButtonType="ButtonType.Submit" Color="Color.Primary" Variant="Variant.Filled" Class="mt-4 login-primary-action" Disabled="@loading" FullWidth="true">
+            <MudButton ButtonType="ButtonType.Button" OnClick="HandleLogin" Color="Color.Primary" Variant="Variant.Filled" Class="mt-4 login-primary-action" Disabled="@loading" FullWidth="true">
                 @(loading ? "Signing In..." : "Login")
             </MudButton>
         </MudForm>
@@ -78,7 +78,7 @@
             }
         </MudAlert>
 
-        <MudForm @ref="mfaForm" OnValidSubmit="HandleMfa">
+        <MudForm @ref="mfaForm">
             <MudTextField @bind-Value="MfaCode"
                           Label="MFA Code"
                           Placeholder="Enter 6-digit code"
@@ -89,7 +89,7 @@
                           HelperText="Codes expire quickly for security."
                           Adornment="Adornment.Start"
                           AdornmentIcon="@Icons.Material.Filled.Shield" />
-            <MudButton ButtonType="ButtonType.Submit" Color="Color.Primary" Variant="Variant.Filled" Class="mt-4 login-primary-action" Disabled="@mfaLoading" FullWidth="true">
+            <MudButton ButtonType="ButtonType.Button" OnClick="HandleMfa" Color="Color.Primary" Variant="Variant.Filled" Class="mt-4 login-primary-action" Disabled="@mfaLoading" FullWidth="true">
                 @(mfaLoading ? "Verifying..." : "Verify")
             </MudButton>
         </MudForm>
