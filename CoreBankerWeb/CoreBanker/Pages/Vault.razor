@@ -20,32 +20,75 @@
     }
 
     <MudGrid>
+        <MudItem xs="12" md="4"><MudPaper Class="pa-4 corebanker-friendly-stat" Elevation="0"><MudText Typo="Typo.caption">Vaults</MudText><MudText Typo="Typo.h5">@_vaults.Count</MudText></MudPaper></MudItem>
+        <MudItem xs="12" md="4"><MudPaper Class="pa-4 corebanker-friendly-stat" Elevation="0"><MudText Typo="Typo.caption">Tills</MudText><MudText Typo="Typo.h5">@_tills.Count</MudText></MudPaper></MudItem>
+        <MudItem xs="12" md="4"><MudPaper Class="pa-4 corebanker-friendly-stat" Elevation="0"><MudText Typo="Typo.caption">Open Tills</MudText><MudText Typo="Typo.h5">@_tills.Count(till => string.Equals(till.Status, "OPEN", StringComparison.OrdinalIgnoreCase))</MudText></MudPaper></MudItem>
+    </MudGrid>
+
+    <MudPaper Class="pa-4 corebanker-friendly-guide" Elevation="0">
+        <MudGrid>
+            <MudItem xs="12" md="4">
+                <MudText Typo="Typo.subtitle2">1. Open and fund tills</MudText>
+                <MudText Typo="Typo.body2" Class="mud-text-secondary">Open a till with the right opening balance, then allocate working cash from the branch vault.</MudText>
+            </MudItem>
+            <MudItem xs="12" md="4">
+                <MudText Typo="Typo.subtitle2">2. Return and close safely</MudText>
+                <MudText Typo="Typo.body2" Class="mud-text-secondary">Use return and close actions at end of shift so physical cash and system balances stay aligned.</MudText>
+            </MudItem>
+            <MudItem xs="12" md="4">
+                <MudText Typo="Typo.subtitle2">3. Control branch cash</MudText>
+                <MudText Typo="Typo.body2" Class="mud-text-secondary">Record vault counts and movements to preserve a trustworthy branch cash position.</MudText>
+            </MudItem>
+        </MudGrid>
+    </MudPaper>
+
+    <MudGrid>
         <MudItem xs="12" md="6">
             <MudPaper Class="pa-4">
                 <MudText Typo="Typo.h6">Branch Vaults</MudText>
-                <MudTable T="CoreBanker.Services.BranchVaultDto" Items="@_vaults" Dense="true" Hover="true" Loading="@_isBusy" Class="mt-3">
-                    <HeaderContent><MudTh>Branch</MudTh><MudTh>Currency</MudTh><MudTh>Cash On Hand</MudTh><MudTh>Updated</MudTh></HeaderContent>
-                    <RowTemplate>
-                        <MudTd DataLabel="Branch">@($"{context.BranchName} ({context.BranchCode})")</MudTd>
-                        <MudTd DataLabel="Currency">@context.Currency</MudTd>
-                        <MudTd DataLabel="Cash On Hand">@FormatCurrency(context.CashOnHand)</MudTd>
-                        <MudTd DataLabel="Updated">@context.UpdatedAt.ToString("dd MMM yyyy HH:mm")</MudTd>
-                    </RowTemplate>
-                </MudTable>
+                @if (!_isBusy && _vaults.Count == 0)
+                {
+                    <MudPaper Class="pa-6 mt-3 corebanker-empty-state" Elevation="0">
+                        <MudText Typo="Typo.h6">No branch vault data available</MudText>
+                        <MudText Typo="Typo.body2" Class="mud-text-secondary">Vault balances will appear here once the branch cash service returns vault records.</MudText>
+                    </MudPaper>
+                }
+                else
+                {
+                    <MudTable T="CoreBanker.Services.BranchVaultDto" Items="@_vaults" Dense="true" Hover="true" Loading="@_isBusy" Class="mt-3">
+                        <HeaderContent><MudTh>Branch</MudTh><MudTh>Currency</MudTh><MudTh>Cash On Hand</MudTh><MudTh>Updated</MudTh></HeaderContent>
+                        <RowTemplate>
+                            <MudTd DataLabel="Branch">@($"{context.BranchName} ({context.BranchCode})")</MudTd>
+                            <MudTd DataLabel="Currency">@context.Currency</MudTd>
+                            <MudTd DataLabel="Cash On Hand">@FormatCurrency(context.CashOnHand)</MudTd>
+                            <MudTd DataLabel="Updated">@context.UpdatedAt.ToString("dd MMM yyyy HH:mm")</MudTd>
+                        </RowTemplate>
+                    </MudTable>
+                }
             </MudPaper>
         </MudItem>
         <MudItem xs="12" md="6">
             <MudPaper Class="pa-4">
                 <MudText Typo="Typo.h6">Teller Tills</MudText>
-                <MudTable T="CoreBanker.Services.TellerTillSummaryDto" Items="@_tills" Dense="true" Hover="true" Loading="@_isBusy" Class="mt-3">
-                    <HeaderContent><MudTh>Teller</MudTh><MudTh>Status</MudTh><MudTh>Current Balance</MudTh><MudTh>Variance</MudTh></HeaderContent>
-                    <RowTemplate>
-                        <MudTd DataLabel="Teller">@context.TellerName</MudTd>
-                        <MudTd DataLabel="Status">@context.Status</MudTd>
-                        <MudTd DataLabel="Current Balance">@FormatCurrency(context.CurrentBalance)</MudTd>
-                        <MudTd DataLabel="Variance">@FormatCurrency(context.Variance)</MudTd>
-                    </RowTemplate>
-                </MudTable>
+                @if (!_isBusy && _tills.Count == 0)
+                {
+                    <MudPaper Class="pa-6 mt-3 corebanker-empty-state" Elevation="0">
+                        <MudText Typo="Typo.h6">No teller tills available</MudText>
+                        <MudText Typo="Typo.body2" Class="mud-text-secondary">Open a till to start the day and it will appear here for monitoring.</MudText>
+                    </MudPaper>
+                }
+                else
+                {
+                    <MudTable T="CoreBanker.Services.TellerTillSummaryDto" Items="@_tills" Dense="true" Hover="true" Loading="@_isBusy" Class="mt-3">
+                        <HeaderContent><MudTh>Teller</MudTh><MudTh>Status</MudTh><MudTh>Current Balance</MudTh><MudTh>Variance</MudTh></HeaderContent>
+                        <RowTemplate>
+                            <MudTd DataLabel="Teller">@context.TellerName</MudTd>
+                            <MudTd DataLabel="Status"><MudChip T="string" Size="Size.Small" Variant="Variant.Text" Color="@GetStatusColor(context.Status)">@context.Status</MudChip></MudTd>
+                            <MudTd DataLabel="Current Balance">@FormatCurrency(context.CurrentBalance)</MudTd>
+                            <MudTd DataLabel="Variance">@FormatCurrency(context.Variance)</MudTd>
+                        </RowTemplate>
+                    </MudTable>
+                }
             </MudPaper>
         </MudItem>
     </MudGrid>
@@ -61,6 +104,7 @@
                         <MudTextField @bind-Value="_openTill.Currency" Label="Currency" Variant="Variant.Outlined" Class="mt-3" />
                         <MudNumericField T="decimal" @bind-Value="_openTill.OpeningBalance" Label="Opening Balance" Variant="Variant.Outlined" Class="mt-3" />
                         <MudNumericField T="decimal?" @bind-Value="_openTill.MidDayCashLimit" Label="Midday Cash Limit" Variant="Variant.Outlined" Class="mt-3" />
+                        <MudTextField @bind-Value="_openTill.WitnessOfficer" Label="Witness Officer" Variant="Variant.Outlined" Class="mt-3" />
                         <MudTextField @bind-Value="_openTill.Notes" Label="Notes" Variant="Variant.Outlined" Class="mt-3" />
                         <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="mt-4" Disabled="@(_isBusy || string.IsNullOrWhiteSpace(_openTill.TellerId))" OnClick="OpenTillAsync">Open Till</MudButton>
                     </MudPaper>
@@ -73,6 +117,9 @@
                         <MudNumericField T="decimal" @bind-Value="_allocateCash.Amount" Label="Amount" Variant="Variant.Outlined" Class="mt-3" />
                         <MudTextField @bind-Value="_allocateCash.Reference" Label="Reference" Variant="Variant.Outlined" Class="mt-3" />
                         <MudTextField @bind-Value="_allocateCash.Narration" Label="Narration" Variant="Variant.Outlined" Class="mt-3" />
+                        <MudTextField @bind-Value="_allocateCash.ControlReference" Label="Control Reference" Variant="Variant.Outlined" Class="mt-3" />
+                        <MudTextField @bind-Value="_allocateCash.WitnessOfficer" Label="Witness Officer" Variant="Variant.Outlined" Class="mt-3" />
+                        <MudTextField @bind-Value="_allocateCash.SealNumber" Label="Seal Number" Variant="Variant.Outlined" Class="mt-3" />
                         <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="mt-4" Disabled="@(_isBusy || string.IsNullOrWhiteSpace(_allocateCash.TellerId) || _allocateCash.Amount <= 0m)" OnClick="AllocateCashAsync">Allocate Cash</MudButton>
                     </MudPaper>
                 </MudItem>
@@ -88,6 +135,9 @@
                         <MudTextField @bind-Value="_returnCash.BranchId" Label="Branch Id" Variant="Variant.Outlined" Class="mt-3" />
                         <MudNumericField T="decimal" @bind-Value="_returnCash.Amount" Label="Amount" Variant="Variant.Outlined" Class="mt-3" />
                         <MudTextField @bind-Value="_returnCash.Reference" Label="Reference" Variant="Variant.Outlined" Class="mt-3" />
+                        <MudTextField @bind-Value="_returnCash.ControlReference" Label="Control Reference" Variant="Variant.Outlined" Class="mt-3" />
+                        <MudTextField @bind-Value="_returnCash.WitnessOfficer" Label="Witness Officer" Variant="Variant.Outlined" Class="mt-3" />
+                        <MudTextField @bind-Value="_returnCash.SealNumber" Label="Seal Number" Variant="Variant.Outlined" Class="mt-3" />
                         <MudButton Variant="Variant.Filled" Color="Color.Secondary" Class="mt-4" Disabled="@(_isBusy || string.IsNullOrWhiteSpace(_returnCash.TellerId) || _returnCash.Amount <= 0m)" OnClick="ReturnCashAsync">Return Cash</MudButton>
                     </MudPaper>
                 </MudItem>
@@ -97,6 +147,9 @@
                         <MudTextField @bind-Value="_closeTill.TellerId" Label="Teller Id" Variant="Variant.Outlined" Class="mt-2" />
                         <MudTextField @bind-Value="_closeTill.BranchId" Label="Branch Id" Variant="Variant.Outlined" Class="mt-3" />
                         <MudNumericField T="decimal" @bind-Value="_closeTill.PhysicalCashCount" Label="Physical Cash Count" Variant="Variant.Outlined" Class="mt-3" />
+                        <MudTextField @bind-Value="_closeTill.ControlReference" Label="Control Reference" Variant="Variant.Outlined" Class="mt-3" />
+                        <MudTextField @bind-Value="_closeTill.WitnessOfficer" Label="Witness Officer" Variant="Variant.Outlined" Class="mt-3" />
+                        <MudTextField @bind-Value="_closeTill.SealNumber" Label="Seal Number" Variant="Variant.Outlined" Class="mt-3" />
                         <MudTextField @bind-Value="_closeTill.Notes" Label="Notes" Variant="Variant.Outlined" Class="mt-3" />
                         <MudButton Variant="Variant.Filled" Color="Color.Error" Class="mt-4" Disabled="@(_isBusy || string.IsNullOrWhiteSpace(_closeTill.TellerId))" OnClick="CloseTillAsync">Close Till</MudButton>
                     </MudPaper>
@@ -113,6 +166,9 @@
                         <MudTextField @bind-Value="_vaultCount.Currency" Label="Currency" Variant="Variant.Outlined" Class="mt-3" />
                         <MudNumericField T="decimal" @bind-Value="_vaultCount.Amount" Label="Amount" Variant="Variant.Outlined" Class="mt-3" />
                         <MudTextField @bind-Value="_vaultCount.CountReason" Label="Count Reason" Variant="Variant.Outlined" Class="mt-3" />
+                        <MudTextField @bind-Value="_vaultCount.ControlReference" Label="Control Reference" Variant="Variant.Outlined" Class="mt-3" />
+                        <MudTextField @bind-Value="_vaultCount.WitnessOfficer" Label="Witness Officer" Variant="Variant.Outlined" Class="mt-3" />
+                        <MudTextField @bind-Value="_vaultCount.SealNumber" Label="Seal Number" Variant="Variant.Outlined" Class="mt-3" />
                         <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="mt-4" Disabled="@(_isBusy || string.IsNullOrWhiteSpace(_vaultCount.BranchId) || _vaultCount.Amount <= 0m)" OnClick="RecordVaultCountAsync">Record Count</MudButton>
                     </MudPaper>
                 </MudItem>
@@ -126,6 +182,10 @@
                         </MudSelect>
                         <MudNumericField T="decimal" @bind-Value="_vaultMovement.Amount" Label="Amount" Variant="Variant.Outlined" Class="mt-3" />
                         <MudTextField @bind-Value="_vaultMovement.Reference" Label="Reference" Variant="Variant.Outlined" Class="mt-3" />
+                        <MudTextField @bind-Value="_vaultMovement.Narration" Label="Narration" Variant="Variant.Outlined" Class="mt-3" />
+                        <MudTextField @bind-Value="_vaultMovement.ControlReference" Label="Control Reference" Variant="Variant.Outlined" Class="mt-3" />
+                        <MudTextField @bind-Value="_vaultMovement.WitnessOfficer" Label="Witness Officer" Variant="Variant.Outlined" Class="mt-3" />
+                        <MudTextField @bind-Value="_vaultMovement.SealNumber" Label="Seal Number" Variant="Variant.Outlined" Class="mt-3" />
                         <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="mt-4" Disabled="@(_isBusy || string.IsNullOrWhiteSpace(_vaultMovement.BranchId) || _vaultMovement.Amount <= 0m)" OnClick="ProcessVaultMovementAsync">Post Movement</MudButton>
                     </MudPaper>
                 </MudItem>
@@ -171,15 +231,82 @@
         }
     }
 
-    private async Task OpenTillAsync() => await RunAsync(async () => { await VaultService.OpenTillAsync(_openTill); _message = $"Till {_openTill.TellerId} opened."; await LoadWorkspaceAsync(); });
-    private async Task AllocateCashAsync() => await RunAsync(async () => { await VaultService.AllocateTillCashAsync(_allocateCash); _message = $"Cash allocated to {_allocateCash.TellerId}."; await LoadWorkspaceAsync(); });
-    private async Task ReturnCashAsync() => await RunAsync(async () => { await VaultService.ReturnTillCashAsync(_returnCash); _message = $"Cash returned from {_returnCash.TellerId}."; await LoadWorkspaceAsync(); });
-    private async Task CloseTillAsync() => await RunAsync(async () => { await VaultService.CloseTillAsync(_closeTill); _message = $"Till {_closeTill.TellerId} closed."; await LoadWorkspaceAsync(); });
-    private async Task RecordVaultCountAsync() => await RunAsync(async () => { await VaultService.RecordVaultCountAsync(_vaultCount); _message = $"Vault count recorded for {_vaultCount.BranchId}."; await LoadWorkspaceAsync(); });
-    private async Task ProcessVaultMovementAsync() => await RunAsync(async () => { await VaultService.ProcessVaultTransactionAsync(_vaultMovement); _message = $"Vault {_vaultMovement.Type.ToLowerInvariant()} posted for {_vaultMovement.BranchId}."; await LoadWorkspaceAsync(); });
+    private async Task OpenTillAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_openTill.BranchId))
+        {
+            _isSuccess = false;
+            _message = "Branch ID is required when opening a till.";
+            return;
+        }
+
+        await RunAsync(async () => { await VaultService.OpenTillAsync(_openTill); _message = $"Till {_openTill.TellerId} opened."; await LoadWorkspaceAsync(); });
+    }
+
+    private async Task AllocateCashAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_allocateCash.BranchId))
+        {
+            _isSuccess = false;
+            _message = "Branch ID is required when allocating cash to a till.";
+            return;
+        }
+
+        await RunAsync(async () => { await VaultService.AllocateTillCashAsync(_allocateCash); _message = $"Cash allocated to {_allocateCash.TellerId}."; await LoadWorkspaceAsync(); });
+    }
+
+    private async Task ReturnCashAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_returnCash.BranchId))
+        {
+            _isSuccess = false;
+            _message = "Branch ID is required when returning till cash.";
+            return;
+        }
+
+        await RunAsync(async () => { await VaultService.ReturnTillCashAsync(_returnCash); _message = $"Cash returned from {_returnCash.TellerId}."; await LoadWorkspaceAsync(); });
+    }
+
+    private async Task CloseTillAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_closeTill.BranchId))
+        {
+            _isSuccess = false;
+            _message = "Branch ID is required when closing a till.";
+            return;
+        }
+
+        await RunAsync(async () => { await VaultService.CloseTillAsync(_closeTill); _message = $"Till {_closeTill.TellerId} closed."; await LoadWorkspaceAsync(); });
+    }
+
+    private async Task RecordVaultCountAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_vaultCount.CountReason))
+        {
+            _isSuccess = false;
+            _message = "Provide a reason when recording a vault count.";
+            return;
+        }
+
+        await RunAsync(async () => { await VaultService.RecordVaultCountAsync(_vaultCount); _message = $"Vault count recorded for {_vaultCount.BranchId}."; await LoadWorkspaceAsync(); });
+    }
+
+    private async Task ProcessVaultMovementAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_vaultMovement.Reference))
+        {
+            _isSuccess = false;
+            _message = "Reference is required for a vault movement.";
+            return;
+        }
+
+        await RunAsync(async () => { await VaultService.ProcessVaultTransactionAsync(_vaultMovement); _message = $"Vault {_vaultMovement.Type.ToLowerInvariant()} posted for {_vaultMovement.BranchId}."; await LoadWorkspaceAsync(); });
+    }
 
     private async Task RunAsync(Func<Task> action)
     {
+        _message = string.Empty;
+
         _isBusy = true;
         try
         {
@@ -197,5 +324,12 @@
         }
     }
 
-    private static string FormatCurrency(decimal value) => value.ToString("C");
+    private static string FormatCurrency(decimal value) => CoreBanker.Utilities.CurrencyFormatter.Format(value);
+
+    private static Color GetStatusColor(string? status) =>
+        string.Equals(status, "OPEN", StringComparison.OrdinalIgnoreCase)
+            ? Color.Success
+            : string.Equals(status, "CLOSED", StringComparison.OrdinalIgnoreCase)
+                ? Color.Default
+                : Color.Warning;
 }

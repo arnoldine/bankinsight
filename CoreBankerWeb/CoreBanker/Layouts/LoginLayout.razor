@@ -5,19 +5,26 @@
 <MudSnackbarProvider />
 
 <div class="login-shell">
-    <MudContainer MaxWidth="MaxWidth.Medium" Class="h-100">
+    <div class="login-backdrop"></div>
+    <MudContainer MaxWidth="MaxWidth.Small" Class="h-100">
         <MudGrid AlignItems="AlignItems.Center" Justify="Justify.Center" Class="login-grid">
-            <MudItem xs="12" md="5">
-                <div class="login-copy">
+            <MudItem xs="12" md="10" lg="8">
+                <div class="login-copy login-copy-centered">
                     <MudText Typo="Typo.overline" Class="login-kicker">BankInsight Replatform</MudText>
-                    <MudText Typo="Typo.h2">CoreBanker</MudText>
+                    <MudText Typo="Typo.h3">CoreBanker</MudText>
                     <MudText Typo="Typo.body1" Class="mt-3">
                         Live operational banking workspace for front office, lending, treasury, control, and reporting teams.
                     </MudText>
+                    <div class="login-pill-row">
+                        <span class="login-pill">Front Office</span>
+                        <span class="login-pill">Lending</span>
+                        <span class="login-pill">Treasury</span>
+                        <span class="login-pill">Control</span>
+                    </div>
                 </div>
-            </MudItem>
-            <MudItem xs="12" md="7" lg="6">
-                @Body
+                <div class="login-card-shell">
+                    @Body
+                </div>
             </MudItem>
         </MudGrid>
     </MudContainer>

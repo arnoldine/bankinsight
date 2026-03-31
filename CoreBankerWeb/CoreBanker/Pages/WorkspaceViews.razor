@@ -7,15 +7,20 @@
 @inject CoreBanker.Services.ClientService ClientService
 @inject CoreBanker.Services.AccountService AccountService
 @inject CoreBanker.Services.AuditService AuditService
+@inject NavigationManager Navigation
 
 <MudStack Spacing="3">
-    <MudPaper Class="pa-4">
-        <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+    <MudPaper Class="pa-4 corebanker-command-deck" Elevation="0">
+        <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="flex-wrap">
             <div>
+                <MudText Typo="Typo.overline" Class="corebanker-eyebrow">Role Command Center</MudText>
                 <MudText Typo="Typo.h4">Workspace Views</MudText>
                 <MudText Typo="Typo.body2" Class="mud-text-secondary">Role-oriented dashboards built from the same live data powering the operational modules.</MudText>
             </div>
-            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="LoadWorkspaceAsync">Refresh</MudButton>
+            <MudStack Row="true" Spacing="1" Class="mt-2 mt-md-0">
+                <MudChip T="string" Variant="Variant.Outlined" Color="Color.Primary">@_workspaceCards.Count view(s)</MudChip>
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="LoadWorkspaceAsync">Refresh</MudButton>
+            </MudStack>
         </MudStack>
     </MudPaper>
 
@@ -23,6 +28,26 @@
     {
         <MudAlert Severity="Severity.Error">@_message</MudAlert>
     }
+
+    <MudGrid>
+        @foreach (var card in _workspaceCards)
+        {
+            <MudItem xs="12" md="6" xl="3">
+                <MudPaper Class="pa-4 corebanker-workspace-card" Elevation="0">
+                    <MudStack Spacing="1">
+                        <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+                            <MudAvatar Icon="@card.Icon" Color="@card.Color" Rounded="true" Size="Size.Medium" />
+                            <MudChip T="string" Variant="Variant.Text" Size="Size.Small" Color="Color.Default">@card.SecondaryStat</MudChip>
+                        </MudStack>
+                        <MudText Typo="Typo.subtitle1">@card.Title</MudText>
+                        <MudText Typo="Typo.h5">@card.PrimaryStat</MudText>
+                        <MudText Typo="Typo.body2" Class="mud-text-secondary">@card.Description</MudText>
+                        <MudButton Variant="Variant.Text" Color="Color.Primary" OnClick="@(() => Navigation.NavigateTo(card.Route))">Open @card.ActionLabel</MudButton>
+                    </MudStack>
+                </MudPaper>
+            </MudItem>
+        }
+    </MudGrid>
 
     <MudTabs Rounded="true">
         <MudTabPanel Text="Loan Officer">
@@ -191,6 +216,7 @@
     private List<CoreBanker.Services.AccountDto> _accounts = new();
     private List<CoreBanker.Services.AuditLogDto> _auditLogs = new();
     private string _message = string.Empty;
+    private readonly List<WorkspaceViewCard> _workspaceCards = new();
 
     protected override async Task OnInitializedAsync()
     {
@@ -218,10 +244,33 @@
             _clients = clientsTask.Result;
             _accounts = accountsTask.Result;
             _auditLogs = auditTask.Result;
+            RebuildWorkspaceCards();
         }
         catch (CoreBanker.Services.ApiClientException ex)
         {
             _message = ex.Message;
         }
     }
+
+    private void RebuildWorkspaceCards()
+    {
+        _workspaceCards.Clear();
+        _workspaceCards.AddRange(
+        [
+            new("Loan Officer", $"{_loans.Count} loans", $"{_approvals.Count(approval => approval.Status == "Pending")} pending", "Origination, review, and PAR watch from one lending lens.", "/loans", "Loans", Icons.Material.Filled.RequestQuote, Color.Success),
+            new("Accountant", $"{_journalEntries.Count} entries", $"{_glAccounts.Count} GL accounts", "Chart, journals, and imbalance visibility for finance operations.", "/accounting", "Accounting", Icons.Material.Filled.Calculate, Color.Info),
+            new("Customer Service", $"{_clients.Count(client => client.Status == "Active")} active clients", $"{_accounts.Count(account => account.Status == "ACTIVE")} open accounts", "Front-office servicing across onboarding, KYC, and account care.", "/clients", "Clients", Icons.Material.Filled.SupportAgent, Color.Primary),
+            new("Compliance", $"{_auditLogs.Count} events", $"{_auditLogs.Count(log => !string.Equals(log.Status, "SUCCESS", StringComparison.OrdinalIgnoreCase))} exceptions", "Audit visibility, controls, and exception follow-up.", "/audit", "Audit", Icons.Material.Filled.GppGood, Color.Warning)
+        ]);
+    }
+
+    private sealed record WorkspaceViewCard(
+        string Title,
+        string PrimaryStat,
+        string SecondaryStat,
+        string Description,
+        string Route,
+        string ActionLabel,
+        string Icon,
+        Color Color);
 }

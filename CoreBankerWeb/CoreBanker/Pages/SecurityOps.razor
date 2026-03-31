@@ -303,6 +303,6 @@
 
     private static string FormatAmount(decimal amount)
     {
-        return amount.ToString("C", System.Globalization.CultureInfo.GetCultureInfo("en-GH"));
+        return CoreBanker.Utilities.CurrencyFormatter.Format(amount);
     }
 }

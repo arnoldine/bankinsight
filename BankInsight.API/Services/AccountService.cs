@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using BankInsight.API.Data;
 using BankInsight.API.DTOs;
 using BankInsight.API.Entities;
+using BankInsight.API.Security;
 using Microsoft.EntityFrameworkCore;
 
 namespace BankInsight.API.Services;
@@ -13,32 +14,51 @@ public class AccountService
 {
     private readonly ApplicationDbContext _context;
     private readonly ISequenceGeneratorService _sequenceService;
+    private readonly ICurrentUserContext _currentUser;
+    private readonly CustomerService _customerService;
 
-    public AccountService(ApplicationDbContext context, ISequenceGeneratorService sequenceService)
+    public AccountService(ApplicationDbContext context, ISequenceGeneratorService sequenceService, ICurrentUserContext currentUser, CustomerService customerService)
     {
         _context = context;
         _sequenceService = sequenceService;
+        _currentUser = currentUser;
+        _customerService = customerService;
     }
 
     public async Task<List<Account>> GetAccountsAsync()
     {
-        return await _context.Accounts.ToListAsync();
+        return await ApplyVisibilityScope(_context.Accounts.AsQueryable())
+            .OrderBy(a => a.Id)
+            .ToListAsync();
     }
 
     public async Task<Account?> GetAccountByIdAsync(string id)
     {
-        return await _context.Accounts.FindAsync(id);
+        return await ApplyVisibilityScope(_context.Accounts.AsQueryable())
+            .FirstOrDefaultAsync(a => a.Id == id);
     }
 
     public async Task<List<Account>> GetAccountsByCustomerIdAsync(string customerId)
     {
-        return await _context.Accounts
+        return await ApplyVisibilityScope(_context.Accounts.AsQueryable())
             .Where(a => a.CustomerId == customerId)
+            .OrderBy(a => a.Id)
             .ToListAsync();
     }
 
     public async Task<Account> CreateAccountAsync(CreateAccountRequest request)
     {
+        var readiness = await _customerService.GetCustomerKycReadinessAsync(request.CustomerId);
+        if (readiness == null)
+        {
+            throw new InvalidOperationException("Customer not found");
+        }
+
+        if (!readiness.IsReadyForAccountOpening)
+        {
+            throw new InvalidOperationException($"Customer is not KYC-ready for account opening. Missing: {string.Join(", ", readiness.MissingRequirements)}");
+        }
+
         var normalizedBranchId = NormalizeBranchId(request.BranchId);
         var branchCode = ExtractBranchCode(normalizedBranchId);
         var productCode = ExtractProductPrefix(request.ProductCode, request.Type);
@@ -49,6 +69,7 @@ public class AccountService
         var baseNumber = $"{prefix}{sequenceNumber:D6}";
         var checkDigit = _sequenceService.CalculateLuhnCheckDigit(baseNumber);
         var id = $"{baseNumber}{checkDigit}";
+        var ownerStaffId = await ResolveOwnerStaffIdAsync(request.OwnerStaffId, request.IsConfidential);
 
         var account = new Account
         {
@@ -61,6 +82,8 @@ public class AccountService
             LienAmount = 0,
             Status = "ACTIVE",
             ProductCode = request.ProductCode,
+            IsConfidential = request.IsConfidential,
+            OwnerStaffId = ownerStaffId,
             LastTransDate = DateTime.UtcNow,
             CreatedAt = DateTime.UtcNow
         };
@@ -69,6 +92,57 @@ public class AccountService
         await _context.SaveChangesAsync();
 
         return account;
+    }
+
+    private IQueryable<Account> ApplyVisibilityScope(IQueryable<Account> query)
+    {
+        if (_currentUser.ScopeType == AccessScopeType.BranchOnly && !string.IsNullOrWhiteSpace(_currentUser.BranchId))
+        {
+            query = query.Where(a => a.BranchId == _currentUser.BranchId);
+        }
+
+        if (!CanViewConfidentialRecords() && !string.IsNullOrWhiteSpace(_currentUser.UserId))
+        {
+            var userId = _currentUser.UserId;
+            query = query.Where(a => !a.IsConfidential || a.OwnerStaffId == userId);
+        }
+
+        return query;
+    }
+
+    private bool CanViewConfidentialRecords()
+    {
+        return _currentUser.HasPermission(AppPermissions.Accounts.ViewConfidential)
+            || _currentUser.HasPermission(AppPermissions.Users.Manage);
+    }
+
+    private async Task<string?> ResolveOwnerStaffIdAsync(string? requestedOwnerStaffId, bool isConfidential)
+    {
+        if (!isConfidential)
+        {
+            return null;
+        }
+
+        var candidate = string.IsNullOrWhiteSpace(requestedOwnerStaffId)
+            ? _currentUser.UserId
+            : requestedOwnerStaffId.Trim();
+
+        if (string.IsNullOrWhiteSpace(candidate))
+        {
+            throw new InvalidOperationException("Confidential accounts must have an owning staff member.");
+        }
+
+        var resolved = await _context.Staff
+            .Where(s => s.Id == candidate || s.Email == candidate)
+            .Select(s => s.Id)
+            .FirstOrDefaultAsync();
+
+        if (string.IsNullOrWhiteSpace(resolved))
+        {
+            throw new InvalidOperationException("The specified confidential account owner was not found.");
+        }
+
+        return resolved;
     }
 
     private static string NormalizeBranchId(string? branchId)

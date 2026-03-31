@@ -1,6 +1,6 @@
 import { httpClient } from './httpClient';
 import { API_ENDPOINTS } from './apiConfig';
-import { ClientDocument, ClientNote, Customer } from '../../types';
+import { ClientDocument, ClientMediaAsset, ClientNote, Customer, CustomerKycReadiness } from '../../types';
 
 interface CustomerApiModel {
   id: string;
@@ -24,6 +24,12 @@ interface CustomerApiModel {
   createdAt?: string | null;
   notes?: ClientNote[];
   documents?: ClientDocument[];
+  mediaAssets?: ClientMediaAsset[];
+  profilePhoto?: ClientMediaAsset | null;
+  signature?: ClientMediaAsset | null;
+  idCardFront?: ClientMediaAsset | null;
+  idCardBack?: ClientMediaAsset | null;
+  kycReadiness?: CustomerKycReadiness | null;
 }
 
 export interface CustomerKycStatus {
@@ -92,6 +98,12 @@ const mapCustomer = (customer: CustomerApiModel): Customer => ({
   businessRegistrationNo: customer.businessRegNo || undefined,
   notes: customer.notes || [],
   documents: customer.documents || [],
+  mediaAssets: customer.mediaAssets || [],
+  profilePhoto: customer.profilePhoto || undefined,
+  signature: customer.signature || undefined,
+  idCardFront: customer.idCardFront || undefined,
+  idCardBack: customer.idCardBack || undefined,
+  kycReadiness: customer.kycReadiness || undefined,
 });
 
 class CustomerService {
@@ -150,6 +162,23 @@ class CustomerService {
       type,
       name,
     });
+  }
+
+  async uploadCustomerMedia(
+    id: string,
+    payload: {
+      mediaType: 'PROFILE_PHOTO' | 'SIGNATURE' | 'ID_CARD';
+      mediaSide?: 'FRONT' | 'BACK';
+      fileName: string;
+      contentType: string;
+      dataUrl: string;
+    },
+  ): Promise<ClientMediaAsset> {
+    return httpClient.post<ClientMediaAsset>(API_ENDPOINTS.customers.uploadMedia(id), payload);
+  }
+
+  async updateCustomerMediaStatus(id: string, mediaId: string, status: ClientMediaAsset['status']): Promise<ClientMediaAsset> {
+    return httpClient.put<ClientMediaAsset>(API_ENDPOINTS.customers.updateMediaStatus(id, mediaId), { status });
   }
 }
 

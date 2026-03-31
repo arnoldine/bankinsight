@@ -16,6 +16,8 @@ export interface Investment {
     maturityValue: number;
     investmentType: 'FIXED_DEPOSIT' | 'TREASURY_BILL' | 'BOND' | 'CERTIFICATE';
     counterparty?: string;
+    isConfidential?: boolean;
+    ownerStaffId?: string;
 }
 
 export interface FixedDeposit {
@@ -42,6 +44,12 @@ export interface CreateInvestmentRequest {
     placementDate: string;
     maturityDate: string;
     investmentType: string;
+    counterparty?: string;
+    settlementAccount?: string;
+    reference?: string;
+    notes?: string;
+    isConfidential?: boolean;
+    ownerStaffId?: string;
 }
 
 export interface CreateFixedDepositRequest {

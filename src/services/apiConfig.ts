@@ -186,6 +186,11 @@ export const API_ENDPOINTS = {
     update: (id: string) => `/accounts/${id}`,
     transactions: (id: string) => `/accounts/${id}/transactions`,
   },
+  fees: {
+    list: '/fees',
+    apply: '/fees/apply',
+    accountCharges: (accountId: string) => `/fees/accounts/${accountId}/charges`,
+  },
 
   loans: {
     list: '/loans',
@@ -226,6 +231,8 @@ export const API_ENDPOINTS = {
     update: (id: string) => `/customers/${id}`,
     addNote: (id: string) => `/customers/${id}/notes`,
     addDocument: (id: string) => `/customers/${id}/documents`,
+    uploadMedia: (id: string) => `/customers/${id}/media`,
+    updateMediaStatus: (id: string, mediaId: string) => `/customers/${id}/media/${mediaId}/status`,
     accounts: (id: string) => `/customers/${id}/accounts`,
     kyc: (id: string) => `/customers/${id}/kyc`,
   },
@@ -326,6 +333,18 @@ export const API_ENDPOINTS = {
     get: (id: string) => `/transactions/${id}`,
     approve: (id: string) => `/transactions/${id}/approve`,
     reject: (id: string) => `/transactions/${id}/reject`,
+  },
+
+  payments: {
+    bulk: '/payments/bulk',
+    cheques: '/payments/cheques',
+    chequeDeposits: '/payments/cheques/deposits',
+    chequeWithdrawals: '/payments/cheques/withdrawals',
+    chequeReturn: (id: string) => `/payments/cheques/${id}/return`,
+    chequeBooks: '/payments/cheque-books',
+    chequeBook: (id: string) => `/payments/cheque-books/${id}`,
+    chequeBookStock: '/payments/cheque-books/stock',
+    chequeBookIssue: (id: string) => `/payments/cheque-books/${id}/issue`,
   },
 
   privilegeLeases: {

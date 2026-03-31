@@ -4,7 +4,7 @@ namespace CoreBanker.Services
 {
     public class AccountService : ApiClientBase
     {
-        public AccountService(HttpClient httpClient) : base(httpClient) { }
+        public AccountService(HttpClient httpClient, CoreBanker.State.AppState appState) : base(httpClient, appState) { }
 
         public async Task<List<AccountDto>> GetAccountsAsync(CancellationToken cancellationToken = default)
         {

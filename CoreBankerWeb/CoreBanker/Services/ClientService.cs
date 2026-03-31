@@ -1,10 +1,11 @@
 using System.Globalization;
+using System.Linq;
 
 namespace CoreBanker.Services
 {
     public class ClientService : ApiClientBase
     {
-        public ClientService(HttpClient httpClient) : base(httpClient) { }
+        public ClientService(HttpClient httpClient, CoreBanker.State.AppState appState) : base(httpClient, appState) { }
 
         public async Task<List<ClientDto>> GetClientsAsync(CancellationToken cancellationToken = default)
         {
@@ -46,6 +47,18 @@ namespace CoreBanker.Services
         {
             var document = await PostAsync<CreateClientDocumentRequest, ClientDocumentApiModel>($"/api/customers/{id}/documents", request, cancellationToken);
             return document is null ? null : MapDocument(document);
+        }
+
+        public async Task<ClientMediaDto?> UploadClientMediaAsync(string id, UploadClientMediaRequest request, CancellationToken cancellationToken = default)
+        {
+            var media = await PostAsync<UploadClientMediaRequest, ClientMediaApiModel>($"/api/customers/{id}/media", request, cancellationToken);
+            return media is null ? null : MapMedia(media);
+        }
+
+        public async Task<ClientMediaDto?> UpdateClientMediaStatusAsync(string id, string mediaId, UpdateClientMediaStatusRequest request, CancellationToken cancellationToken = default)
+        {
+            var media = await PutAsync<UpdateClientMediaStatusRequest, ClientMediaApiModel>($"/api/customers/{id}/media/{mediaId}/status", request, cancellationToken);
+            return media is null ? null : MapMedia(media);
         }
 
         private static ClientDto MapClient(ClientApiModel client)
@@ -90,7 +103,13 @@ namespace CoreBanker.Services
                 BusinessRegNo = profile.BusinessRegNo ?? string.Empty,
                 CreatedAt = ParseDate(profile.CreatedAt),
                 Notes = (profile.Notes ?? new List<ClientNoteApiModel>()).ConvertAll(MapNote),
-                Documents = (profile.Documents ?? new List<ClientDocumentApiModel>()).ConvertAll(MapDocument)
+                Documents = (profile.Documents ?? new List<ClientDocumentApiModel>()).ConvertAll(MapDocument),
+                MediaAssets = (profile.MediaAssets ?? new List<ClientMediaApiModel>()).ConvertAll(MapMedia),
+                ProfilePhoto = profile.ProfilePhoto is null ? null : MapMedia(profile.ProfilePhoto),
+                Signature = profile.Signature is null ? null : MapMedia(profile.Signature),
+                IdCardFront = profile.IdCardFront is null ? null : MapMedia(profile.IdCardFront),
+                IdCardBack = profile.IdCardBack is null ? null : MapMedia(profile.IdCardBack),
+                KycReadiness = profile.KycReadiness is null ? null : MapReadiness(profile.KycReadiness)
             };
         }
 
@@ -130,6 +149,40 @@ namespace CoreBanker.Services
                 Name = document.Name ?? string.Empty,
                 Status = string.IsNullOrWhiteSpace(document.Status) ? "PENDING" : document.Status.Trim().ToUpperInvariant(),
                 UploadDate = ParseDate(document.UploadDate)
+            };
+        }
+
+        private static ClientMediaDto MapMedia(ClientMediaApiModel media)
+        {
+            return new ClientMediaDto
+            {
+                Id = media.Id ?? string.Empty,
+                MediaType = media.MediaType ?? string.Empty,
+                MediaSide = media.MediaSide ?? string.Empty,
+                FileName = media.FileName ?? string.Empty,
+                ContentType = media.ContentType ?? "image/png",
+                PreviewUrl = media.PreviewUrl ?? string.Empty,
+                Status = string.IsNullOrWhiteSpace(media.Status) ? "PENDING" : media.Status.Trim().ToUpperInvariant(),
+                FileSizeBytes = media.FileSizeBytes,
+                UploadedBy = media.UploadedBy ?? string.Empty,
+                UploadedAt = ParseDate(media.UploadedAt)
+            };
+        }
+
+        private static ClientKycReadinessDto MapReadiness(ClientKycReadinessApiModel readiness)
+        {
+            return new ClientKycReadinessDto
+            {
+                IsReadyForAccountOpening = readiness.IsReadyForAccountOpening,
+                IsReadyForLoanOrigination = readiness.IsReadyForLoanOrigination,
+                MissingRequirements = readiness.MissingRequirements ?? new List<string>(),
+                Checklist = (readiness.Checklist ?? new List<ClientKycChecklistItemApiModel>()).ConvertAll(item => new ClientKycChecklistItemDto
+                {
+                    Key = item.Key ?? string.Empty,
+                    Label = item.Label ?? string.Empty,
+                    IsSatisfied = item.IsSatisfied,
+                    Detail = item.Detail ?? string.Empty
+                })
             };
         }
 
@@ -211,6 +264,12 @@ namespace CoreBanker.Services
             public string? BusinessRegNo { get; set; }
             public List<ClientNoteApiModel>? Notes { get; set; }
             public List<ClientDocumentApiModel>? Documents { get; set; }
+            public List<ClientMediaApiModel>? MediaAssets { get; set; }
+            public ClientMediaApiModel? ProfilePhoto { get; set; }
+            public ClientMediaApiModel? Signature { get; set; }
+            public ClientMediaApiModel? IdCardFront { get; set; }
+            public ClientMediaApiModel? IdCardBack { get; set; }
+            public ClientKycReadinessApiModel? KycReadiness { get; set; }
         }
 
         private sealed class ClientKycStatusApiModel
@@ -242,6 +301,36 @@ namespace CoreBanker.Services
             public string? Status { get; set; }
             public string? UploadDate { get; set; }
         }
+
+        private sealed class ClientMediaApiModel
+        {
+            public string? Id { get; set; }
+            public string? MediaType { get; set; }
+            public string? MediaSide { get; set; }
+            public string? FileName { get; set; }
+            public string? ContentType { get; set; }
+            public string? PreviewUrl { get; set; }
+            public string? Status { get; set; }
+            public long? FileSizeBytes { get; set; }
+            public string? UploadedBy { get; set; }
+            public string? UploadedAt { get; set; }
+        }
+
+        private sealed class ClientKycReadinessApiModel
+        {
+            public bool IsReadyForAccountOpening { get; set; }
+            public bool IsReadyForLoanOrigination { get; set; }
+            public List<string>? MissingRequirements { get; set; }
+            public List<ClientKycChecklistItemApiModel>? Checklist { get; set; }
+        }
+
+        private sealed class ClientKycChecklistItemApiModel
+        {
+            public string? Key { get; set; }
+            public string? Label { get; set; }
+            public bool IsSatisfied { get; set; }
+            public string? Detail { get; set; }
+        }
     }
 
     public class ClientDto
@@ -272,6 +361,12 @@ namespace CoreBanker.Services
         public string BusinessRegNo { get; set; } = string.Empty;
         public List<ClientNoteDto> Notes { get; set; } = new();
         public List<ClientDocumentDto> Documents { get; set; } = new();
+        public List<ClientMediaDto> MediaAssets { get; set; } = new();
+        public ClientMediaDto? ProfilePhoto { get; set; }
+        public ClientMediaDto? Signature { get; set; }
+        public ClientMediaDto? IdCardFront { get; set; }
+        public ClientMediaDto? IdCardBack { get; set; }
+        public ClientKycReadinessDto? KycReadiness { get; set; }
     }
 
     public class ClientKycStatusDto
@@ -302,6 +397,36 @@ namespace CoreBanker.Services
         public string Name { get; set; } = string.Empty;
         public string Status { get; set; } = "PENDING";
         public DateTime? UploadDate { get; set; }
+    }
+
+    public class ClientMediaDto
+    {
+        public string Id { get; set; } = string.Empty;
+        public string MediaType { get; set; } = string.Empty;
+        public string MediaSide { get; set; } = string.Empty;
+        public string FileName { get; set; } = string.Empty;
+        public string ContentType { get; set; } = "image/png";
+        public string PreviewUrl { get; set; } = string.Empty;
+        public string Status { get; set; } = "PENDING";
+        public long? FileSizeBytes { get; set; }
+        public string UploadedBy { get; set; } = string.Empty;
+        public DateTime? UploadedAt { get; set; }
+    }
+
+    public class ClientKycReadinessDto
+    {
+        public bool IsReadyForAccountOpening { get; set; }
+        public bool IsReadyForLoanOrigination { get; set; }
+        public List<string> MissingRequirements { get; set; } = new();
+        public List<ClientKycChecklistItemDto> Checklist { get; set; } = new();
+    }
+
+    public class ClientKycChecklistItemDto
+    {
+        public string Key { get; set; } = string.Empty;
+        public string Label { get; set; } = string.Empty;
+        public bool IsSatisfied { get; set; }
+        public string Detail { get; set; } = string.Empty;
     }
 
     public class CreateClientRequest
@@ -335,5 +460,19 @@ namespace CoreBanker.Services
     {
         public string Type { get; set; } = string.Empty;
         public string Name { get; set; } = string.Empty;
+    }
+
+    public class UploadClientMediaRequest
+    {
+        public string MediaType { get; set; } = string.Empty;
+        public string? MediaSide { get; set; }
+        public string FileName { get; set; } = string.Empty;
+        public string ContentType { get; set; } = "image/png";
+        public string DataUrl { get; set; } = string.Empty;
+    }
+
+    public class UpdateClientMediaStatusRequest
+    {
+        public string Status { get; set; } = string.Empty;
     }
 }

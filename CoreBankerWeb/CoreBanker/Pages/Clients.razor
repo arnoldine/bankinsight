@@ -1,21 +1,52 @@
 @page "/clients"
 @layout CoreBanker.Layouts.MainLayout
 
+@using Microsoft.AspNetCore.Components.Forms
+
 @inject CoreBanker.Services.ClientService ClientService
 @inject NavigationManager Navigation
 
 <MudGrid>
     <MudItem xs="12" lg="7">
         <MudStack Spacing="3">
-            <MudPaper Class="pa-4">
+            <MudPaper Class="pa-4 corebanker-workspace-header" Elevation="0">
                 <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
-                    <div>
-                        <MudText Typo="Typo.h4">Client Portfolio</MudText>
-                        <MudText Typo="Typo.body2" Class="mud-text-secondary">Browse customers, open onboarding, and drill into KYC and profile data.</MudText>
-                    </div>
+                    <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center">
+                        <div class="corebanker-page-icon corebanker-icon-sky">
+                            <MudIcon Icon="@Icons.Material.Filled.Groups" Size="Size.Large" />
+                        </div>
+                        <div>
+                            <MudText Typo="Typo.h4">Client Portfolio</MudText>
+                            <MudText Typo="Typo.body2" Class="mud-text-secondary">Browse customers, open onboarding, and drill into KYC and profile data.</MudText>
+                        </div>
+                    </MudStack>
                     <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="@(() => Navigation.NavigateTo("/clients/onboard"))">Onboard Client</MudButton>
                 </MudStack>
             </MudPaper>
+
+            <MudGrid>
+                <MudItem xs="12" sm="4">
+                    <MudPaper Class="pa-4 corebanker-friendly-stat" Elevation="0">
+                        <MudText Typo="Typo.caption">Visible Clients</MudText>
+                        <MudText Typo="Typo.h5">@FilteredClients.Count()</MudText>
+                        <MudText Typo="Typo.body2" Class="mud-text-secondary">@($"{_clients.Count(client => string.Equals(client.Status, "Active", StringComparison.OrdinalIgnoreCase))} active")</MudText>
+                    </MudPaper>
+                </MudItem>
+                <MudItem xs="12" sm="4">
+                    <MudPaper Class="pa-4 corebanker-friendly-stat" Elevation="0">
+                        <MudText Typo="Typo.caption">KYC Watch</MudText>
+                        <MudText Typo="Typo.h5">@_clients.Count(client => !string.Equals(client.KycLevel, "Tier 3", StringComparison.OrdinalIgnoreCase))</MudText>
+                        <MudText Typo="Typo.body2" Class="mud-text-secondary">Customers below the top KYC tier.</MudText>
+                    </MudPaper>
+                </MudItem>
+                <MudItem xs="12" sm="4">
+                    <MudPaper Class="pa-4 corebanker-friendly-stat" Elevation="0">
+                        <MudText Typo="Typo.caption">Selected Client</MudText>
+                        <MudText Typo="Typo.h5">@(_selectedProfile?.Name ?? "None")</MudText>
+                        <MudText Typo="Typo.body2" Class="mud-text-secondary">@(_selectedProfile?.Id ?? "Choose a record to inspect details.")</MudText>
+                    </MudPaper>
+                </MudItem>
+            </MudGrid>
 
             <MudPaper Class="pa-4">
                 <MudGrid>
@@ -37,43 +68,62 @@
                 <MudAlert Severity="Severity.Error">@_loadError</MudAlert>
             }
 
-            <MudTable Items="@FilteredClients" Hover="true" Dense="true" Loading="@_isLoadingClients">
-                <HeaderContent>
-                    <MudTh>CIF</MudTh>
-                    <MudTh>Name</MudTh>
-                    <MudTh>Contact</MudTh>
-                    <MudTh>KYC</MudTh>
-                    <MudTh>Status</MudTh>
-                    <MudTh></MudTh>
-                </HeaderContent>
-                <RowTemplate>
-                    <MudTd DataLabel="CIF">@context.Id</MudTd>
-                    <MudTd DataLabel="Name">
-                        <MudText Typo="Typo.body2">@context.Name</MudText>
-                        <MudText Typo="Typo.caption" Class="mud-text-secondary">@context.Type</MudText>
-                    </MudTd>
-                    <MudTd DataLabel="Contact">
-                        <MudText Typo="Typo.body2">@(string.IsNullOrWhiteSpace(context.Phone) ? context.Email : context.Phone)</MudText>
-                        <MudText Typo="Typo.caption" Class="mud-text-secondary">@context.Email</MudText>
-                    </MudTd>
-                    <MudTd DataLabel="KYC">@context.KycLevel</MudTd>
-                    <MudTd DataLabel="Status">@context.Status</MudTd>
-                    <MudTd DataLabel="Actions">
-                        <MudButton Variant="Variant.Text" Color="Color.Primary" OnClick="@(() => LoadClientWorkspaceAsync(context.Id))">View</MudButton>
-                    </MudTd>
-                </RowTemplate>
-            </MudTable>
+            @if (!_isLoadingClients && !FilteredClients.Any())
+            {
+                <MudPaper Class="pa-6 corebanker-empty-state" Elevation="0">
+                    <MudText Typo="Typo.h6">No clients match this filter</MudText>
+                    <MudText Typo="Typo.body2" Class="mud-text-secondary">Try a different search term or clear the status filter to widen the portfolio view.</MudText>
+                </MudPaper>
+            }
+            else
+            {
+                <MudTable Items="@FilteredClients" Hover="true" Dense="true" Loading="@_isLoadingClients">
+                    <HeaderContent>
+                        <MudTh>CIF</MudTh>
+                        <MudTh>Name</MudTh>
+                        <MudTh>Contact</MudTh>
+                        <MudTh>KYC</MudTh>
+                        <MudTh>Status</MudTh>
+                        <MudTh></MudTh>
+                    </HeaderContent>
+                    <RowTemplate>
+                        <MudTd DataLabel="CIF">@context.Id</MudTd>
+                        <MudTd DataLabel="Name">
+                            <MudText Typo="Typo.body2">@context.Name</MudText>
+                            <MudText Typo="Typo.caption" Class="mud-text-secondary">@context.Type</MudText>
+                        </MudTd>
+                        <MudTd DataLabel="Contact">
+                            <MudText Typo="Typo.body2">@(string.IsNullOrWhiteSpace(context.Phone) ? context.Email : context.Phone)</MudText>
+                            <MudText Typo="Typo.caption" Class="mud-text-secondary">@context.Email</MudText>
+                        </MudTd>
+                        <MudTd DataLabel="KYC">
+                            <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Color="@(string.Equals(context.KycLevel, "Tier 3", StringComparison.OrdinalIgnoreCase) ? Color.Success : Color.Warning)">@context.KycLevel</MudChip>
+                        </MudTd>
+                        <MudTd DataLabel="Status">
+                            <MudChip T="string" Size="Size.Small" Variant="Variant.Text" Color="@(string.Equals(context.Status, "Active", StringComparison.OrdinalIgnoreCase) ? Color.Success : Color.Default)">@context.Status</MudChip>
+                        </MudTd>
+                        <MudTd DataLabel="Actions">
+                            <MudButton Variant="Variant.Text" Color="Color.Primary" OnClick="@(() => LoadClientWorkspaceAsync(context.Id))">View</MudButton>
+                        </MudTd>
+                    </RowTemplate>
+                </MudTable>
+            }
         </MudStack>
     </MudItem>
 
     <MudItem xs="12" lg="5">
         <MudStack Spacing="3">
-            <MudPaper Class="pa-4">
+            <MudPaper Class="pa-4 corebanker-workspace-header" Elevation="0">
                 <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
-                    <div>
-                        <MudText Typo="Typo.h5">Client Workspace</MudText>
-                        <MudText Typo="Typo.body2" Class="mud-text-secondary">Profile, KYC usage, notes, and document log for the selected customer.</MudText>
-                    </div>
+                    <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center">
+                        <div class="corebanker-page-icon corebanker-icon-emerald">
+                            <MudIcon Icon="@Icons.Material.Filled.Badge" Size="Size.Medium" />
+                        </div>
+                        <div>
+                            <MudText Typo="Typo.h5">Client Workspace</MudText>
+                            <MudText Typo="Typo.body2" Class="mud-text-secondary">Profile, KYC usage, notes, and document log for the selected customer.</MudText>
+                        </div>
+                    </MudStack>
                     @if (!string.IsNullOrWhiteSpace(_selectedClientId))
                     {
                         <MudButton Variant="Variant.Outlined" Color="Color.Secondary" OnClick="RefreshSelectedClientAsync">Refresh</MudButton>
@@ -87,8 +137,9 @@
             }
             else if (_selectedProfile is null)
             {
-                <MudPaper Class="pa-6">
-                    <MudText Typo="Typo.body1">Select a client to load profile and KYC data.</MudText>
+                <MudPaper Class="pa-6 corebanker-empty-state" Elevation="0">
+                    <MudText Typo="Typo.h6">Pick a client to open the workspace</MudText>
+                    <MudText Typo="Typo.body2" Class="mud-text-secondary">You’ll see KYC posture, contact details, notes, and document history here.</MudText>
                 </MudPaper>
             }
             else
@@ -126,12 +177,119 @@
 
                     <MudDivider Class="my-4" />
 
+                    @if (_selectedProfile.KycReadiness is not null)
+                    {
+                        <MudPaper Class="pa-4 mb-4" Elevation="0" Style="border:1px solid var(--mud-palette-lines-default);">
+                            <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Start" Class="mb-3">
+                                <div>
+                                    <MudText Typo="Typo.subtitle1">KYC Readiness</MudText>
+                                    <MudText Typo="Typo.body2" Class="mud-text-secondary">Account opening and loan origination are now gated by verified client media and identity evidence.</MudText>
+                                </div>
+                                <MudStack Row="true" Spacing="1">
+                                    <MudChip T="string" Variant="Variant.Outlined" Color="@(_selectedProfile.KycReadiness.IsReadyForAccountOpening ? Color.Success : Color.Warning)">
+                                        @(_selectedProfile.KycReadiness.IsReadyForAccountOpening ? "Account opening ready" : "Account opening blocked")
+                                    </MudChip>
+                                    <MudChip T="string" Variant="Variant.Outlined" Color="@(_selectedProfile.KycReadiness.IsReadyForLoanOrigination ? Color.Success : Color.Warning)">
+                                        @(_selectedProfile.KycReadiness.IsReadyForLoanOrigination ? "Loan origination ready" : "Loan origination blocked")
+                                    </MudChip>
+                                </MudStack>
+                            </MudStack>
+
+                            <MudGrid>
+                                @foreach (var item in _selectedProfile.KycReadiness.Checklist)
+                                {
+                                    <MudItem xs="12" sm="6">
+                                        <MudPaper Class="pa-3 mb-2" Elevation="0" Style="border:1px solid var(--mud-palette-lines-default);">
+                                            <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+                                                <MudText Typo="Typo.subtitle2">@item.Label</MudText>
+                                                <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Color="@(item.IsSatisfied ? Color.Success : Color.Warning)">
+                                                    @(item.IsSatisfied ? "Ready" : "Pending")
+                                                </MudChip>
+                                            </MudStack>
+                                            <MudText Typo="Typo.body2" Class="mud-text-secondary mt-2">@item.Detail</MudText>
+                                        </MudPaper>
+                                    </MudItem>
+                                }
+                            </MudGrid>
+
+                            @if (_selectedProfile.KycReadiness.MissingRequirements.Count > 0)
+                            {
+                                <MudAlert Severity="Severity.Warning" Dense="true" Variant="Variant.Outlined" Class="mt-2">
+                                    Missing before servicing progression: @string.Join(", ", _selectedProfile.KycReadiness.MissingRequirements)
+                                </MudAlert>
+                            }
+                        </MudPaper>
+                    }
+
                     <MudText Typo="Typo.subtitle2">Contact & Identity</MudText>
                     <MudText Typo="Typo.body2">Phone: @DisplayValue(_selectedProfile.Phone)</MudText>
                     <MudText Typo="Typo.body2">Email: @DisplayValue(_selectedProfile.Email)</MudText>
                     <MudText Typo="Typo.body2">Ghana Card: @DisplayValue(_selectedProfile.GhanaCard)</MudText>
                     <MudText Typo="Typo.body2">Digital Address: @DisplayValue(_selectedProfile.DigitalAddress)</MudText>
                     <MudText Typo="Typo.body2">Nationality: @DisplayValue(_selectedProfile.Nationality)</MudText>
+                </MudPaper>
+
+                <MudPaper Class="pa-4">
+                    <MudText Typo="Typo.subtitle1">KYC Media Review</MudText>
+                    <MudText Typo="Typo.body2" Class="mud-text-secondary">Review the profile photo, signature, and ID evidence before high-trust servicing actions.</MudText>
+                    <MudGrid Class="mt-2">
+                        <MudItem xs="12" sm="4">
+                            <MudPaper Class="pa-3">
+                                <MudText Typo="Typo.caption" Class="mud-text-secondary">Verified</MudText>
+                                <MudText Typo="Typo.h6">@VerifiedMediaCount</MudText>
+                            </MudPaper>
+                        </MudItem>
+                        <MudItem xs="12" sm="4">
+                            <MudPaper Class="pa-3">
+                                <MudText Typo="Typo.caption" Class="mud-text-secondary">Pending</MudText>
+                                <MudText Typo="Typo.h6">@PendingMediaCount</MudText>
+                            </MudPaper>
+                        </MudItem>
+                        <MudItem xs="12" sm="4">
+                            <MudPaper Class="pa-3">
+                                <MudText Typo="Typo.caption" Class="mud-text-secondary">Rejected</MudText>
+                                <MudText Typo="Typo.h6">@RejectedMediaCount</MudText>
+                            </MudPaper>
+                        </MudItem>
+                    </MudGrid>
+                </MudPaper>
+
+                <MudPaper Class="pa-4">
+                    <MudText Typo="Typo.subtitle1">Client Media</MudText>
+                    <MudGrid Class="mt-1">
+                        @foreach (var slot in MediaSlots)
+                        {
+                            <MudItem xs="12" sm="6">
+                                <MudPaper Class="pa-3">
+                                    <MudText Typo="Typo.subtitle2">@slot.Label</MudText>
+                                    <div style="margin-top:12px;height:180px;border:1px dashed var(--mud-palette-lines-default);border-radius:14px;display:flex;align-items:center;justify-content:center;overflow:hidden;background:var(--mud-palette-surface);">
+                                        @if (!string.IsNullOrWhiteSpace(slot.Asset?.PreviewUrl))
+                                        {
+                                            <img src="@slot.Asset.PreviewUrl" alt="@slot.Label" style="width:100%;height:100%;object-fit:cover;" />
+                                        }
+                                        else
+                                        {
+                                            <MudText Typo="Typo.body2" Class="mud-text-secondary">No image uploaded yet.</MudText>
+                                        }
+                                    </div>
+                                    <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mt-3">
+                                        <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Color="@(string.Equals(slot.Asset?.Status, "VERIFIED", StringComparison.OrdinalIgnoreCase) ? Color.Success : Color.Warning)">
+                                            @(string.IsNullOrWhiteSpace(slot.Asset?.Status) ? "PENDING" : slot.Asset.Status)
+                                        </MudChip>
+                                        <InputFile OnChange="@(args => UploadMediaAsync(args, slot.MediaType, slot.MediaSide))" accept="image/*" />
+                                    </MudStack>
+                                    @if (slot.Asset is not null)
+                                    {
+                                        <MudStack Row="true" Spacing="1" Class="mt-2">
+                                            <MudButton Variant="Variant.Outlined" Color="Color.Success" Size="Size.Small" OnClick="@(async () => await UpdateMediaStatusAsync(slot.Asset, "VERIFIED"))">Verify</MudButton>
+                                            <MudButton Variant="Variant.Outlined" Color="Color.Error" Size="Size.Small" OnClick="@(async () => await UpdateMediaStatusAsync(slot.Asset, "REJECTED"))">Reject</MudButton>
+                                        </MudStack>
+                                    }
+                                    <MudText Typo="Typo.caption" Class="mud-text-secondary">@(slot.Asset?.UploadedAt is null ? "PNG or JPG image only, up to 3 MB." : $"Updated {DisplayDate(slot.Asset.UploadedAt)}")</MudText>
+                                </MudPaper>
+                            </MudItem>
+                        }
+                    </MudGrid>
                 </MudPaper>
 
                 <MudPaper Class="pa-4">
@@ -201,6 +359,7 @@
 </MudGrid>
 
 @code {
+    private const long MaxMediaBytes = 3 * 1024 * 1024;
     private List<CoreBanker.Services.ClientDto> _clients = new();
     private CoreBanker.Services.ClientProfileDto? _selectedProfile;
     private CoreBanker.Services.ClientKycStatusDto? _selectedKyc;
@@ -345,6 +504,88 @@
         }
     }
 
+    private async Task UploadMediaAsync(InputFileChangeEventArgs args, string mediaType, string? mediaSide)
+    {
+        if (_selectedProfile is null)
+        {
+            return;
+        }
+
+        var file = args.File;
+        if (file is null)
+        {
+            return;
+        }
+
+        if (!string.IsNullOrWhiteSpace(file.ContentType) && !file.ContentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase))
+        {
+            _workspaceSuccess = false;
+            _workspaceMessage = "Only image uploads are supported for client media.";
+            return;
+        }
+
+        if (file.Size > MaxMediaBytes)
+        {
+            _workspaceSuccess = false;
+            _workspaceMessage = "Client media images must be 3 MB or smaller.";
+            return;
+        }
+
+        try
+        {
+            using var stream = file.OpenReadStream(5 * 1024 * 1024);
+            using var memory = new MemoryStream();
+            await stream.CopyToAsync(memory);
+
+            var dataUrl = $"data:{(string.IsNullOrWhiteSpace(file.ContentType) ? "image/png" : file.ContentType)};base64,{Convert.ToBase64String(memory.ToArray())}";
+            await ClientService.UploadClientMediaAsync(_selectedProfile.Id, new CoreBanker.Services.UploadClientMediaRequest
+            {
+                MediaType = mediaType,
+                MediaSide = mediaSide,
+                FileName = file.Name,
+                ContentType = string.IsNullOrWhiteSpace(file.ContentType) ? "image/png" : file.ContentType,
+                DataUrl = dataUrl
+            });
+
+            _workspaceSuccess = true;
+            _workspaceMessage = $"{GetMediaLabel(mediaType, mediaSide)} uploaded.";
+            await LoadClientWorkspaceAsync(_selectedProfile.Id);
+        }
+        catch (CoreBanker.Services.ApiClientException ex)
+        {
+            _workspaceSuccess = false;
+            _workspaceMessage = ex.Message;
+        }
+        finally
+        {
+        }
+    }
+
+    private async Task UpdateMediaStatusAsync(CoreBanker.Services.ClientMediaDto media, string status)
+    {
+        if (_selectedProfile is null)
+        {
+            return;
+        }
+
+        try
+        {
+            await ClientService.UpdateClientMediaStatusAsync(_selectedProfile.Id, media.Id, new CoreBanker.Services.UpdateClientMediaStatusRequest
+            {
+                Status = status
+            });
+
+            _workspaceSuccess = true;
+            _workspaceMessage = $"{GetMediaLabel(media.MediaType, media.MediaSide)} marked {status.ToLowerInvariant()}.";
+            await LoadClientWorkspaceAsync(_selectedProfile.Id);
+        }
+        catch (CoreBanker.Services.ApiClientException ex)
+        {
+            _workspaceSuccess = false;
+            _workspaceMessage = ex.Message;
+        }
+    }
+
     private IEnumerable<CoreBanker.Services.ClientDto> FilteredClients =>
         _clients.Where(client =>
             (string.IsNullOrWhiteSpace(_searchTerm)
@@ -366,6 +607,32 @@
 
     private static string FormatAmount(decimal amount)
     {
-        return amount.ToString("C", System.Globalization.CultureInfo.GetCultureInfo("en-GH"));
+        return CoreBanker.Utilities.CurrencyFormatter.Format(amount);
+    }
+
+    private IEnumerable<(string Label, string MediaType, string? MediaSide, CoreBanker.Services.ClientMediaDto? Asset)> MediaSlots =>
+        _selectedProfile is null
+            ? Array.Empty<(string, string, string?, CoreBanker.Services.ClientMediaDto?)>()
+            : new[]
+            {
+                ("Profile Photo", "PROFILE_PHOTO", null, _selectedProfile.ProfilePhoto),
+                ("Signature", "SIGNATURE", null, _selectedProfile.Signature),
+                ("ID Card Front", "ID_CARD", "FRONT", _selectedProfile.IdCardFront),
+                ("ID Card Back", "ID_CARD", "BACK", _selectedProfile.IdCardBack)
+            };
+
+    private int VerifiedMediaCount => _selectedProfile?.MediaAssets.Count(asset => string.Equals(asset.Status, "VERIFIED", StringComparison.OrdinalIgnoreCase)) ?? 0;
+    private int RejectedMediaCount => _selectedProfile?.MediaAssets.Count(asset => string.Equals(asset.Status, "REJECTED", StringComparison.OrdinalIgnoreCase)) ?? 0;
+    private int PendingMediaCount => _selectedProfile?.MediaAssets.Count(asset => !string.Equals(asset.Status, "VERIFIED", StringComparison.OrdinalIgnoreCase)) ?? 0;
+
+    private static string GetMediaLabel(string mediaType, string? mediaSide)
+    {
+        return mediaType switch
+        {
+            "PROFILE_PHOTO" => "Profile photo",
+            "SIGNATURE" => "Signature",
+            _ when string.Equals(mediaSide, "BACK", StringComparison.OrdinalIgnoreCase) => "ID card back",
+            _ => "ID card front"
+        };
     }
 }

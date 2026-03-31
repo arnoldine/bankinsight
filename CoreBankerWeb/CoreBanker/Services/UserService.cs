@@ -5,7 +5,7 @@ namespace CoreBanker.Services
 {
     public class UserService : ApiClientBase
     {
-        public UserService(HttpClient httpClient) : base(httpClient) { }
+        public UserService(HttpClient httpClient, CoreBanker.State.AppState appState) : base(httpClient, appState) { }
 
         public async Task<UserDto> GetCurrentUserAsync()
         {

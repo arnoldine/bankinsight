@@ -4,7 +4,7 @@ namespace CoreBanker.Services
 {
     public class ExtensibilityService : ApiClientBase
     {
-        public ExtensibilityService(HttpClient httpClient) : base(httpClient) { }
+        public ExtensibilityService(HttpClient httpClient, CoreBanker.State.AppState appState) : base(httpClient, appState) { }
 
         public async Task<List<BankingOSProcessCatalogItemDto>> GetProcessCatalogAsync(CancellationToken cancellationToken = default)
         {

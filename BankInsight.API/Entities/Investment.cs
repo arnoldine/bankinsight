@@ -105,6 +105,16 @@ public class Investment
     [Column("approved_at")]
     public DateTime? ApprovedAt { get; set; }
 
+    [Column("is_confidential")]
+    public bool IsConfidential { get; set; }
+
+    [Column("owner_staff_id")]
+    [StringLength(50)]
+    public string? OwnerStaffId { get; set; }
+
+    [ForeignKey(nameof(OwnerStaffId))]
+    public Staff? OwnerStaff { get; set; }
+
     [Column("matured_at")]
     public DateTime? MaturedAt { get; set; }
 

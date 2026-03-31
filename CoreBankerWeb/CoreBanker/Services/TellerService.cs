@@ -4,7 +4,7 @@ namespace CoreBanker.Services
 {
     public class TellerService : ApiClientBase
     {
-        public TellerService(HttpClient httpClient) : base(httpClient) { }
+        public TellerService(HttpClient httpClient, CoreBanker.State.AppState appState) : base(httpClient, appState) { }
 
         public async Task<TellerTransactionResult> PostTransactionAsync(TellerTransactionRequest request, CancellationToken cancellationToken = default)
         {

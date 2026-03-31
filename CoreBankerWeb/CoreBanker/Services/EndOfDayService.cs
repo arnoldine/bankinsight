@@ -2,7 +2,7 @@ namespace CoreBanker.Services
 {
     public class EndOfDayService : ApiClientBase
     {
-        public EndOfDayService(HttpClient httpClient) : base(httpClient) { }
+        public EndOfDayService(HttpClient httpClient, CoreBanker.State.AppState appState) : base(httpClient, appState) { }
 
         public async Task<EodStatusDto?> GetStatusAsync(CancellationToken cancellationToken = default)
         {

@@ -1,6 +1,7 @@
 using BankInsight.API.Data;
 using BankInsight.API.DTOs;
 using BankInsight.API.Entities;
+using BankInsight.API.Security;
 using Microsoft.EntityFrameworkCore;
 
 namespace BankInsight.API.Services;
@@ -25,17 +26,20 @@ public class InvestmentService : IInvestmentService
 {
     private readonly ApplicationDbContext _context;
     private readonly ILogger<InvestmentService> _logger;
+    private readonly ICurrentUserContext _currentUser;
 
-    public InvestmentService(ApplicationDbContext context, ILogger<InvestmentService> logger)
+    public InvestmentService(ApplicationDbContext context, ILogger<InvestmentService> logger, ICurrentUserContext currentUser)
     {
         _context = context;
         _logger = logger;
+        _currentUser = currentUser;
     }
 
     public async Task<InvestmentDto> CreateInvestmentAsync(string initiatedBy, CreateInvestmentRequest request)
     {
         var investmentNumber = GenerateInvestmentNumber();
         var tenorDays = (request.MaturityDate.Date - request.PlacementDate.Date).Days;
+        var ownerStaffId = await ResolveConfidentialOwnerStaffIdAsync(request.OwnerStaffId, request.IsConfidential, initiatedBy);
 
         // Calculate interest and maturity value
         decimal interestAmount;
@@ -79,6 +83,8 @@ public class InvestmentService : IInvestmentService
             YieldToMaturity = yieldToMaturity,
             Status = "Active",
             InitiatedBy = initiatedBy,
+            IsConfidential = request.IsConfidential,
+            OwnerStaffId = ownerStaffId,
             SettlementAccount = request.SettlementAccount,
             AccruedInterest = 0,
             Reference = request.Reference,
@@ -104,6 +110,8 @@ public class InvestmentService : IInvestmentService
         if (investment == null)
             throw new InvalidOperationException($"Investment with ID {investmentId} not found");
 
+        EnsureInvestmentAccess(investment);
+
         if (!string.IsNullOrEmpty(investment.ApprovedBy))
             throw new InvalidOperationException($"Investment {investment.InvestmentNumber} is already approved");
 
@@ -122,6 +130,8 @@ public class InvestmentService : IInvestmentService
         var originalInvestment = await _context.Investments.FindAsync(request.InvestmentId);
         if (originalInvestment == null)
             throw new InvalidOperationException($"Investment with ID {request.InvestmentId} not found");
+
+        EnsureInvestmentAccess(originalInvestment);
 
         if (originalInvestment.Status != "Active")
             throw new InvalidOperationException("Can only rollover active investments");
@@ -148,6 +158,8 @@ public class InvestmentService : IInvestmentService
             InitiatedBy = originalInvestment.InitiatedBy,
             ApprovedBy = originalInvestment.ApprovedBy,
             ApprovedAt = DateTime.UtcNow,
+            IsConfidential = originalInvestment.IsConfidential,
+            OwnerStaffId = originalInvestment.OwnerStaffId,
             SettlementAccount = originalInvestment.SettlementAccount,
             AccruedInterest = 0,
             Notes = $"Rollover from {originalInvestment.InvestmentNumber}. {request.Notes}",
@@ -183,6 +195,8 @@ public class InvestmentService : IInvestmentService
 
         if (investment == null)
             throw new InvalidOperationException($"Investment with ID {request.InvestmentId} not found");
+
+        EnsureInvestmentAccess(investment);
 
         if (investment.Status != "Active")
             throw new InvalidOperationException("Can only liquidate active investments");
@@ -222,6 +236,8 @@ public class InvestmentService : IInvestmentService
         if (investment == null)
             throw new InvalidOperationException($"Investment with ID {investmentId} not found");
 
+        EnsureInvestmentAccess(investment);
+
         if (investment.Status != "Active")
             throw new InvalidOperationException("Can only mature active investments");
 
@@ -250,6 +266,11 @@ public class InvestmentService : IInvestmentService
             .Include(i => i.Approver)
             .FirstOrDefaultAsync(i => i.InvestmentNumber == investmentNumber);
 
+        if (investment != null)
+        {
+            EnsureInvestmentAccess(investment);
+        }
+
         return investment != null ? MapToDto(investment, null) : null;
     }
 
@@ -262,6 +283,8 @@ public class InvestmentService : IInvestmentService
             .Include(i => i.Initiator)
             .Include(i => i.Approver)
             .AsQueryable();
+
+        query = ApplyInvestmentVisibilityScope(query);
 
         if (!string.IsNullOrEmpty(status))
             query = query.Where(i => i.Status == status);
@@ -287,6 +310,7 @@ public class InvestmentService : IInvestmentService
             .Where(i => i.Status == "Active" 
                      && i.MaturityDate >= fromDate.Date 
                      && i.MaturityDate <= toDate.Date)
+            .Where(BuildInvestmentVisibilityPredicate())
             .OrderBy(i => i.MaturityDate)
             .ToListAsync();
 
@@ -299,6 +323,7 @@ public class InvestmentService : IInvestmentService
             .Include(i => i.Initiator)
             .Include(i => i.Approver)
             .Where(i => i.Status == "Active")
+            .Where(BuildInvestmentVisibilityPredicate())
             .ToListAsync();
 
         var totalInvestments = activeInvestments.Count;
@@ -342,6 +367,8 @@ public class InvestmentService : IInvestmentService
         if (investment == null)
             throw new InvalidOperationException($"Investment with ID {investmentId} not found");
 
+        EnsureInvestmentAccess(investment);
+
         if (investment.Status != "Active")
             return; // Don't accrue for non-active investments
 
@@ -369,6 +396,7 @@ public class InvestmentService : IInvestmentService
     {
         var activeInvestments = await _context.Investments
             .Where(i => i.Status == "Active")
+            .Where(BuildInvestmentVisibilityPredicate())
             .ToListAsync();
 
         _logger.LogInformation("Running daily accrual for {Count} active investments", activeInvestments.Count);
@@ -398,6 +426,8 @@ public class InvestmentService : IInvestmentService
 
         if (investment == null)
             throw new InvalidOperationException($"Investment with ID {id} not found");
+
+        EnsureInvestmentAccess(investment);
 
         return MapToDto(investment, investment.RolloverInvestment);
     }
@@ -441,7 +471,71 @@ public class InvestmentService : IInvestmentService
             investment.LastAccrualDate,
             investment.Reference,
             investment.Notes,
-            daysToMaturity
+            daysToMaturity,
+            investment.IsConfidential,
+            investment.OwnerStaffId
         );
+    }
+
+    private IQueryable<Investment> ApplyInvestmentVisibilityScope(IQueryable<Investment> query)
+    {
+        if (CanViewConfidentialInvestments() || string.IsNullOrWhiteSpace(_currentUser.UserId))
+        {
+            return query;
+        }
+
+        var userId = _currentUser.UserId;
+        return query.Where(investment => !investment.IsConfidential || investment.OwnerStaffId == userId);
+    }
+
+    private System.Linq.Expressions.Expression<Func<Investment, bool>> BuildInvestmentVisibilityPredicate()
+    {
+        if (CanViewConfidentialInvestments() || string.IsNullOrWhiteSpace(_currentUser.UserId))
+        {
+            return investment => true;
+        }
+
+        var userId = _currentUser.UserId;
+        return investment => !investment.IsConfidential || investment.OwnerStaffId == userId;
+    }
+
+    private bool CanViewConfidentialInvestments()
+    {
+        return _currentUser.HasPermission(AppPermissions.Investments.ViewConfidential)
+            || _currentUser.HasPermission(AppPermissions.Users.Manage);
+    }
+
+    private void EnsureInvestmentAccess(Investment investment)
+    {
+        if (!investment.IsConfidential || CanViewConfidentialInvestments())
+        {
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(_currentUser.UserId) || !string.Equals(investment.OwnerStaffId, _currentUser.UserId, StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException("You are not allowed to access this confidential investment.");
+        }
+    }
+
+    private async Task<string?> ResolveConfidentialOwnerStaffIdAsync(string? requestedOwnerStaffId, bool isConfidential, string initiatedBy)
+    {
+        if (!isConfidential)
+        {
+            return null;
+        }
+
+        var candidate = string.IsNullOrWhiteSpace(requestedOwnerStaffId) ? initiatedBy : requestedOwnerStaffId.Trim();
+        var resolved = await _context.Staff
+            .Where(staff => staff.Id == candidate || staff.Email == candidate)
+            .Select(staff => staff.Id)
+            .FirstOrDefaultAsync();
+
+        if (string.IsNullOrWhiteSpace(resolved))
+        {
+            throw new InvalidOperationException("The specified confidential investment owner was not found.");
+        }
+
+        return resolved;
     }
 }

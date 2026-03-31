@@ -12,6 +12,8 @@ namespace BankInsight.API.Services;
 
 public class CustomerService
 {
+    private static readonly string[] AllowedMediaTypes = ["PROFILE_PHOTO", "SIGNATURE", "ID_CARD"];
+    private static readonly string[] AllowedMediaSides = ["FRONT", "BACK"];
     private readonly ApplicationDbContext _context;
     private readonly ISequenceGeneratorService _sequenceService;
     private readonly Security.ICurrentUserContext _currentUser;
@@ -60,7 +62,28 @@ public class CustomerService
             .Cast<CustomerDocumentDto>()
             .ToList();
 
-        return MapCustomerProfile(customer, notes, documents);
+        var mediaAssets = await _context.CustomerMediaAssets
+            .Where(asset => asset.CustomerId == id)
+            .OrderByDescending(asset => asset.UploadedAt)
+            .ToListAsync();
+
+        return MapCustomerProfile(customer, notes, documents, mediaAssets);
+    }
+
+    public async Task<CustomerKycReadinessDto?> GetCustomerKycReadinessAsync(string customerId)
+    {
+        var customer = await GetCustomerByIdAsync(customerId);
+        if (customer == null)
+        {
+            return null;
+        }
+
+        var mediaAssets = await _context.CustomerMediaAssets
+            .Where(asset => asset.CustomerId == customerId)
+            .OrderByDescending(asset => asset.UploadedAt)
+            .ToListAsync();
+
+        return BuildKycReadiness(customer, mediaAssets);
     }
 
     public async Task<Customer> CreateCustomerAsync(CreateCustomerRequest request)
@@ -177,6 +200,82 @@ public class CustomerService
         return document;
     }
 
+    public async Task<CustomerMediaDto?> UploadCustomerMediaAsync(string id, UploadCustomerMediaRequest request)
+    {
+        var customer = await GetCustomerByIdAsync(id);
+        if (customer == null)
+        {
+            return null;
+        }
+
+        var mediaType = (request.MediaType ?? string.Empty).Trim().ToUpperInvariant();
+        if (!AllowedMediaTypes.Contains(mediaType))
+        {
+            throw new InvalidOperationException("Unsupported media type.");
+        }
+
+        var mediaSide = string.IsNullOrWhiteSpace(request.MediaSide)
+            ? null
+            : request.MediaSide.Trim().ToUpperInvariant();
+
+        if (mediaType == "ID_CARD")
+        {
+            if (string.IsNullOrWhiteSpace(mediaSide) || !AllowedMediaSides.Contains(mediaSide))
+            {
+                throw new InvalidOperationException("ID card uploads must specify FRONT or BACK.");
+            }
+        }
+        else
+        {
+            mediaSide = null;
+        }
+
+        var dataUrl = request.DataUrl?.Trim() ?? string.Empty;
+        if (!dataUrl.StartsWith("data:image/", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException("Only image uploads are supported.");
+        }
+
+        var contentType = string.IsNullOrWhiteSpace(request.ContentType) ? "image/png" : request.ContentType.Trim();
+        if (!contentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException("Content type must be an image type.");
+        }
+
+        var asset = new CustomerMediaAsset
+        {
+            Id = $"MED-{Guid.NewGuid():N}",
+            CustomerId = id,
+            MediaType = mediaType,
+            MediaSide = mediaSide,
+            FileName = request.FileName.Trim(),
+            ContentType = contentType,
+            DataUrl = dataUrl,
+            Status = "PENDING",
+            FileSizeBytes = EstimateBase64Bytes(dataUrl),
+            UploadedBy = string.IsNullOrWhiteSpace(_currentUser.Email) ? (_currentUser.UserId ?? "System") : _currentUser.Email,
+            UploadedAt = DateTime.UtcNow
+        };
+
+        _context.CustomerMediaAssets.Add(asset);
+        _context.AuditLogs.Add(new AuditLog
+        {
+            Action = "UPLOAD_MEDIA",
+            EntityType = "CUSTOMER",
+            EntityId = id,
+            Description = $"{asset.MediaType}{(asset.MediaSide is null ? string.Empty : $" {asset.MediaSide}")}: {asset.FileName}",
+            PayloadJson = JsonSerializer.Serialize(MapMedia(asset)),
+            Status = "SUCCESS",
+            IsSuccess = true,
+            UserId = string.IsNullOrWhiteSpace(_currentUser.UserId) ? null : _currentUser.UserId,
+            CreatedBy = string.IsNullOrWhiteSpace(_currentUser.UserId) ? null : _currentUser.UserId,
+            CreatedAt = DateTime.UtcNow
+        });
+
+        await _context.SaveChangesAsync();
+        return MapMedia(asset);
+    }
+
     private IQueryable<Customer> ScopedCustomers()
     {
         var query = _context.Customers.AsQueryable();
@@ -188,8 +287,10 @@ public class CustomerService
         return query;
     }
 
-    private static CustomerProfileResponse MapCustomerProfile(Customer customer, List<CustomerNoteDto> notes, List<CustomerDocumentDto> documents)
+    private static CustomerProfileResponse MapCustomerProfile(Customer customer, List<CustomerNoteDto> notes, List<CustomerDocumentDto> documents, List<CustomerMediaAsset> mediaAssets)
     {
+        var mappedMedia = mediaAssets.Select(MapMedia).ToList();
+        var readiness = BuildKycReadiness(customer, mediaAssets);
         return new CustomerProfileResponse
         {
             Id = customer.Id,
@@ -213,7 +314,116 @@ public class CustomerService
             CreatedAt = customer.CreatedAt.ToString("O"),
             Notes = notes,
             Documents = documents,
+            MediaAssets = mappedMedia,
+            ProfilePhoto = SelectLatest(mappedMedia, "PROFILE_PHOTO"),
+            Signature = SelectLatest(mappedMedia, "SIGNATURE"),
+            IdCardFront = SelectLatest(mappedMedia, "ID_CARD", "FRONT"),
+            IdCardBack = SelectLatest(mappedMedia, "ID_CARD", "BACK"),
+            KycReadiness = readiness
         };
+    }
+
+    private static CustomerMediaDto MapMedia(CustomerMediaAsset asset)
+    {
+        return new CustomerMediaDto
+        {
+            Id = asset.Id,
+            MediaType = asset.MediaType,
+            MediaSide = asset.MediaSide,
+            FileName = asset.FileName,
+            ContentType = asset.ContentType,
+            PreviewUrl = asset.DataUrl,
+            Status = string.IsNullOrWhiteSpace(asset.Status) ? "PENDING" : asset.Status,
+            FileSizeBytes = asset.FileSizeBytes,
+            UploadedBy = asset.UploadedBy,
+            UploadedAt = asset.UploadedAt.ToString("O")
+        };
+    }
+
+    private static CustomerMediaDto? SelectLatest(List<CustomerMediaDto> media, string mediaType, string? mediaSide = null)
+    {
+        return media.FirstOrDefault(item =>
+            string.Equals(item.MediaType, mediaType, StringComparison.OrdinalIgnoreCase) &&
+            string.Equals(item.MediaSide ?? string.Empty, mediaSide ?? string.Empty, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static long? EstimateBase64Bytes(string dataUrl)
+    {
+        var commaIndex = dataUrl.IndexOf(',');
+        if (commaIndex < 0 || commaIndex == dataUrl.Length - 1)
+        {
+            return null;
+        }
+
+        var base64 = dataUrl[(commaIndex + 1)..];
+        var padding = base64.EndsWith("==", StringComparison.Ordinal) ? 2 : base64.EndsWith("=", StringComparison.Ordinal) ? 1 : 0;
+        return (base64.Length * 3L / 4L) - padding;
+    }
+
+    private static CustomerKycReadinessDto BuildKycReadiness(Customer customer, List<CustomerMediaAsset> mediaAssets)
+    {
+        var latestBySlot = mediaAssets
+            .GroupBy(asset => $"{asset.MediaType}:{asset.MediaSide ?? string.Empty}")
+            .ToDictionary(group => group.Key, group => group.OrderByDescending(asset => asset.UploadedAt).First());
+
+        var checklist = new List<CustomerKycChecklistItemDto>();
+
+        void AddItem(string key, string label, bool isSatisfied, string successDetail, string missingDetail)
+        {
+            checklist.Add(new CustomerKycChecklistItemDto
+            {
+                Key = key,
+                Label = label,
+                IsSatisfied = isSatisfied,
+                Detail = isSatisfied ? successDetail : missingDetail
+            });
+        }
+
+        var isCorporate = string.Equals(customer.Type, "CORPORATE", StringComparison.OrdinalIgnoreCase);
+        var identityPresent = isCorporate
+            ? !string.IsNullOrWhiteSpace(customer.BusinessRegNo) || !string.IsNullOrWhiteSpace(customer.Tin)
+            : !string.IsNullOrWhiteSpace(customer.GhanaCard);
+
+        AddItem(
+            "identity",
+            isCorporate ? "Registration or TIN captured" : "Ghana Card captured",
+            identityPresent,
+            "Identity details captured.",
+            isCorporate ? "Business registration number or TIN is required." : "Ghana Card is required.");
+
+        AddMediaRequirement("profile-photo", "Verified profile photo", "PROFILE_PHOTO", null);
+        AddMediaRequirement("signature", "Verified signature", "SIGNATURE", null);
+
+        if (!isCorporate)
+        {
+            AddMediaRequirement("id-front", "Verified ID card front", "ID_CARD", "FRONT");
+            AddMediaRequirement("id-back", "Verified ID card back", "ID_CARD", "BACK");
+        }
+
+        var missingRequirements = checklist.Where(item => !item.IsSatisfied).Select(item => item.Label).ToList();
+        var isReady = missingRequirements.Count == 0;
+
+        return new CustomerKycReadinessDto
+        {
+            IsReadyForAccountOpening = isReady,
+            IsReadyForLoanOrigination = isReady,
+            MissingRequirements = missingRequirements,
+            Checklist = checklist
+        };
+
+        void AddMediaRequirement(string key, string label, string mediaType, string? mediaSide)
+        {
+            var slotKey = $"{mediaType}:{mediaSide ?? string.Empty}";
+            var asset = latestBySlot.GetValueOrDefault(slotKey);
+            var isVerified = asset is not null && string.Equals(asset.Status, "VERIFIED", StringComparison.OrdinalIgnoreCase);
+
+            AddItem(
+                key,
+                label,
+                isVerified,
+                $"{label} is verified.",
+                asset is null ? $"{label} has not been uploaded." : $"{label} is not yet verified.");
+        }
     }
 
     private static CustomerNoteDto? MapNote(AuditLog log)

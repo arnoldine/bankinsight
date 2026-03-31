@@ -4,7 +4,7 @@ namespace CoreBanker.Services
 {
     public class AuditService : ApiClientBase
     {
-        public AuditService(HttpClient httpClient) : base(httpClient) { }
+        public AuditService(HttpClient httpClient, CoreBanker.State.AppState appState) : base(httpClient, appState) { }
 
         public async Task<List<AuditLogDto>> GetAuditLogsAsync(int limit = 100, CancellationToken cancellationToken = default)
         {

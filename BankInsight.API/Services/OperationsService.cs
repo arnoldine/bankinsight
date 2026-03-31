@@ -16,18 +16,20 @@ public class OperationsService
     private const string SchedulerLastRunKey = "eod_scheduler_last_run_date";
 
     private static readonly string[] ManualOnlySteps = ["BACKUP_DB"];
-    private static readonly string[] ScheduledSteps = ["PRE_VALIDATION", "SAVINGS_ACCRUAL", "LOAN_AGING", "GL_POSTING", "CLOSE_DATE"];
+    private static readonly string[] ScheduledSteps = ["PRE_VALIDATION", "SAVINGS_ACCRUAL", "LOAN_AGING", "LOAN_COLLECTION", "CHEQUE_CLEARING", "GL_POSTING", "CLOSE_DATE"];
 
     private readonly ApplicationDbContext _context;
     private readonly IDepositEngine _depositEngine;
     private readonly LoanService _loanService;
+    private readonly PaymentOperationsService _paymentOperationsService;
     private readonly IAuditLoggingService _auditLoggingService;
 
-    public OperationsService(ApplicationDbContext context, IDepositEngine depositEngine, LoanService loanService, IAuditLoggingService auditLoggingService)
+    public OperationsService(ApplicationDbContext context, IDepositEngine depositEngine, LoanService loanService, PaymentOperationsService paymentOperationsService, IAuditLoggingService auditLoggingService)
     {
         _context = context;
         _depositEngine = depositEngine;
         _loanService = loanService;
+        _paymentOperationsService = paymentOperationsService;
         _auditLoggingService = auditLoggingService;
     }
     public async Task<EodStatusDto> GetEodStatusAsync()
@@ -63,6 +65,8 @@ public class OperationsService
             "PRE_VALIDATION" => await RunPreValidationAsync(businessDate),
             "SAVINGS_ACCRUAL" => await RunSavingsAccrualAsync(businessDate),
             "LOAN_AGING" => await RunLoanAgingAsync(businessDate, userId),
+            "LOAN_COLLECTION" => await RunLoanCollectionAsync(businessDate, userId),
+            "CHEQUE_CLEARING" => await RunChequeClearingAsync(businessDate, userId),
             "GL_POSTING" => await RunGlPostingCheckAsync(businessDate),
             "BACKUP_DB" => CreateManualStepResult(stepId, businessDate, "Database snapshot remains a manual infrastructure operation in this environment."),
             "CLOSE_DATE" => await RunCloseDateAsync(businessDate, userId),
@@ -178,6 +182,51 @@ public class OperationsService
                 result.TotalInterestAccrued,
                 result.TotalPenaltyAccrued,
                 result.JournalIds
+            }
+        };
+    }
+
+    private async Task<EodStepResultDto> RunLoanCollectionAsync(DateOnly businessDate, string? userId)
+    {
+        var result = await _loanService.ProcessScheduledLoanCollectionsAsync(businessDate, userId);
+
+        return new EodStepResultDto
+        {
+            StepId = "LOAN_COLLECTION",
+            Status = "SUCCESS",
+            BusinessDate = businessDate.ToString("yyyy-MM-dd"),
+            Message = $"Scheduled loan collection evaluated {result.LoansEvaluated} loans and collected from {result.LoansCollected}.",
+            Details = new
+            {
+                result.LoansEvaluated,
+                result.LoansCollected,
+                result.LoansSkipped,
+                result.TotalDebited,
+                result.SuccessfulLoanIds,
+                result.SkippedLoanIds
+            }
+        };
+    }
+
+    private async Task<EodStepResultDto> RunChequeClearingAsync(DateOnly businessDate, string? userId)
+    {
+        var result = await _paymentOperationsService.ProcessDueChequeClearingsAsync(businessDate, userId);
+
+        return new EodStepResultDto
+        {
+            StepId = "CHEQUE_CLEARING",
+            Status = "SUCCESS",
+            BusinessDate = businessDate.ToString("yyyy-MM-dd"),
+            Message = $"Cheque clearing evaluated {result.ItemsEvaluated} items and cleared {result.ItemsCleared}.",
+            Details = new
+            {
+                result.ItemsEvaluated,
+                result.ItemsCleared,
+                result.ItemsReturned,
+                result.ItemsPending,
+                result.TotalClearedAmount,
+                result.ClearedItemIds,
+                result.PendingItemIds
             }
         };
     }

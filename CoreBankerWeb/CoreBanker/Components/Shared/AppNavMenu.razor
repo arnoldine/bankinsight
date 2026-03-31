@@ -1,20 +1,150 @@
 @inject CoreBanker.Auth.IAuthStateProvider AuthStateProvider
+@inject NavigationManager Navigation
 
-<MudNavMenu Class="pa-2">
-    @foreach (var menuSection in MenuSections)
+<MudStack Spacing="2" Class="corebanker-nav-shell">
+    @if (CurrentRoute is not null)
     {
-        <MudNavGroup Title="@menuSection.Key" Expanded="true" Icon="@menuSection.First().Icon">
-            @foreach (var item in menuSection)
-            {
-                <MudNavLink Href="@item.Route" Icon="@item.Icon" Match="NavLinkMatch.Prefix">
-                    @item.Title
-                </MudNavLink>
-            }
-        </MudNavGroup>
+        <MudPaper Class="pa-3 corebanker-nav-current" Elevation="0">
+            <MudStack Spacing="1">
+                <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Start">
+                    <MudStack Row="true" Spacing="1" AlignItems="AlignItems.Center">
+                        <div class="corebanker-icon-badge @GetIconBadgeClass(CurrentRoute.Group)">
+                            <MudIcon Icon="@CurrentRoute.Icon" Size="Size.Medium" />
+                        </div>
+                        <div>
+                            <MudText Typo="Typo.caption">Current Workspace</MudText>
+                            <MudText Typo="Typo.subtitle1">@CurrentRoute.Title</MudText>
+                        </div>
+                    </MudStack>
+                    <MudChip T="string" Size="Size.Small" Color="Color.Primary" Variant="Variant.Text">@CurrentRoute.Group</MudChip>
+                </MudStack>
+                <MudText Typo="Typo.body2" Class="mud-text-secondary">@CurrentRoute.Subtitle</MudText>
+            </MudStack>
+        </MudPaper>
     }
-</MudNavMenu>
+
+    <MudTextField T="string"
+                  @bind-Value="_menuQuery"
+                  Placeholder="Search workspaces"
+                  Variant="Variant.Outlined"
+                  Adornment="Adornment.Start"
+                  AdornmentIcon="@Icons.Material.Filled.Search"
+                  Dense="true"
+                  Margin="Margin.Dense"
+                  Class="corebanker-nav-search" />
+
+    @if (QuickAccessRoutes.Count > 0)
+    {
+        <MudPaper Class="pa-3 corebanker-nav-quick" Elevation="0">
+            <MudText Typo="Typo.caption">Quick Access</MudText>
+            <MudStack Row="true" Wrap="Wrap.Wrap" Spacing="1" Class="mt-2">
+                @foreach (var route in QuickAccessRoutes)
+                {
+                    <MudChip T="string"
+                             Color="@(IsCurrentRoute(route.Route) ? Color.Primary : Color.Default)"
+                             Variant="@(IsCurrentRoute(route.Route) ? Variant.Filled : Variant.Outlined)"
+                             Size="Size.Small"
+                             Icon="@route.Icon"
+                             Class="@($"corebanker-quick-chip {GetIconBadgeClass(route.Group)}")"
+                             OnClick="@(() => Navigation.NavigateTo(route.Route))">
+                        @route.Title
+                    </MudChip>
+                }
+            </MudStack>
+        </MudPaper>
+    }
+
+    <MudPaper Class="pa-3 corebanker-nav-summary" Elevation="0">
+        <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+            <div>
+                <MudText Typo="Typo.caption">Accessible Workspaces</MudText>
+                <MudText Typo="Typo.subtitle1">@FilteredRoutes.Count</MudText>
+            </div>
+            <MudChip T="string" Size="Size.Small" Color="Color.Primary" Variant="Variant.Text">
+                @VisibleGroups.Count group(s)
+            </MudChip>
+        </MudStack>
+    </MudPaper>
+
+    @if (VisibleGroups.Count == 0)
+    {
+        <MudPaper Class="pa-4 corebanker-nav-empty" Elevation="0">
+            <MudText Typo="Typo.subtitle2">@($"No workspace matches \"{_menuQuery}\".")</MudText>
+            <MudText Typo="Typo.body2" Class="mud-text-secondary">Try a module name like loans, treasury, or settings.</MudText>
+        </MudPaper>
+    }
+    else
+    {
+        <MudNavMenu Class="corebanker-nav">
+            @foreach (var menuSection in VisibleGroups)
+            {
+                <MudNavGroup Title="@($"{menuSection.Key} ({menuSection.Count()})")"
+                             Expanded="@ShouldExpand(menuSection.Key)"
+                             Icon="@menuSection.First().Icon"
+                             Class="corebanker-nav-group">
+                    @foreach (var item in menuSection)
+                    {
+                        <MudNavLink Href="@item.Route"
+                                    Match="NavLinkMatch.Prefix"
+                                    Class="@(IsCurrentRoute(item.Route) ? "corebanker-nav-link corebanker-nav-link-active" : "corebanker-nav-link")">
+                            <div class="corebanker-nav-link-icon @GetIconBadgeClass(item.Group)">
+                                <MudIcon Icon="@item.Icon" Size="Size.Small" />
+                            </div>
+                            <div class="corebanker-nav-link-body">
+                                <span class="corebanker-nav-link-title">@item.Title</span>
+                                <span class="corebanker-nav-link-subtitle">@item.Subtitle</span>
+                            </div>
+                        </MudNavLink>
+                    }
+                </MudNavGroup>
+            }
+        </MudNavMenu>
+    }
+</MudStack>
 
 @code {
-    private IEnumerable<IGrouping<string, CoreBanker.Navigation.AppRouteDefinition>> MenuSections =>
-        CoreBanker.Navigation.AppRouteRegistry.GetMenuSections(AuthStateProvider.Permissions);
+    private string _menuQuery = string.Empty;
+
+    private CoreBanker.Navigation.AppRouteDefinition? CurrentRoute =>
+        CoreBanker.Navigation.AppRouteRegistry.GetByUri(Navigation.Uri);
+
+    private IReadOnlyList<CoreBanker.Navigation.AppRouteDefinition> QuickAccessRoutes =>
+        CoreBanker.Navigation.AppRouteRegistry.GetShortcutRoutes(AuthStateProvider.Permissions)
+            .Take(5)
+            .ToList();
+
+    private IReadOnlyList<CoreBanker.Navigation.AppRouteDefinition> FilteredRoutes =>
+        CoreBanker.Navigation.AppRouteRegistry.GetAccessibleRoutes(AuthStateProvider.Permissions)
+            .Where(route =>
+                string.IsNullOrWhiteSpace(_menuQuery)
+                || route.Title.Contains(_menuQuery, StringComparison.OrdinalIgnoreCase)
+                || route.Subtitle.Contains(_menuQuery, StringComparison.OrdinalIgnoreCase)
+                || route.Group.Contains(_menuQuery, StringComparison.OrdinalIgnoreCase))
+            .ToList();
+
+    private IReadOnlyList<IGrouping<string, CoreBanker.Navigation.AppRouteDefinition>> VisibleGroups =>
+        FilteredRoutes
+            .OrderBy(route => string.Equals(route.Group, CurrentRoute?.Group, StringComparison.OrdinalIgnoreCase) ? 0 : 1)
+            .ThenBy(route => route.Group)
+            .ThenBy(route => route.Title)
+            .GroupBy(route => route.Group)
+            .ToList();
+
+    private bool ShouldExpand(string groupName) =>
+        !string.IsNullOrWhiteSpace(_menuQuery)
+        || string.Equals(groupName, CurrentRoute?.Group, StringComparison.OrdinalIgnoreCase);
+
+    private bool IsCurrentRoute(string route) =>
+        string.Equals(route, CurrentRoute?.Route, StringComparison.OrdinalIgnoreCase);
+
+    private static string GetIconBadgeClass(string group) => group.ToLowerInvariant() switch
+    {
+        "operations" => "corebanker-icon-emerald",
+        "clients" => "corebanker-icon-sky",
+        "lending" => "corebanker-icon-amber",
+        "finance" => "corebanker-icon-indigo",
+        "controls" => "corebanker-icon-rose",
+        "platform" => "corebanker-icon-violet",
+        _ => "corebanker-icon-slate"
+    };
 }

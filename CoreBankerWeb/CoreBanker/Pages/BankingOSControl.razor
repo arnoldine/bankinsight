@@ -21,24 +21,58 @@
         <MudAlert Severity="@(_success ? Severity.Success : Severity.Error)">@_message</MudAlert>
     }
 
+    <MudGrid>
+        <MudItem xs="12" sm="6" md="3"><MudPaper Class="pa-4 corebanker-friendly-stat" Elevation="0"><MudText Typo="Typo.caption">Processes</MudText><MudText Typo="Typo.h5">@_processes.Count</MudText></MudPaper></MudItem>
+        <MudItem xs="12" sm="6" md="3"><MudPaper Class="pa-4 corebanker-friendly-stat" Elevation="0"><MudText Typo="Typo.caption">Forms</MudText><MudText Typo="Typo.h5">@_forms.Count</MudText></MudPaper></MudItem>
+        <MudItem xs="12" sm="6" md="3"><MudPaper Class="pa-4 corebanker-friendly-stat" Elevation="0"><MudText Typo="Typo.caption">Bundles</MudText><MudText Typo="Typo.h5">@_bundles.Count</MudText></MudPaper></MudItem>
+        <MudItem xs="12" sm="6" md="3"><MudPaper Class="pa-4 corebanker-friendly-stat" Elevation="0"><MudText Typo="Typo.caption">Group Products</MudText><MudText Typo="Typo.h5">@GroupLoanProducts.Count()</MudText></MudPaper></MudItem>
+    </MudGrid>
+
+    <MudPaper Class="pa-4 corebanker-friendly-guide" Elevation="0">
+        <MudGrid>
+            <MudItem xs="12" md="4">
+                <MudText Typo="Typo.subtitle2">1. Inspect metadata</MudText>
+                <MudText Typo="Typo.body2" Class="mud-text-secondary">Review process packs, forms, and themes before approving downstream bundle movement.</MudText>
+            </MudItem>
+            <MudItem xs="12" md="4">
+                <MudText Typo="Typo.subtitle2">2. Govern releases</MudText>
+                <MudText Typo="Typo.body2" Class="mud-text-secondary">Use bundle submit, approve, reject, and promote actions with notes so deployment intent stays auditable.</MudText>
+            </MudItem>
+            <MudItem xs="12" md="4">
+                <MudText Typo="Typo.subtitle2">3. Tune product rules</MudText>
+                <MudText Typo="Typo.body2" Class="mud-text-secondary">Load a group product and keep its group and eligibility rules aligned with operating policy.</MudText>
+            </MudItem>
+        </MudGrid>
+    </MudPaper>
+
     <MudTabs Rounded="true">
         <MudTabPanel Text="Processes">
-            <MudTable T="CoreBanker.Services.BankingOSProcessCatalogItemDto" Items="@_processes" Dense="true" Hover="true" Loading="@_isLoading">
-                <HeaderContent>
-                    <MudTh>Code</MudTh>
-                    <MudTh>Name</MudTh>
-                    <MudTh>Module</MudTh>
-                    <MudTh>Status</MudTh>
-                    <MudTh>Stages</MudTh>
-                </HeaderContent>
-                <RowTemplate>
-                    <MudTd DataLabel="Code">@context.Code</MudTd>
-                    <MudTd DataLabel="Name">@context.Name</MudTd>
-                    <MudTd DataLabel="Module">@context.Module</MudTd>
-                    <MudTd DataLabel="Status">@context.Status</MudTd>
-                    <MudTd DataLabel="Stages">@context.StageCount</MudTd>
-                </RowTemplate>
-            </MudTable>
+            @if (!_isLoading && _processes.Count == 0)
+            {
+                <MudPaper Class="pa-6 corebanker-empty-state" Elevation="0">
+                    <MudText Typo="Typo.h6">No BankingOS processes available</MudText>
+                    <MudText Typo="Typo.body2" Class="mud-text-secondary">This environment has not returned any workflow process metadata yet.</MudText>
+                </MudPaper>
+            }
+            else
+            {
+                <MudTable T="CoreBanker.Services.BankingOSProcessCatalogItemDto" Items="@_processes" Dense="true" Hover="true" Loading="@_isLoading">
+                    <HeaderContent>
+                        <MudTh>Code</MudTh>
+                        <MudTh>Name</MudTh>
+                        <MudTh>Module</MudTh>
+                        <MudTh>Status</MudTh>
+                        <MudTh>Stages</MudTh>
+                    </HeaderContent>
+                    <RowTemplate>
+                        <MudTd DataLabel="Code">@context.Code</MudTd>
+                        <MudTd DataLabel="Name">@context.Name</MudTd>
+                        <MudTd DataLabel="Module">@context.Module</MudTd>
+                        <MudTd DataLabel="Status"><MudChip T="string" Size="Size.Small" Variant="Variant.Text" Color="@GetStatusColor(context.Status)">@context.Status</MudChip></MudTd>
+                        <MudTd DataLabel="Stages">@context.StageCount</MudTd>
+                    </RowTemplate>
+                </MudTable>
+            }
         </MudTabPanel>
 
         <MudTabPanel Text="Forms">
@@ -56,7 +90,7 @@
                             <MudTd DataLabel="Code">@context.Code</MudTd>
                             <MudTd DataLabel="Name">@context.Name</MudTd>
                             <MudTd DataLabel="Module">@context.Module</MudTd>
-                            <MudTd DataLabel="Status">@context.Status</MudTd>
+                            <MudTd DataLabel="Status"><MudChip T="string" Size="Size.Small" Variant="Variant.Text" Color="@GetStatusColor(context.Status)">@context.Status</MudChip></MudTd>
                             <MudTd DataLabel="Actions"><MudButton Variant="Variant.Text" Color="Color.Primary" OnClick="@(() => LoadSeedFormAsync(context.Code))">Preview</MudButton></MudTd>
                         </RowTemplate>
                     </MudTable>
@@ -92,22 +126,32 @@
         </MudTabPanel>
 
         <MudTabPanel Text="Themes">
-            <MudTable T="CoreBanker.Services.BankingOSThemeCatalogItemDto" Items="@_themes" Dense="true" Hover="true" Loading="@_isLoading">
-                <HeaderContent>
-                    <MudTh>Code</MudTh>
-                    <MudTh>Name</MudTh>
-                    <MudTh>Status</MudTh>
-                    <MudTh>Version</MudTh>
-                    <MudTh>Tokens</MudTh>
-                </HeaderContent>
-                <RowTemplate>
-                    <MudTd DataLabel="Code">@context.Code</MudTd>
-                    <MudTd DataLabel="Name">@context.Name</MudTd>
-                    <MudTd DataLabel="Status">@context.Status</MudTd>
-                    <MudTd DataLabel="Version">@context.Version</MudTd>
-                    <MudTd DataLabel="Tokens">@context.TokenCount</MudTd>
-                </RowTemplate>
-            </MudTable>
+            @if (!_isLoading && _themes.Count == 0)
+            {
+                <MudPaper Class="pa-6 corebanker-empty-state" Elevation="0">
+                    <MudText Typo="Typo.h6">No themes available</MudText>
+                    <MudText Typo="Typo.body2" Class="mud-text-secondary">Theme metadata will appear here once the BankingOS registry returns theme catalog records.</MudText>
+                </MudPaper>
+            }
+            else
+            {
+                <MudTable T="CoreBanker.Services.BankingOSThemeCatalogItemDto" Items="@_themes" Dense="true" Hover="true" Loading="@_isLoading">
+                    <HeaderContent>
+                        <MudTh>Code</MudTh>
+                        <MudTh>Name</MudTh>
+                        <MudTh>Status</MudTh>
+                        <MudTh>Version</MudTh>
+                        <MudTh>Tokens</MudTh>
+                    </HeaderContent>
+                    <RowTemplate>
+                        <MudTd DataLabel="Code">@context.Code</MudTd>
+                        <MudTd DataLabel="Name">@context.Name</MudTd>
+                        <MudTd DataLabel="Status"><MudChip T="string" Size="Size.Small" Variant="Variant.Text" Color="@GetStatusColor(context.Status)">@context.Status</MudChip></MudTd>
+                        <MudTd DataLabel="Version">@context.Version</MudTd>
+                        <MudTd DataLabel="Tokens">@context.TokenCount</MudTd>
+                    </RowTemplate>
+                </MudTable>
+            }
         </MudTabPanel>
 
         <MudTabPanel Text="Bundles">
@@ -330,6 +374,16 @@
             return;
         }
 
+        if ((string.Equals(action, "reject", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(action, "submit", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(action, "promote", StringComparison.OrdinalIgnoreCase))
+            && string.IsNullOrWhiteSpace(_bundleNotes))
+        {
+            _success = false;
+            _message = "Add bundle notes before submitting, rejecting, or promoting a release bundle.";
+            return;
+        }
+
         _isActing = true;
         try
         {
@@ -363,6 +417,16 @@
         }
     }
 
+    private static Color GetStatusColor(string? status) =>
+        string.Equals(status, "ACTIVE", StringComparison.OrdinalIgnoreCase)
+        || string.Equals(status, "APPROVED", StringComparison.OrdinalIgnoreCase)
+        || string.Equals(status, "PUBLISHED", StringComparison.OrdinalIgnoreCase)
+            ? Color.Success
+            : string.Equals(status, "PENDING", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(status, "SUBMITTED", StringComparison.OrdinalIgnoreCase)
+                ? Color.Warning
+                : Color.Default;
+
     private async Task OnProductSelectedAsync(string productId)
     {
         _selectedProductId = productId;
@@ -394,6 +458,20 @@
     {
         if (string.IsNullOrWhiteSpace(_selectedProductId) || _groupRules is null || _eligibilityRules is null)
         {
+            return;
+        }
+
+        if (_groupRules.MinMembersRequired <= 0 || _groupRules.MaxMembersAllowed <= 0)
+        {
+            _success = false;
+            _message = "Minimum and maximum group members must be greater than zero.";
+            return;
+        }
+
+        if (_groupRules.MaxMembersAllowed < _groupRules.MinMembersRequired)
+        {
+            _success = false;
+            _message = "Maximum group members cannot be lower than the minimum required members.";
             return;
         }
 

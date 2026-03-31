@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { Package, Plus, Save, Edit2, Settings, Users, CalendarDays, ShieldCheck, Search } from 'lucide-react';
-import { Product } from '../types';
+import { Product, ProductChargeDefinition } from '../types';
 
 interface ProductDesignerProps {
   products: Product[];
@@ -26,6 +26,19 @@ const emptyEligibilityRules = {
   requireCreditBureauCheck: false,
 };
 
+const createEmptyCharge = (): ProductChargeDefinition => ({
+  code: '',
+  name: '',
+  chargeType: 'FEE',
+  calculationType: 'FLAT',
+  flatAmount: 0,
+  rate: 0,
+  minimumAmount: 0,
+  maximumAmount: 0,
+  applyOn: 'MANUAL',
+  status: 'ACTIVE',
+});
+
 const ProductDesigner: React.FC<ProductDesignerProps> = ({ products, onCreateProduct, onUpdateProduct }) => {
   const [selectedType, setSelectedType] = useState<Product['type'] | 'ALL'>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
@@ -42,6 +55,7 @@ const ProductDesigner: React.FC<ProductDesignerProps> = ({ products, onCreatePro
     allowedRepaymentFrequencies: ['Monthly'],
     groupRules: { ...emptyGroupRules },
     eligibilityRules: { ...emptyEligibilityRules },
+    charges: [],
   });
 
   const filteredProducts = useMemo(() => {
@@ -63,6 +77,7 @@ const ProductDesigner: React.FC<ProductDesignerProps> = ({ products, onCreatePro
       groupRules: product.groupRules ?? { ...emptyGroupRules },
       eligibilityRules: product.eligibilityRules ?? { ...emptyEligibilityRules },
       allowedRepaymentFrequencies: product.allowedRepaymentFrequencies ?? (product.defaultRepaymentFrequency ? [product.defaultRepaymentFrequency] : ['Monthly']),
+      charges: product.charges ?? [],
     });
     setIsCreating(false);
   };
@@ -84,6 +99,7 @@ const ProductDesigner: React.FC<ProductDesignerProps> = ({ products, onCreatePro
       allowedRepaymentFrequencies: ['Monthly'],
       groupRules: { ...emptyGroupRules },
       eligibilityRules: { ...emptyEligibilityRules },
+      charges: [],
     });
     setIsCreating(true);
   };
@@ -103,6 +119,7 @@ const ProductDesigner: React.FC<ProductDesignerProps> = ({ products, onCreatePro
       allowTopUpWithinGroup: formData.groupRules?.allowTopUp,
       allowRescheduleWithinGroup: formData.groupRules?.allowReschedule,
       defaultRepaymentFrequency: showGroupSection ? formData.groupRules?.defaultRepaymentFrequency : formData.defaultRepaymentFrequency,
+      charges: (formData.charges || []).filter((charge) => charge.code.trim().length > 0 && charge.name.trim().length > 0),
     } as Product;
 
     if (isCreating) onCreateProduct(payload);
@@ -205,6 +222,102 @@ const ProductDesigner: React.FC<ProductDesignerProps> = ({ products, onCreatePro
                     <input type="number" value={formData.maxAmount || 0} onChange={e => setFormData({ ...formData, maxAmount: Number(e.target.value) })} className="w-full p-2 border border-gray-300 rounded text-sm" placeholder="Max Amount" />
                     <input type="number" value={formData.minTerm || 0} onChange={e => setFormData({ ...formData, minTerm: Number(e.target.value) })} className="w-full p-2 border border-gray-300 rounded text-sm" placeholder="Min Term" />
                     <input type="number" value={formData.maxTerm || 0} onChange={e => setFormData({ ...formData, maxTerm: Number(e.target.value) })} className="w-full p-2 border border-gray-300 rounded text-sm" placeholder="Max Term" />
+                  </div>
+                </section>
+
+                <section className="col-span-2 bg-white p-4 rounded-lg border border-gray-200">
+                  <div className="mb-3 flex items-center justify-between gap-3">
+                    <h4 className="text-sm font-bold text-gray-800 uppercase">Fees & Commissions</h4>
+                    <button
+                      type="button"
+                      onClick={() => setFormData({ ...formData, charges: [...(formData.charges || []), createEmptyCharge()] })}
+                      className="inline-flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-bold text-amber-800"
+                    >
+                      <Plus size={14} />
+                      Add charge
+                    </button>
+                  </div>
+                  <div className="space-y-3">
+                    {(formData.charges || []).map((charge, index) => (
+                      <div key={`${charge.code || 'new'}-${index}`} className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+                        <div className="grid grid-cols-4 gap-3 text-sm">
+                          <input value={charge.code} onChange={(e) => {
+                            const charges = [...(formData.charges || [])];
+                            charges[index] = { ...charges[index], code: e.target.value.toUpperCase() };
+                            setFormData({ ...formData, charges });
+                          }} className="p-2 border border-gray-300 rounded" placeholder="Charge code" />
+                          <input value={charge.name} onChange={(e) => {
+                            const charges = [...(formData.charges || [])];
+                            charges[index] = { ...charges[index], name: e.target.value };
+                            setFormData({ ...formData, charges });
+                          }} className="p-2 border border-gray-300 rounded col-span-2" placeholder="Charge name" />
+                          <button type="button" onClick={() => {
+                            const charges = (formData.charges || []).filter((_, chargeIndex) => chargeIndex !== index);
+                            setFormData({ ...formData, charges });
+                          }} className="rounded border border-red-200 bg-red-50 px-3 py-2 text-xs font-bold text-red-700">Remove</button>
+                          <select value={charge.chargeType} onChange={(e) => {
+                            const charges = [...(formData.charges || [])];
+                            charges[index] = { ...charges[index], chargeType: e.target.value as ProductChargeDefinition['chargeType'] };
+                            setFormData({ ...formData, charges });
+                          }} className="p-2 border border-gray-300 rounded bg-white">
+                            <option value="FEE">Fee</option>
+                            <option value="COMMISSION">Commission</option>
+                          </select>
+                          <select value={charge.calculationType} onChange={(e) => {
+                            const charges = [...(formData.charges || [])];
+                            charges[index] = { ...charges[index], calculationType: e.target.value as ProductChargeDefinition['calculationType'] };
+                            setFormData({ ...formData, charges });
+                          }} className="p-2 border border-gray-300 rounded bg-white">
+                            <option value="FLAT">Flat</option>
+                            <option value="PERCENTAGE">Percentage</option>
+                          </select>
+                          <select value={charge.applyOn} onChange={(e) => {
+                            const charges = [...(formData.charges || [])];
+                            charges[index] = { ...charges[index], applyOn: e.target.value };
+                            setFormData({ ...formData, charges });
+                          }} className="p-2 border border-gray-300 rounded bg-white">
+                            <option value="MANUAL">Manual</option>
+                            <option value="ACCOUNT_OPENING">Account opening</option>
+                            <option value="ACCOUNT_TRANSACTION">Account transaction</option>
+                            <option value="LOAN_ORIGINATION">Loan origination</option>
+                            <option value="INVESTMENT_PLACEMENT">Investment placement</option>
+                          </select>
+                          <select value={charge.status} onChange={(e) => {
+                            const charges = [...(formData.charges || [])];
+                            charges[index] = { ...charges[index], status: e.target.value as ProductChargeDefinition['status'] };
+                            setFormData({ ...formData, charges });
+                          }} className="p-2 border border-gray-300 rounded bg-white">
+                            <option value="ACTIVE">Active</option>
+                            <option value="INACTIVE">Inactive</option>
+                          </select>
+                          <input type="number" value={charge.flatAmount ?? 0} onChange={(e) => {
+                            const charges = [...(formData.charges || [])];
+                            charges[index] = { ...charges[index], flatAmount: Number(e.target.value || 0) };
+                            setFormData({ ...formData, charges });
+                          }} className="p-2 border border-gray-300 rounded" placeholder="Flat amount" />
+                          <input type="number" value={charge.rate ?? 0} onChange={(e) => {
+                            const charges = [...(formData.charges || [])];
+                            charges[index] = { ...charges[index], rate: Number(e.target.value || 0) };
+                            setFormData({ ...formData, charges });
+                          }} className="p-2 border border-gray-300 rounded" placeholder="Rate %" />
+                          <input type="number" value={charge.minimumAmount ?? 0} onChange={(e) => {
+                            const charges = [...(formData.charges || [])];
+                            charges[index] = { ...charges[index], minimumAmount: Number(e.target.value || 0) };
+                            setFormData({ ...formData, charges });
+                          }} className="p-2 border border-gray-300 rounded" placeholder="Minimum" />
+                          <input type="number" value={charge.maximumAmount ?? 0} onChange={(e) => {
+                            const charges = [...(formData.charges || [])];
+                            charges[index] = { ...charges[index], maximumAmount: Number(e.target.value || 0) };
+                            setFormData({ ...formData, charges });
+                          }} className="p-2 border border-gray-300 rounded" placeholder="Maximum" />
+                        </div>
+                      </div>
+                    ))}
+                    {(formData.charges || []).length === 0 && (
+                      <div className="rounded-lg border border-dashed border-slate-300 bg-slate-50 px-4 py-6 text-sm text-slate-500">
+                        No governed charges configured yet. Add fees or commissions here so operations screens can enforce them by product.
+                      </div>
+                    )}
                   </div>
                 </section>
 

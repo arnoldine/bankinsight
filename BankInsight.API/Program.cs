@@ -40,6 +40,7 @@ builder.Services.AddScoped<GroupService>();
 builder.Services.AddScoped<GroupLendingService>();
 builder.Services.AddScoped<LoanService>();
 builder.Services.AddScoped<OperationsService>();
+builder.Services.AddScoped<PaymentOperationsService>();
 builder.Services.AddHostedService<EodSchedulerHostedService>();
 builder.Services.AddScoped<ILoanAccountingPostingService, LoanAccountingPostingService>();
 builder.Services.AddScoped<IFeeService, FeeService>();

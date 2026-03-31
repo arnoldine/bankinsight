@@ -1,8 +1,10 @@
+using System.Net;
+
 namespace CoreBanker.Services
 {
     public class AccountingService : ApiClientBase
     {
-        public AccountingService(HttpClient httpClient) : base(httpClient) { }
+        public AccountingService(HttpClient httpClient, CoreBanker.State.AppState appState) : base(httpClient, appState) { }
 
         public async Task<List<JournalEntryDto>> GetJournalEntriesAsync(CancellationToken cancellationToken = default)
         {
@@ -33,20 +35,32 @@ namespace CoreBanker.Services
 
         public async Task<IncomeStatementDto?> GetIncomeStatementAsync(DateTime periodStart, DateTime periodEnd, CancellationToken cancellationToken = default)
         {
-            var path = $"/api/reports/financial/income-statement?periodStart={Uri.EscapeDataString(periodStart.ToString("O"))}&periodEnd={Uri.EscapeDataString(periodEnd.ToString("O"))}";
-            return await GetAsync<IncomeStatementDto>(path, cancellationToken);
+            var query = $"periodStart={Uri.EscapeDataString(periodStart.ToString("O"))}&periodEnd={Uri.EscapeDataString(periodEnd.ToString("O"))}";
+            return await GetFinancialReportAsync<IncomeStatementDto>($"/api/reports/financial/income-statement?{query}", $"/api/financial-reports/income-statement?{query}", cancellationToken);
         }
 
         public async Task<CashFlowStatementDto?> GetCashFlowStatementAsync(DateTime periodStart, DateTime periodEnd, CancellationToken cancellationToken = default)
         {
-            var path = $"/api/reports/financial/cash-flow?periodStart={Uri.EscapeDataString(periodStart.ToString("O"))}&periodEnd={Uri.EscapeDataString(periodEnd.ToString("O"))}";
-            return await GetAsync<CashFlowStatementDto>(path, cancellationToken);
+            var query = $"periodStart={Uri.EscapeDataString(periodStart.ToString("O"))}&periodEnd={Uri.EscapeDataString(periodEnd.ToString("O"))}";
+            return await GetFinancialReportAsync<CashFlowStatementDto>($"/api/reports/financial/cash-flow?{query}", $"/api/financial-reports/cash-flow?{query}", cancellationToken);
         }
 
         public async Task<TrialBalanceDto?> GetTrialBalanceAsync(DateTime asOfDate, CancellationToken cancellationToken = default)
         {
-            var path = $"/api/reports/financial/trial-balance?asOfDate={Uri.EscapeDataString(asOfDate.ToString("O"))}";
-            return await GetAsync<TrialBalanceDto>(path, cancellationToken);
+            var query = $"asOfDate={Uri.EscapeDataString(asOfDate.ToString("O"))}";
+            return await GetFinancialReportAsync<TrialBalanceDto>($"/api/reports/financial/trial-balance?{query}", $"/api/financial-reports/trial-balance?{query}", cancellationToken);
+        }
+
+        private async Task<T?> GetFinancialReportAsync<T>(string primaryPath, string fallbackPath, CancellationToken cancellationToken)
+        {
+            try
+            {
+                return await GetAsync<T>(primaryPath, cancellationToken);
+            }
+            catch (ApiClientException ex) when (ex.StatusCode == HttpStatusCode.NotFound)
+            {
+                return await GetAsync<T>(fallbackPath, cancellationToken);
+            }
         }
     }
 

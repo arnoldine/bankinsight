@@ -43,6 +43,7 @@
                 <HeaderContent>
                     <MudTh>Product</MudTh>
                     <MudTh>Type</MudTh>
+                    <MudTh>Currency</MudTh>
                     <MudTh>Status</MudTh>
                 </HeaderContent>
                 <RowTemplate>
@@ -51,6 +52,7 @@
                         <MudText Typo="Typo.caption" Class="d-block mud-text-secondary">@context.Id</MudText>
                     </MudTd>
                     <MudTd DataLabel="Type">@context.Type</MudTd>
+                    <MudTd DataLabel="Currency"><MudChip T="string" Size="Size.Small" Variant="Variant.Text" Color="Color.Info">@context.Currency</MudChip></MudTd>
                     <MudTd DataLabel="Status">@context.Status</MudTd>
                 </RowTemplate>
             </MudTable>
@@ -147,6 +149,9 @@
                         </MudItem>
                     </MudGrid>
 
+                    <MudDivider Class="my-3" />
+                    <MudText Typo="Typo.body2">Currency Context: @DisplayValue(_editor.Currency)</MudText>
+                    <MudText Typo="Typo.body2">Range: @DisplayAmountRange(_editor.MinAmount, _editor.MaxAmount, _editor.Currency)</MudText>
                     <MudDivider Class="my-3" />
                     <MudTextField @bind-Value="_editor.GroupPenaltyPolicy" Label="Penalty Policy" Variant="Variant.Outlined" Lines="2" />
                     <MudTextField @bind-Value="_editor.GroupDelinquencyPolicy" Label="Delinquency Policy" Variant="Variant.Outlined" Lines="2" Class="mt-3" />
@@ -351,4 +356,13 @@
             EligibilityRules = source.EligibilityRules
         };
     }
+
+    private static string DisplayAmountRange(decimal? minAmount, decimal? maxAmount, string? currency)
+    {
+        var minimum = minAmount.HasValue ? CoreBanker.Utilities.CurrencyFormatter.Format(minAmount.Value, currency, true) : "No minimum";
+        var maximum = maxAmount.HasValue ? CoreBanker.Utilities.CurrencyFormatter.Format(maxAmount.Value, currency, true) : "No maximum";
+        return $"{minimum} to {maximum}";
+    }
+
+    private static string DisplayValue(string? value) => string.IsNullOrWhiteSpace(value) ? "Not provided" : value;
 }

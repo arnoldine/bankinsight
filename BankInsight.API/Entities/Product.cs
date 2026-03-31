@@ -157,4 +157,6 @@ public class Product
 
     [JsonIgnore]
     public ProductEligibilityRule? EligibilityRule { get; set; }
+
+    public ICollection<ProductChargeDefinition> Charges { get; set; } = new List<ProductChargeDefinition>();
 }

@@ -6,6 +6,33 @@ export interface ClientDocument {
   uploadDate: string;
 }
 
+export interface ClientMediaAsset {
+  id: string;
+  mediaType: 'PROFILE_PHOTO' | 'SIGNATURE' | 'ID_CARD';
+  mediaSide?: 'FRONT' | 'BACK';
+  fileName: string;
+  contentType: string;
+  previewUrl: string;
+  status: 'VERIFIED' | 'PENDING' | 'REJECTED';
+  fileSizeBytes?: number;
+  uploadedBy?: string;
+  uploadedAt: string;
+}
+
+export interface CustomerKycChecklistItem {
+  key: string;
+  label: string;
+  isSatisfied: boolean;
+  detail: string;
+}
+
+export interface CustomerKycReadiness {
+  isReadyForAccountOpening: boolean;
+  isReadyForLoanOrigination: boolean;
+  missingRequirements: string[];
+  checklist: CustomerKycChecklistItem[];
+}
+
 export interface ClientNote {
   id: string;
   author: string;
@@ -48,6 +75,12 @@ export interface Customer {
   // Optional CRM fields
   documents?: ClientDocument[];
   notes?: ClientNote[];
+  mediaAssets?: ClientMediaAsset[];
+  profilePhoto?: ClientMediaAsset;
+  signature?: ClientMediaAsset;
+  idCardFront?: ClientMediaAsset;
+  idCardBack?: ClientMediaAsset;
+  kycReadiness?: CustomerKycReadiness;
 }
 
 export interface Group {
@@ -74,6 +107,22 @@ export interface Product {
   minTerm?: number;
   maxTerm?: number;
   status: 'ACTIVE' | 'RETIRED';
+  charges?: ProductChargeDefinition[];
+}
+
+export interface ProductChargeDefinition {
+  id?: number;
+  code: string;
+  name: string;
+  chargeType: 'FEE' | 'COMMISSION';
+  calculationType: 'FLAT' | 'PERCENTAGE';
+  flatAmount?: number;
+  rate?: number;
+  minimumAmount?: number;
+  maximumAmount?: number;
+  applyOn: string;
+  incomeGlCode?: string;
+  status: 'ACTIVE' | 'INACTIVE';
 }
 
 export interface AccountMandate {
@@ -96,6 +145,8 @@ export interface Account {
   lienAmount: number;
   status: 'ACTIVE' | 'DORMANT' | 'FROZEN';
   productCode: string; // e.g., 'Sav-01'
+  isConfidential?: boolean;
+  ownerStaffId?: string;
   lastTransDate: string;
   mandate?: AccountMandate;
 }
@@ -115,6 +166,8 @@ export interface Loan {
   outstandingBalance: number;
   collateralType: string;
   status: 'ACTIVE' | 'PENDING' | 'WRITTEN_OFF' | 'CLOSED';
+  isConfidential?: boolean;
+  ownerStaffId?: string;
 }
 
 export interface Transaction {
@@ -127,6 +180,93 @@ export interface Transaction {
   tellerId: string;
   status: 'POSTED' | 'PENDING' | 'REJECTED';
   reference: string;
+}
+
+export interface BulkPaymentBatchItem {
+  id: string;
+  accountId: string;
+  transactionType: 'DEPOSIT' | 'WITHDRAWAL' | 'TRANSFER' | 'LOAN_REPAYMENT';
+  amount: number;
+  narration: string;
+  tellerId: string;
+  clientReference: string;
+  status: 'PROCESSING' | 'COMPLETED' | 'FAILED' | 'PARTIAL' | 'POSTED' | 'PENDING';
+  postedTransactionId?: string;
+  errorMessage?: string;
+  processedAt?: string;
+}
+
+export interface BulkPaymentBatch {
+  id: string;
+  batchReference: string;
+  status: 'PROCESSING' | 'COMPLETED' | 'FAILED' | 'PARTIAL' | 'POSTED' | 'PENDING';
+  currency: string;
+  narration: string;
+  totalAmount: number;
+  processedAmount: number;
+  itemCount: number;
+  processedCount: number;
+  failedCount: number;
+  createdAt: string;
+  processedAt?: string;
+  items: BulkPaymentBatchItem[];
+}
+
+export interface ChequeClearingItem {
+  id: string;
+  accountId: string;
+  transactionType: 'DEPOSIT' | 'WITHDRAWAL';
+  chequeNumber: string;
+  drawerName: string;
+  drawerAccountNumber: string;
+  presentingBankCode: string;
+  draweeBankCode: string;
+  clearingChannel: string;
+  bogRegulatoryClass: string;
+  isOtherBankCheque: boolean;
+  amount: number;
+  currency: string;
+  status: 'LODGED' | 'PENDING_CLEARING' | 'CLEARED' | 'PAID' | 'RETURNED' | 'FAILED';
+  holdDays: number;
+  lodgedAt: string;
+  clearingDate: string;
+  clearedAt?: string;
+  postedTransactionId?: string;
+  returnReason?: string;
+  failureReason?: string;
+  narration?: string;
+}
+
+export interface ChequeBookLeaf {
+  id: string;
+  serialNumber: number;
+  chequeNumber: string;
+  status: 'AVAILABLE' | 'ISSUED' | 'USED' | 'CANCELLED';
+  accountId?: string;
+  usedTransactionId?: string;
+  usedAt?: string;
+  cancelReason?: string;
+}
+
+export interface ChequeBookInventory {
+  id: string;
+  bookReference: string;
+  branchId: string;
+  seriesPrefix: string;
+  startSerialNumber: number;
+  endSerialNumber: number;
+  leafCount: number;
+  availableLeafCount: number;
+  usedLeafCount: number;
+  cancelledLeafCount: number;
+  status: 'IN_STOCK' | 'ISSUED' | 'ACTIVE' | 'EXHAUSTED';
+  accountId?: string;
+  customerId?: string;
+  issuedAt?: string;
+  issuedBy?: string;
+  remarks?: string;
+  createdAt: string;
+  leaves: ChequeBookLeaf[];
 }
 
 export interface ApprovalRequest {

@@ -1,10 +1,11 @@
 using System.Globalization;
+using System.Text.Json;
 
 namespace CoreBanker.Services
 {
     public class AdminService : ApiClientBase
     {
-        public AdminService(HttpClient httpClient) : base(httpClient) { }
+        public AdminService(HttpClient httpClient, CoreBanker.State.AppState appState) : base(httpClient, appState) { }
 
         public async Task<List<AdminUserDto>> GetUsersAsync(CancellationToken cancellationToken = default)
         {
@@ -136,7 +137,7 @@ namespace CoreBanker.Services
         public string? BranchId { get; set; }
         public string Status { get; set; } = string.Empty;
         public string? AvatarInitials { get; set; }
-        public string? AccessScopeType { get; set; }
+        public JsonElement AccessScopeType { get; set; }
         public DateTime? LastLogin { get; set; }
         public string? ClerkUserId { get; set; }
         public DateTime CreatedAt { get; set; }

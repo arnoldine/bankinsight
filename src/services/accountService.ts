@@ -12,6 +12,8 @@ interface AccountApiModel {
   lienAmount?: number;
   status?: string | null;
   productCode?: string | null;
+  isConfidential?: boolean;
+  ownerStaffId?: string | null;
   lastTransDate?: string | null;
   createdAt?: string | null;
 }
@@ -44,6 +46,8 @@ const mapAccount = (account: AccountApiModel): Account => ({
   lienAmount: Number(account.lienAmount || 0),
   status: normalizeAccountStatus(account.status),
   productCode: account.productCode || '',
+  isConfidential: Boolean(account.isConfidential),
+  ownerStaffId: account.ownerStaffId || undefined,
   lastTransDate: account.lastTransDate || account.createdAt || new Date().toISOString(),
 });
 
@@ -53,7 +57,7 @@ class AccountService {
     return accounts.map(mapAccount);
   }
 
-  async createAccount(data: { customerId: string; branchId?: string; type: string; currency?: string; productCode?: string }): Promise<Account> {
+  async createAccount(data: { customerId: string; branchId?: string; type: string; currency?: string; productCode?: string; isConfidential?: boolean; ownerStaffId?: string }): Promise<Account> {
     const created = await httpClient.post<AccountApiModel>(API_ENDPOINTS.accounts.create, data);
     return mapAccount(created);
   }

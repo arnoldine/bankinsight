@@ -15,6 +15,7 @@ import { Customer } from '../../types';
 import { Can } from '../../components/Can';
 import { Permissions } from '../../lib/Permissions';
 import { useLoans } from '../hooks/useApi';
+import { customerService } from '../services/customerService';
 import LoanOperationsSuite from './loans/LoanOperationsSuite';
 import { loanService, Loan, LoanProductDefinition, LoanScheduleDto } from '../services/loanService';
 
@@ -147,12 +148,15 @@ export default function LoanManagementHub({
   const [creditLoading, setCreditLoading] = useState(false);
   const [workflowBusy, setWorkflowBusy] = useState<string | null>(null);
   const [banner, setBanner] = useState<BannerState>(null);
+  const [originationCustomerProfile, setOriginationCustomerProfile] = useState<Customer | null>(null);
+  const [originationKycLoading, setOriginationKycLoading] = useState(false);
 
   const [origCif, setOrigCif] = useState('');
   const [origProduct, setOrigProduct] = useState<string>('LP_CONS_MONTHLY');
   const [origPrincipal, setOrigPrincipal] = useState('');
   const [origCollateralType, setOrigCollateralType] = useState('');
   const [origCollateralValue, setOrigCollateralValue] = useState('');
+  const [origIsConfidential, setOrigIsConfidential] = useState(false);
   const [approvalNotes, setApprovalNotes] = useState('');
 
   const [repayAmount, setRepayAmount] = useState('');
@@ -182,6 +186,11 @@ export default function LoanManagementHub({
   const selectedProductDefinition = useMemo(
     () => loanProducts.find((product) => product.id === origProduct) || loanProducts[0] || null,
     [loanProducts, origProduct],
+  );
+
+  const selectedOriginationCustomerId = useMemo(
+    () => resolveCustomerId(origCif),
+    [customers, origCif],
   );
 
   const selectedLoan = useMemo(
@@ -271,13 +280,48 @@ export default function LoanManagementHub({
     origProduct !== 'LP_CONS_MONTHLY' ||
     origPrincipal.trim().length > 0 ||
     origCollateralType.trim().length > 0 ||
-    origCollateralValue.trim().length > 0;
+    origCollateralValue.trim().length > 0 ||
+    origIsConfidential;
   const hasApprovalDraft = approvalNotes.trim().length > 0;
   const hasRepaymentDraft = repayAmount.trim().length > 0 || repayAccountId.trim().length > 0;
 
   useEffect(() => {
     onDirtyChange?.(hasOriginationDraft || hasApprovalDraft || hasRepaymentDraft);
   }, [hasApprovalDraft, hasOriginationDraft, hasRepaymentDraft, onDirtyChange]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadOriginationKyc = async () => {
+      if (!selectedOriginationCustomerId) {
+        setOriginationCustomerProfile(null);
+        setOriginationKycLoading(false);
+        return;
+      }
+
+      setOriginationKycLoading(true);
+      try {
+        const profile = await customerService.getCustomerProfile(selectedOriginationCustomerId);
+        if (!cancelled) {
+          setOriginationCustomerProfile(profile);
+        }
+      } catch {
+        if (!cancelled) {
+          setOriginationCustomerProfile(null);
+        }
+      } finally {
+        if (!cancelled) {
+          setOriginationKycLoading(false);
+        }
+      }
+    };
+
+    void loadOriginationKyc();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedOriginationCustomerId]);
 
   const upcomingInstallments = useMemo(
     () => schedule.filter((line) => normalizeStatus(line.status) !== 'PAID').slice(0, 3),
@@ -316,10 +360,12 @@ export default function LoanManagementHub({
 
   const resetOriginationForm = () => {
     setOrigCif('');
+    setOriginationCustomerProfile(null);
     setOrigProduct(loanProducts[0]?.id || 'LP_CONS_MONTHLY');
     setOrigPrincipal('');
     setOrigCollateralType('');
     setOrigCollateralValue('');
+    setOrigIsConfidential(false);
     setPreviewSchedule([]);
     setCreditResult(null);
   };
@@ -392,6 +438,14 @@ export default function LoanManagementHub({
       return;
     }
 
+    if (!originationCustomerProfile?.kycReadiness?.isReadyForLoanOrigination) {
+      const missing = originationCustomerProfile?.kycReadiness?.missingRequirements?.length
+        ? originationCustomerProfile.kycReadiness.missingRequirements.join(', ')
+        : 'required KYC evidence';
+      setBanner({ tone: 'error', text: `Loan origination is blocked until these are verified: ${missing}.` });
+      return;
+    }
+
     setWorkflowBusy('apply');
     setBanner(null);
 
@@ -401,6 +455,7 @@ export default function LoanManagementHub({
         loanProductId: origProduct,
         principal: Number(origPrincipal),
         clientReference: `WEB-APP-${Date.now()}`,
+        isConfidential: origIsConfidential,
       });
 
       setBanner({ tone: 'success', text: `Loan application ${createdLoan.id} submitted into the review queue.` });
@@ -654,6 +709,9 @@ export default function LoanManagementHub({
                         <td className="px-5 py-4">
                           <div className="font-mono text-blue-600 dark:text-blue-300">{loan.id}</div>
                           <div className="text-sm text-slate-600 dark:text-slate-300">{loan.productName || loan.productCode || 'Loan Product'}</div>
+                          {loan.isConfidential && (
+                            <div className="mt-1 text-xs font-semibold text-violet-700 dark:text-violet-300">Confidential</div>
+                          )}
                         </td>
                         <td className="px-5 py-4 text-right font-mono text-slate-700 dark:text-slate-200">{formatCurrency(loan.outstandingBalance || 0)}</td>
                         <td className="px-5 py-4">
@@ -767,6 +825,30 @@ export default function LoanManagementHub({
                       <option key={customer.id} value={customer.id}>{customer.name}</option>
                     ))}
                   </datalist>
+                  {selectedOriginationCustomerId && (
+                    <div
+                      className={`mt-3 rounded-xl border px-4 py-3 text-sm ${
+                        originationCustomerProfile?.kycReadiness?.isReadyForLoanOrigination
+                          ? 'border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-900/60 dark:bg-emerald-950/30 dark:text-emerald-200'
+                          : 'border-amber-200 bg-amber-50 text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-200'
+                      }`}
+                    >
+                      <div className="font-semibold">
+                        {originationKycLoading
+                          ? 'Checking KYC readiness...'
+                          : originationCustomerProfile?.kycReadiness?.isReadyForLoanOrigination
+                            ? 'Customer is ready for loan origination.'
+                            : 'Loan origination is blocked until KYC is complete.'}
+                      </div>
+                      {!originationKycLoading && originationCustomerProfile?.kycReadiness && (
+                        <div className="mt-1 text-xs">
+                          {originationCustomerProfile.kycReadiness.isReadyForLoanOrigination
+                            ? 'Photo, signature, and identity evidence are verified for downstream loan processing.'
+                            : `Missing: ${originationCustomerProfile.kycReadiness.missingRequirements.join(', ')}`}
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
 
                 <div>
@@ -824,6 +906,15 @@ export default function LoanManagementHub({
                   </div>
                 </div>
 
+                <label className="flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200">
+                  <input
+                    type="checkbox"
+                    checked={origIsConfidential}
+                    onChange={(event) => setOrigIsConfidential(event.target.checked)}
+                  />
+                  Mark this as a confidential staff-owned loan. Only the owner and super admin will be able to view it.
+                </label>
+
                 <div className="flex flex-wrap gap-3">
                   <button type="button" onClick={handlePreviewSchedule} disabled={previewLoading} className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200">
                     <Clock3 className="h-4 w-4" />
@@ -834,7 +925,7 @@ export default function LoanManagementHub({
                     {creditLoading ? 'Running credit check...' : 'Run credit check'}
                   </button>
                   <Can permission={Permissions.Loans.Disburse}>
-                    <button type="submit" disabled={workflowBusy === 'apply'} className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-3 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-60">
+                    <button type="submit" disabled={workflowBusy === 'apply' || !originationCustomerProfile?.kycReadiness?.isReadyForLoanOrigination} className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-3 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-60">
                       <CheckCircle2 className="h-4 w-4" />
                       {workflowBusy === 'apply' ? 'Submitting...' : 'Submit application'}
                     </button>
@@ -926,6 +1017,9 @@ export default function LoanManagementHub({
                       <div>
                         <div className="font-medium text-slate-900 dark:text-white">{loan.id}</div>
                         <div className="text-xs text-slate-500 dark:text-slate-400">{customerMap.get(loan.cif) || loan.cif}</div>
+                        {loan.isConfidential && (
+                          <div className="mt-1 text-[11px] font-semibold text-violet-700 dark:text-violet-300">Confidential</div>
+                        )}
                       </div>
                       <span className={`inline-flex rounded-full px-2 py-1 text-[11px] font-semibold ${badgeTone(loan.status)}`}>{loan.status}</span>
                     </div>

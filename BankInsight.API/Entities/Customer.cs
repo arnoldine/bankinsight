@@ -111,4 +111,6 @@ public class Customer
 
     [Column("created_at")]
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+    public ICollection<CustomerMediaAsset> MediaAssets { get; set; } = new List<CustomerMediaAsset>();
 }

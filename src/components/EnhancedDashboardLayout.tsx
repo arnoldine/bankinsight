@@ -143,6 +143,9 @@ export default function EnhancedDashboardLayout({
   const [customers, setCustomers] = useState<any[]>([]);
   const [accounts, setAccounts] = useState<any[]>([]);
   const [transactions, setTransactions] = useState<any[]>([]);
+  const [bulkPaymentBatches, setBulkPaymentBatches] = useState<any[]>([]);
+  const [chequeItems, setChequeItems] = useState<any[]>([]);
+  const [chequeBooks, setChequeBooks] = useState<any[]>([]);
   const [loans, setLoans] = useState<any[]>([]);
   const [products, setProducts] = useState<any[]>([]);
   const [glAccounts, setGlAccounts] = useState<any[]>([]);
@@ -194,6 +197,18 @@ export default function EnhancedDashboardLayout({
     const transactionData = await transactionService.getTransactions();
     setTransactions(transactionData || []);
     return transactionData;
+  };
+
+  const loadPaymentOperations = async () => {
+    const [batches, cheques, books] = await Promise.all([
+      transactionService.getBulkPaymentBatches(),
+      transactionService.getChequeItems(),
+      transactionService.getChequeBooks(),
+    ]);
+    setBulkPaymentBatches(batches || []);
+    setChequeItems(cheques || []);
+    setChequeBooks(books || []);
+    return { batches, cheques, books };
   };
 
   const loadLoans = async () => {
@@ -326,7 +341,10 @@ export default function EnhancedDashboardLayout({
         }
 
         if (hasPermission(Permissions.Transactions.View) || hasPermission(Permissions.Transactions.Post)) {
-          loaders.push(loadTransactions().catch((err) => console.error('Failed to load transactions:', err)));
+          loaders.push(
+            loadTransactions().catch((err) => console.error('Failed to load transactions:', err)),
+            loadPaymentOperations().catch((err) => console.error('Failed to load payment operations:', err)),
+          );
         }
 
         if (hasPermission(Permissions.Loans.View)) {
@@ -407,10 +425,18 @@ export default function EnhancedDashboardLayout({
     return updatedCustomer;
   };
 
-  const handleCreateAccount = async (customerId: string, productCode: string) => {
+  const handleCreateAccount = async (customerId: string, productCode: string, options?: { isConfidential?: boolean; ownerStaffId?: string }) => {
     const selectedProduct = products.find((product) => product.id === productCode);
     if (!selectedProduct) {
       throw new Error('The selected product is no longer available for account opening.');
+    }
+
+    const customerProfile = await customerService.getCustomerProfile(customerId.trim());
+    if (!customerProfile.kycReadiness?.isReadyForAccountOpening) {
+      const missing = customerProfile.kycReadiness?.missingRequirements?.length
+        ? customerProfile.kycReadiness.missingRequirements.join(', ')
+        : 'required KYC evidence';
+      throw new Error(`Account opening is blocked until these are verified: ${missing}.`);
     }
 
     const normalizedType = String(selectedProduct.type || '').trim().toUpperCase();
@@ -429,6 +455,8 @@ export default function EnhancedDashboardLayout({
       type: normalizedType,
       currency: normalizedCurrency,
       productCode: selectedProduct.id,
+      isConfidential: options?.isConfidential,
+      ownerStaffId: options?.ownerStaffId,
     });
     await loadRetailAccounts();
     return createdAccount.id;
@@ -457,6 +485,91 @@ export default function EnhancedDashboardLayout({
       message: transaction.reference || 'Transaction posted successfully',
       status: transaction.status === 'PENDING' ? 'PENDING_APPROVAL' as const : 'POSTED' as const,
     };
+  };
+
+  const handleCreateBulkPaymentBatch = async (payload: {
+    currency: string;
+    narration?: string;
+    items: Array<{
+      accountId: string;
+      transactionType: any;
+      amount: number;
+      narration?: string;
+      tellerId?: string;
+      clientReference?: string;
+    }>;
+  }) => {
+    await transactionService.createBulkPaymentBatch({
+      currency: payload.currency,
+      narration: payload.narration,
+      submittedBy: user.id || user.email,
+      items: payload.items.map((item) => ({
+        ...item,
+        tellerId: item.tellerId || user.id || 'STF1123',
+      })),
+    });
+    await Promise.all([loadTransactions(), loadPaymentOperations(), loadRetailAccounts()]);
+  };
+
+  const handleReturnCheque = async (itemId: string, reason: string) => {
+    await transactionService.returnCheque(itemId, reason);
+    await loadPaymentOperations();
+  };
+
+  const handleLodgeChequeDeposit = async (payload: {
+    accountId: string;
+    chequeNumber: string;
+    amount: number;
+    currency: string;
+    drawerName?: string;
+    drawerAccountNumber?: string;
+    presentingBankCode: string;
+    draweeBankCode: string;
+    isOtherBankCheque: boolean;
+    clearingChannel: string;
+    bogRegulatoryClass: string;
+    tellerId?: string;
+    narration?: string;
+  }) => {
+    await transactionService.lodgeChequeDeposit({
+      ...payload,
+      tellerId: payload.tellerId || user.id || 'STF1123',
+    });
+    await Promise.all([loadTransactions(), loadPaymentOperations(), loadRetailAccounts()]);
+  };
+
+  const handleProcessChequeWithdrawal = async (payload: {
+    accountId: string;
+    chequeNumber: string;
+    amount: number;
+    currency: string;
+    tellerId: string;
+    narration?: string;
+  }) => {
+    await transactionService.processChequeWithdrawal({
+      ...payload,
+      tellerId: payload.tellerId || user.id || 'STF1123',
+    });
+    await Promise.all([loadTransactions(), loadPaymentOperations(), loadRetailAccounts()]);
+  };
+
+  const handleCreateChequeBookStock = async (payload: {
+    branchId: string;
+    seriesPrefix: string;
+    startSerialNumber: number;
+    leafCount: number;
+    remarks?: string;
+  }) => {
+    await transactionService.createChequeBookStock(payload);
+    await loadPaymentOperations();
+  };
+
+  const handleIssueChequeBook = async (bookId: string, payload: { accountId: string; remarks?: string }) => {
+    await transactionService.issueChequeBook(bookId, {
+      ...payload,
+      issuedBy: user.id || user.email,
+    });
+    await loadPaymentOperations();
   };
   const handleApproveRequest = async (id: string, workflowStep: number) => {
     await approvalService.approveApproval(id, workflowStep + 1);
@@ -1155,6 +1268,9 @@ export default function EnhancedDashboardLayout({
                 tellerId={user.id}
                 onTransaction={handleTransaction}
                 onOpenNotes={() => navigateTo('teller-notes')}
+                chequeItems={chequeItems}
+                onLodgeChequeDeposit={handleLodgeChequeDeposit}
+                onProcessChequeWithdrawal={handleProcessChequeWithdrawal}
                 initialTransactionType="DEPOSIT"
               />
             </ProtectedRoute>
@@ -1169,6 +1285,9 @@ export default function EnhancedDashboardLayout({
                 tellerId={user.id}
                 onTransaction={handleTransaction}
                 onOpenNotes={() => navigateTo('teller-notes')}
+                chequeItems={chequeItems}
+                onLodgeChequeDeposit={handleLodgeChequeDeposit}
+                onProcessChequeWithdrawal={handleProcessChequeWithdrawal}
                 initialTransactionType="WITHDRAWAL"
               />
             </ProtectedRoute>
@@ -1183,6 +1302,9 @@ export default function EnhancedDashboardLayout({
                 tellerId={user.id}
                 onTransaction={handleTransaction}
                 onOpenNotes={() => navigateTo('teller-notes')}
+                chequeItems={chequeItems}
+                onLodgeChequeDeposit={handleLodgeChequeDeposit}
+                onProcessChequeWithdrawal={handleProcessChequeWithdrawal}
                 initialTransactionType="TRANSFER"
               />
             </ProtectedRoute>
@@ -1196,7 +1318,17 @@ export default function EnhancedDashboardLayout({
       case 'transactions':
         return (
           <ProtectedRoute requiredPermission={Permissions.Accounts.View} userPermissions={userPermissions}>
-            <TransactionExplorer transactions={transactions} />
+            <TransactionExplorer
+              transactions={transactions}
+              bulkBatches={bulkPaymentBatches}
+              chequeItems={chequeItems}
+              chequeBooks={chequeBooks}
+              onCreateBulkPaymentBatch={handleCreateBulkPaymentBatch}
+              onReturnCheque={handleReturnCheque}
+              onRefreshPayments={async () => { await loadPaymentOperations(); }}
+              onCreateChequeBookStock={handleCreateChequeBookStock}
+              onIssueChequeBook={handleIssueChequeBook}
+            />
           </ProtectedRoute>
         );
       case 'statements':

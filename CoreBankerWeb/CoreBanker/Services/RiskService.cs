@@ -2,7 +2,7 @@ namespace CoreBanker.Services
 {
     public class RiskService : ApiClientBase
     {
-        public RiskService(HttpClient httpClient) : base(httpClient) { }
+        public RiskService(HttpClient httpClient, CoreBanker.State.AppState appState) : base(httpClient, appState) { }
 
         public async Task<RiskDashboardDto?> GetDashboardAsync(CancellationToken cancellationToken = default)
         {

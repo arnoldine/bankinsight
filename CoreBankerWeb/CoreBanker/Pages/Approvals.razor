@@ -16,6 +16,30 @@
                 </MudStack>
             </MudPaper>
 
+            <MudGrid>
+                <MudItem xs="12" sm="4">
+                    <MudPaper Class="pa-4 corebanker-friendly-stat" Elevation="0">
+                        <MudText Typo="Typo.caption">Pending</MudText>
+                        <MudText Typo="Typo.h5">@_approvalItems.Count(item => string.Equals(item.Status, "Pending", StringComparison.OrdinalIgnoreCase))</MudText>
+                        <MudText Typo="Typo.body2" Class="mud-text-secondary">Items needing a decision.</MudText>
+                    </MudPaper>
+                </MudItem>
+                <MudItem xs="12" sm="4">
+                    <MudPaper Class="pa-4 corebanker-friendly-stat" Elevation="0">
+                        <MudText Typo="Typo.caption">Approved</MudText>
+                        <MudText Typo="Typo.h5">@_approvalItems.Count(item => string.Equals(item.Status, "Approved", StringComparison.OrdinalIgnoreCase))</MudText>
+                        <MudText Typo="Typo.body2" Class="mud-text-secondary">Completed checker decisions.</MudText>
+                    </MudPaper>
+                </MudItem>
+                <MudItem xs="12" sm="4">
+                    <MudPaper Class="pa-4 corebanker-friendly-stat" Elevation="0">
+                        <MudText Typo="Typo.caption">Selected Item</MudText>
+                        <MudText Typo="Typo.h5">@(_selectedApproval?.Reference ?? "None")</MudText>
+                        <MudText Typo="Typo.body2" Class="mud-text-secondary">@(_selectedApproval?.Type ?? "Choose an item to review.")</MudText>
+                    </MudPaper>
+                </MudItem>
+            </MudGrid>
+
             <MudPaper Class="pa-4">
                 <MudGrid>
                     <MudItem xs="12" md="7">
@@ -37,29 +61,41 @@
                 <MudAlert Severity="Severity.Error">@_loadError</MudAlert>
             }
 
-            <MudTable Items="@FilteredApprovals" Hover="true" Dense="true" Loading="@_isLoading">
-                <HeaderContent>
-                    <MudTh>Type</MudTh>
-                    <MudTh>Reference</MudTh>
-                    <MudTh>Requester</MudTh>
-                    <MudTh>Status</MudTh>
-                    <MudTh>Created</MudTh>
-                    <MudTh></MudTh>
-                </HeaderContent>
-                <RowTemplate>
-                    <MudTd DataLabel="Type">@context.Type</MudTd>
-                    <MudTd DataLabel="Reference">
-                        <MudText Typo="Typo.body2">@context.Reference</MudText>
-                        <MudText Typo="Typo.caption" Class="mud-text-secondary">@context.EntityId</MudText>
-                    </MudTd>
-                    <MudTd DataLabel="Requester">@DisplayValue(context.RequestedBy)</MudTd>
-                    <MudTd DataLabel="Status">@context.Status</MudTd>
-                    <MudTd DataLabel="Created">@context.CreatedAt.ToLocalTime().ToString("dd MMM yyyy HH:mm")</MudTd>
-                    <MudTd DataLabel="Actions">
-                        <MudButton Variant="Variant.Text" Color="Color.Primary" OnClick="@(() => SelectApproval(context))">Inspect</MudButton>
-                    </MudTd>
-                </RowTemplate>
-            </MudTable>
+            @if (!_isLoading && !FilteredApprovals.Any())
+            {
+                <MudPaper Class="pa-6 corebanker-empty-state" Elevation="0">
+                    <MudText Typo="Typo.h6">No approvals match this view</MudText>
+                    <MudText Typo="Typo.body2" Class="mud-text-secondary">Clear the current search or status filter to bring more workflow items back into view.</MudText>
+                </MudPaper>
+            }
+            else
+            {
+                <MudTable Items="@FilteredApprovals" Hover="true" Dense="true" Loading="@_isLoading">
+                    <HeaderContent>
+                        <MudTh>Type</MudTh>
+                        <MudTh>Reference</MudTh>
+                        <MudTh>Requester</MudTh>
+                        <MudTh>Status</MudTh>
+                        <MudTh>Created</MudTh>
+                        <MudTh></MudTh>
+                    </HeaderContent>
+                    <RowTemplate>
+                        <MudTd DataLabel="Type">@context.Type</MudTd>
+                        <MudTd DataLabel="Reference">
+                            <MudText Typo="Typo.body2">@context.Reference</MudText>
+                            <MudText Typo="Typo.caption" Class="mud-text-secondary">@context.EntityId</MudText>
+                        </MudTd>
+                        <MudTd DataLabel="Requester">@DisplayValue(context.RequestedBy)</MudTd>
+                        <MudTd DataLabel="Status">
+                            <MudChip T="string" Size="Size.Small" Variant="Variant.Text" Color="@GetStatusColor(context.Status)">@context.Status</MudChip>
+                        </MudTd>
+                        <MudTd DataLabel="Created">@context.CreatedAt.ToLocalTime().ToString("dd MMM yyyy HH:mm")</MudTd>
+                        <MudTd DataLabel="Actions">
+                            <MudButton Variant="Variant.Text" Color="Color.Primary" OnClick="@(() => SelectApproval(context))">Inspect</MudButton>
+                        </MudTd>
+                    </RowTemplate>
+                </MudTable>
+            }
         </MudStack>
     </MudItem>
 
@@ -72,8 +108,9 @@
 
             @if (_selectedApproval is null)
             {
-                <MudPaper Class="pa-6">
-                    <MudText Typo="Typo.body1">Select an approval to inspect and action it.</MudText>
+                <MudPaper Class="pa-6 corebanker-empty-state" Elevation="0">
+                    <MudText Typo="Typo.h6">Select an approval to start review</MudText>
+                    <MudText Typo="Typo.body2" Class="mud-text-secondary">The right pane will show workflow context, loan details, and decision controls.</MudText>
                 </MudPaper>
             }
             else
@@ -222,6 +259,15 @@
 
     private static string FormatAmount(decimal amount)
     {
-        return amount.ToString("C", System.Globalization.CultureInfo.GetCultureInfo("en-GH"));
+        return CoreBanker.Utilities.CurrencyFormatter.Format(amount);
+    }
+
+    private static Color GetStatusColor(string? status)
+    {
+        return string.Equals(status, "Pending", StringComparison.OrdinalIgnoreCase)
+            ? Color.Warning
+            : string.Equals(status, "Approved", StringComparison.OrdinalIgnoreCase)
+                ? Color.Success
+                : Color.Error;
     }
 }

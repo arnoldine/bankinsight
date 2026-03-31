@@ -6,7 +6,7 @@ namespace CoreBanker.Services
 {
     public class MigrationService : ApiClientBase
     {
-        public MigrationService(HttpClient httpClient) : base(httpClient) { }
+        public MigrationService(HttpClient httpClient, CoreBanker.State.AppState appState) : base(httpClient, appState) { }
 
         public async Task<List<MigrationDatasetDto>> GetDatasetsAsync(CancellationToken cancellationToken = default)
         {

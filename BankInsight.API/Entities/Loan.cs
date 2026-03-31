@@ -103,6 +103,20 @@ public class Loan
     [Column("collateral_value")]
     public decimal? CollateralValue { get; set; }
 
+    [Column("servicing_account_id")]
+    [MaxLength(50)]
+    public string? ServicingAccountId { get; set; }
+
+    [ForeignKey(nameof(ServicingAccountId))]
+    public Account? ServicingAccount { get; set; }
+
+    [Column("collateral_account_id")]
+    [MaxLength(50)]
+    public string? CollateralAccountId { get; set; }
+
+    [ForeignKey(nameof(CollateralAccountId))]
+    public Account? CollateralAccount { get; set; }
+
     [Column("par_bucket")]
     [MaxLength(20)]
     public string ParBucket { get; set; } = "0";
@@ -110,6 +124,16 @@ public class Loan
     [Column("branch_id")]
     [MaxLength(50)]
     public string BranchId { get; set; } = "BR001";
+
+    [Column("is_confidential")]
+    public bool IsConfidential { get; set; }
+
+    [Column("owner_staff_id")]
+    [MaxLength(50)]
+    public string? OwnerStaffId { get; set; }
+
+    [ForeignKey(nameof(OwnerStaffId))]
+    public Staff? OwnerStaff { get; set; }
 
     public ICollection<LoanSchedule> Schedules { get; set; } = new List<LoanSchedule>();
     public ICollection<LoanRepayment> Repayments { get; set; } = new List<LoanRepayment>();

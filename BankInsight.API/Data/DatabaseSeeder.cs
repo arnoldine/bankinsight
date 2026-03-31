@@ -350,6 +350,60 @@ public static class DatabaseSeeder
         }
 
         await context.SaveChangesAsync();
+
+        var sampleCharges = new List<ProductChargeDefinition>
+        {
+            new()
+            {
+                ProductId = "PRD_SAVINGS",
+                Code = "ACCOUNT_OPENING_FEE",
+                Name = "Account Opening Fee",
+                ChargeType = "FEE",
+                CalculationType = "FLAT",
+                FlatAmount = 15m,
+                ApplyOn = "ACCOUNT_OPENING",
+                Status = "ACTIVE",
+            },
+            new()
+            {
+                ProductId = "PRD_SAVINGS",
+                Code = "CASH_DEPOSIT_COMMISSION",
+                Name = "Cash Deposit Commission",
+                ChargeType = "COMMISSION",
+                CalculationType = "PERCENTAGE",
+                Rate = 0.5m,
+                MinimumAmount = 1m,
+                MaximumAmount = 50m,
+                ApplyOn = "ACCOUNT_TRANSACTION",
+                Status = "ACTIVE",
+            },
+            new()
+            {
+                ProductId = "PRD_LOAN_STD",
+                Code = "LOAN_PROCESSING_FEE",
+                Name = "Loan Processing Fee",
+                ChargeType = "FEE",
+                CalculationType = "PERCENTAGE",
+                Rate = 1m,
+                MinimumAmount = 25m,
+                ApplyOn = "LOAN_ORIGINATION",
+                Status = "ACTIVE",
+            }
+        };
+
+        foreach (var charge in sampleCharges)
+        {
+            var exists = await context.ProductChargeDefinitions.AnyAsync(existingCharge =>
+                existingCharge.ProductId == charge.ProductId &&
+                existingCharge.Code == charge.Code);
+
+            if (!exists)
+            {
+                context.ProductChargeDefinitions.Add(charge);
+            }
+        }
+
+        await context.SaveChangesAsync();
     }
 
     private static async Task EnsureLoanProductsAsync(ApplicationDbContext context)

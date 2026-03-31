@@ -46,8 +46,25 @@ public class CreateProductRequest
     public string? GroupOfficerAssignmentMode { get; set; }
     public ProductGroupRulesDto? GroupRules { get; set; }
     public ProductEligibilityRulesDto? EligibilityRules { get; set; }
+    public List<ProductChargeDefinitionDto>? Charges { get; set; }
 }
 
 public class UpdateProductRequest : CreateProductRequest
 {
+}
+
+public class ProductChargeDefinitionDto
+{
+    public int? Id { get; set; }
+    public string Code { get; set; } = string.Empty;
+    public string Name { get; set; } = string.Empty;
+    public string ChargeType { get; set; } = "FEE";
+    public string CalculationType { get; set; } = "FLAT";
+    public decimal? FlatAmount { get; set; }
+    public decimal? Rate { get; set; }
+    public decimal? MinimumAmount { get; set; }
+    public decimal? MaximumAmount { get; set; }
+    public string ApplyOn { get; set; } = "MANUAL";
+    public string? IncomeGlCode { get; set; }
+    public string Status { get; set; } = "ACTIVE";
 }

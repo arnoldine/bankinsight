@@ -2,7 +2,7 @@ namespace CoreBanker.Services
 {
     public class LoanService : ApiClientBase
     {
-        public LoanService(HttpClient httpClient) : base(httpClient) { }
+        public LoanService(HttpClient httpClient, CoreBanker.State.AppState appState) : base(httpClient, appState) { }
 
         public async Task<List<LoanDto>> GetLoansAsync(CancellationToken cancellationToken = default)
         {

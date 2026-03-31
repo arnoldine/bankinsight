@@ -83,7 +83,8 @@ public class CustomerController : ControllerBase
             RemainingDailyLimit = limits.IsUnlimited ? limits.DailyLimit : Math.Max(0m, limits.DailyLimit - todayPostedTotal),
             IsUnlimited = limits.IsUnlimited,
             GhanaCardMatchesProfile = !string.IsNullOrWhiteSpace(customer.GhanaCard),
-            TodayPostedTotal = todayPostedTotal
+            TodayPostedTotal = todayPostedTotal,
+            Readiness = await _customerService.GetCustomerKycReadinessAsync(id)
         });
     }
 
@@ -120,5 +121,21 @@ public class CustomerController : ControllerBase
         var document = await _customerService.AddCustomerDocumentAsync(id, request);
         if (document == null) return NotFound(new { message = "Customer not found" });
         return Ok(document);
+    }
+
+    [HttpPost("{id}/media")]
+    [HasPermission(AppPermissions.Customers.Edit)]
+    public async Task<IActionResult> UploadCustomerMedia(string id, [FromBody] UploadCustomerMediaRequest request)
+    {
+        try
+        {
+            var media = await _customerService.UploadCustomerMediaAsync(id, request);
+            if (media == null) return NotFound(new { message = "Customer not found" });
+            return Ok(media);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
     }
 }

@@ -5,6 +5,8 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
+using CoreBanker.State;
+using MudBlazor;
 
 namespace CoreBanker.Services
 {
@@ -12,15 +14,17 @@ namespace CoreBanker.Services
     {
         private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
         protected readonly HttpClient _httpClient;
+        private readonly AppState _appState;
 
-        public ApiClientBase(HttpClient httpClient)
+        public ApiClientBase(HttpClient httpClient, AppState appState)
         {
             _httpClient = httpClient;
+            _appState = appState;
         }
 
         protected Task<T?> GetAsync<T>(string requestUri, CancellationToken cancellationToken = default)
         {
-            return _httpClient.GetFromJsonAsync<T>(requestUri, JsonOptions, cancellationToken);
+            return GetAsyncCore<T>(requestUri, cancellationToken);
         }
 
         protected async Task<TResponse?> PostAsync<TRequest, TResponse>(string requestUri, TRequest request, CancellationToken cancellationToken = default)
@@ -62,7 +66,35 @@ namespace CoreBanker.Services
                 return;
             }
 
-            throw new ApiClientException(response.StatusCode, await ExtractErrorMessageAsync(response, cancellationToken));
+            var message = await ExtractErrorMessageAsync(response, cancellationToken);
+            if (response.StatusCode == HttpStatusCode.Unauthorized)
+            {
+                if (_appState.IsAuthenticated)
+                {
+                    _appState.ClearSession();
+                }
+
+                _appState.SetWorkspaceMessage("Your session has expired or is no longer authorized. Sign in again to continue working safely.", Severity.Warning, sessionExpired: true);
+            }
+            else if (response.StatusCode == HttpStatusCode.Forbidden)
+            {
+                _appState.SetWorkspaceMessage("This account does not have permission for one or more requested workspaces.", Severity.Warning);
+            }
+
+            throw new ApiClientException(response.StatusCode, message);
+        }
+
+        private async Task<T?> GetAsyncCore<T>(string requestUri, CancellationToken cancellationToken)
+        {
+            using var response = await _httpClient.GetAsync(requestUri, cancellationToken);
+            await EnsureSuccessAsync(response, cancellationToken);
+
+            if (response.Content.Headers.ContentLength == 0)
+            {
+                return default;
+            }
+
+            return await response.Content.ReadFromJsonAsync<T>(JsonOptions, cancellationToken);
         }
 
         private static async Task<string> ExtractErrorMessageAsync(HttpResponseMessage response, CancellationToken cancellationToken)
@@ -70,7 +102,12 @@ namespace CoreBanker.Services
             var body = await response.Content.ReadAsStringAsync(cancellationToken);
             if (string.IsNullOrWhiteSpace(body))
             {
-                return $"Request failed with status {(int)response.StatusCode}.";
+                return response.StatusCode switch
+                {
+                    HttpStatusCode.Unauthorized => "Your session is not authorized for this workspace. Sign in again or use an account with access.",
+                    HttpStatusCode.Forbidden => "Your account is signed in, but it does not have permission to access this workspace.",
+                    _ => $"Request failed with status {(int)response.StatusCode}."
+                };
             }
 
             try

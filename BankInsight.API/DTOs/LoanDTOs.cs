@@ -27,6 +27,12 @@ public class DisburseLoanRequest : IValidatableObject
     [Range(0, 999999999.99, ErrorMessage = "CollateralValue must be between 0 and 999999999.99")]
     public decimal? CollateralValue { get; set; }
 
+    [StringLength(50, ErrorMessage = "ServicingAccountId must not exceed 50 characters")]
+    public string? ServicingAccountId { get; set; }
+
+    [StringLength(50, ErrorMessage = "CollateralAccountId must not exceed 50 characters")]
+    public string? CollateralAccountId { get; set; }
+
     [StringLength(100, ErrorMessage = "ClientReference must not exceed 100 characters")]
     public string? ClientReference { get; set; }
 
@@ -70,11 +76,15 @@ public class LoanDto
     public decimal? OutstandingBalance { get; set; }
     public string? CollateralType { get; set; }
     public decimal? CollateralValue { get; set; }
+    public string? ServicingAccountId { get; set; }
+    public string? CollateralAccountId { get; set; }
     public string Status { get; set; } = string.Empty;
     public string? InterestMethod { get; set; }
     public string? RepaymentFrequency { get; set; }
     public string? ScheduleType { get; set; }
     public string? LoanProductId { get; set; }
+    public bool IsConfidential { get; set; }
+    public string? OwnerStaffId { get; set; }
 }
 public class ConfigureLoanProductRequest
 {
@@ -145,6 +155,17 @@ public class ApplyLoanRequest
 
     [StringLength(100)]
     public string? ClientReference { get; set; }
+
+    public bool IsConfidential { get; set; }
+
+    [StringLength(50)]
+    public string? OwnerStaffId { get; set; }
+
+    [StringLength(50)]
+    public string? ServicingAccountId { get; set; }
+
+    [StringLength(50)]
+    public string? CollateralAccountId { get; set; }
 }
 
 public class ApproveLoanRequest
@@ -165,6 +186,12 @@ public class DisburseApprovedLoanRequest
 
     [StringLength(100)]
     public string? ClientReference { get; set; }
+
+    [StringLength(50)]
+    public string? ServicingAccountId { get; set; }
+
+    [StringLength(50)]
+    public string? CollateralAccountId { get; set; }
 }
 
 public class RepayLoanRequest
@@ -348,6 +375,58 @@ public class AccountFeeDto
     public DateTime PostedAt { get; set; }
 }
 
+public class ApplyAccountChargeRequest
+{
+    [Required(ErrorMessage = "ChargeCode is required")]
+    [StringLength(50, ErrorMessage = "ChargeCode must not exceed 50 characters")]
+    public string ChargeCode { get; set; } = string.Empty;
+
+    [Required(ErrorMessage = "AccountId is required")]
+    [StringLength(50, ErrorMessage = "AccountId must not exceed 50 characters")]
+    public string AccountId { get; set; } = string.Empty;
+
+    [Range(0.01, 999999999.99, ErrorMessage = "OverrideAmount must be between 0.01 and 999999999.99")]
+    public decimal? OverrideAmount { get; set; }
+
+    [Range(0.01, 999999999.99, ErrorMessage = "BaseAmount must be between 0.01 and 999999999.99")]
+    public decimal? BaseAmount { get; set; }
+
+    [StringLength(200, ErrorMessage = "Narration must not exceed 200 characters")]
+    public string? Narration { get; set; }
+
+    [StringLength(100, ErrorMessage = "ClientReference must not exceed 100 characters")]
+    public string? ClientReference { get; set; }
+}
+
+public class ProductChargeAssessmentDto
+{
+    public int? Id { get; set; }
+    public string ProductCode { get; set; } = string.Empty;
+    public string ChargeCode { get; set; } = string.Empty;
+    public string ChargeName { get; set; } = string.Empty;
+    public string ChargeType { get; set; } = string.Empty;
+    public string CalculationType { get; set; } = string.Empty;
+    public decimal? FlatAmount { get; set; }
+    public decimal? Rate { get; set; }
+    public decimal? MinimumAmount { get; set; }
+    public decimal? MaximumAmount { get; set; }
+    public string ApplyOn { get; set; } = string.Empty;
+    public string Status { get; set; } = string.Empty;
+}
+
+public class AccountChargeDto
+{
+    public string TransactionId { get; set; } = string.Empty;
+    public string AccountId { get; set; } = string.Empty;
+    public string ProductCode { get; set; } = string.Empty;
+    public string ChargeCode { get; set; } = string.Empty;
+    public string ChargeName { get; set; } = string.Empty;
+    public string ChargeType { get; set; } = string.Empty;
+    public decimal Amount { get; set; }
+    public string Narration { get; set; } = string.Empty;
+    public DateTime PostedAt { get; set; }
+}
+
 public class LoanClassificationDto
 {
     public string LoanId { get; set; } = string.Empty;
@@ -419,6 +498,17 @@ public class LoanAccrualBatchResultDto
     public decimal TotalInterestAccrued { get; set; }
     public decimal TotalPenaltyAccrued { get; set; }
     public List<string> JournalIds { get; set; } = new();
+}
+
+public class LoanAutoCollectionBatchResultDto
+{
+    public DateOnly AsOfDate { get; set; }
+    public int LoansEvaluated { get; set; }
+    public int LoansCollected { get; set; }
+    public int LoansSkipped { get; set; }
+    public decimal TotalDebited { get; set; }
+    public List<string> SuccessfulLoanIds { get; set; } = new();
+    public List<string> SkippedLoanIds { get; set; } = new();
 }
 
 public class LoanWriteOffRequest

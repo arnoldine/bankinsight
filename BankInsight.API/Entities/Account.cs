@@ -52,6 +52,16 @@ public class Account
     [MaxLength(20)]
     public string Status { get; set; } = "ACTIVE";
 
+    [Column("is_confidential")]
+    public bool IsConfidential { get; set; }
+
+    [Column("owner_staff_id")]
+    [MaxLength(50)]
+    public string? OwnerStaffId { get; set; }
+
+    [ForeignKey(nameof(OwnerStaffId))]
+    public Staff? OwnerStaff { get; set; }
+
     [Column("last_trans_date")]
     public DateTime? LastTransDate { get; set; }
 

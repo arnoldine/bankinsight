@@ -20,9 +20,9 @@ else
             {
                 Navigation.NavigateTo("/login", true);
             }
-            else if (RequiresPermission(routeData.PageType, out var permission) && !AuthStateProvider.HasPermission(permission))
+            else if (RequiresPermission(routeData.PageType, out var permissions) && !permissions.Any(AuthStateProvider.HasPermission))
             {
-                Navigation.NavigateTo($"/access-denied?required={Uri.EscapeDataString(permission)}", true);
+                Navigation.NavigateTo($"/access-denied?required={Uri.EscapeDataString(string.Join(" | ", permissions))}", true);
             }
             else
             {
@@ -39,38 +39,38 @@ else
         await AuthService.InitializeAsync();
     }
 
-    private static readonly Dictionary<Type, string> ProtectedPagePermissions = new()
+    private static readonly Dictionary<Type, IReadOnlyList<string>> ProtectedPagePermissions = new()
     {
-        [typeof(Pages.Dashboard)] = "dashboard.view",
-        [typeof(Pages.Clients)] = "customers.view",
-        [typeof(Pages.ClientsOnboard)] = "customers.create",
-        [typeof(Pages.Accounts)] = "accounts.view",
-        [typeof(Pages.Teller)] = "transactions.create",
-        [typeof(Pages.Transactions)] = "transactions.view",
-        [typeof(Pages.LoanManagement)] = "loans.view",
-        [typeof(Pages.Approvals)] = "approvals.view",
-        [typeof(Pages.Accounting)] = "gl.view",
-        [typeof(Pages.Reporting)] = "reports.view",
-        [typeof(Pages.Audit)] = "audit.view",
-        [typeof(Pages.Security)] = "security.view",
-        [typeof(Pages.SecurityOps)] = "security.view",
-        [typeof(Pages.MigrationWorkbench)] = "migration.view",
-        [typeof(Pages.BankingOSControl)] = "bankingos.view",
-        [typeof(Pages.GroupLending)] = "groups.view",
-        [typeof(Pages.Treasury)] = "treasury.view",
-        [typeof(Pages.Vault)] = "vault.view",
-        [typeof(Pages.OperationsRisk)] = "operations.view",
-        [typeof(Pages.Products)] = "products.view",
-        [typeof(Pages.Settings)] = "settings.view",
-        [typeof(Pages.Statements)] = "statements.view",
-        [typeof(Pages.WorkspaceViews)] = "workspaces.view",
-        [typeof(Pages.Extensibility)] = "extensibility.view",
-        [typeof(Pages.EndOfDay)] = "eod.view"
+        [typeof(Pages.Dashboard)] = ["dashboard.view"],
+        [typeof(Pages.Clients)] = ["customers.view"],
+        [typeof(Pages.ClientsOnboard)] = ["customers.create"],
+        [typeof(Pages.Accounts)] = ["accounts.view", "VIEW_ACCOUNTS"],
+        [typeof(Pages.Teller)] = ["transactions.post", "transactions.create", "POST_TRANSACTIONS"],
+        [typeof(Pages.Transactions)] = ["transactions.view", "VIEW_TRANSACTIONS"],
+        [typeof(Pages.LoanManagement)] = ["loans.view", "VIEW_LOANS"],
+        [typeof(Pages.Approvals)] = ["approvals.view", "VIEW_APPROVALS", "workflow.view"],
+        [typeof(Pages.Accounting)] = ["gl.view", "VIEW_GL", "MANAGE_GL"],
+        [typeof(Pages.Reporting)] = ["reports.view", "VIEW_REPORTS"],
+        [typeof(Pages.Audit)] = ["audit.view"],
+        [typeof(Pages.Security)] = ["audit.view", "users.manage", "MANAGE_USERS"],
+        [typeof(Pages.SecurityOps)] = ["audit.view", "users.manage", "MANAGE_USERS"],
+        [typeof(Pages.MigrationWorkbench)] = ["users.manage", "MANAGE_USERS"],
+        [typeof(Pages.BankingOSControl)] = ["processes.view", "tasks.view", "processes.manage", "VIEW_WORKFLOWS", "MANAGE_WORKFLOWS"],
+        [typeof(Pages.GroupLending)] = ["group-lending.view", "group-lending.reports.view", "VIEW_GROUPS"],
+        [typeof(Pages.Treasury)] = ["gl.view", "VIEW_GL", "reports.risk"],
+        [typeof(Pages.Vault)] = ["transactions.post", "POST_TRANSACTIONS", "gl.view"],
+        [typeof(Pages.OperationsRisk)] = ["audit.view", "reports.risk", "gl.view"],
+        [typeof(Pages.Products)] = ["loans.products.configure", "group-lending.products.configure", "VIEW_PRODUCTS", "MANAGE_PRODUCTS"],
+        [typeof(Pages.Settings)] = ["VIEW_CONFIG", "MANAGE_CONFIG", "roles.manage", "MANAGE_ROLES", "users.manage", "MANAGE_USERS", "branches.manage", "VIEW_ROLES"],
+        [typeof(Pages.Statements)] = ["reports.financial", "reports.view", "VIEW_REPORTS"],
+        [typeof(Pages.WorkspaceViews)] = ["dashboard.view", "audit.view", "reports.view"],
+        [typeof(Pages.Extensibility)] = ["processes.view", "tasks.view", "processes.manage", "VIEW_WORKFLOWS", "MANAGE_WORKFLOWS"],
+        [typeof(Pages.EndOfDay)] = ["gl.post", "POST_JOURNAL", "gl.view", "VIEW_GL", "MANAGE_GL"]
     };
 
     private bool IsProtectedRoute(Type pageType)
         => ProtectedPagePermissions.ContainsKey(pageType);
 
-    private static bool RequiresPermission(Type pageType, out string permission)
-        => ProtectedPagePermissions.TryGetValue(pageType, out permission!);
+    private static bool RequiresPermission(Type pageType, out IReadOnlyList<string> permissions)
+        => ProtectedPagePermissions.TryGetValue(pageType, out permissions!);
 }

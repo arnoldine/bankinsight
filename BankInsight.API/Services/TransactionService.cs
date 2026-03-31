@@ -62,7 +62,7 @@ public class TransactionService
         return await _context.Transactions.FindAsync(id);
     }
 
-    public async Task<Transaction> PostTransactionAsync(CreateTransactionRequest request)
+    public async Task<Transaction> PostTransactionAsync(CreateTransactionRequest request, bool allowSystemTeller = false, string? createdBy = null)
     {
         using var transaction = await _context.Database.BeginTransactionAsync();
         Transaction? newTransaction = null;
@@ -85,15 +85,19 @@ public class TransactionService
                 throw new InvalidOperationException($"Account status {account.Status} does not allow transactions");
             }
 
-            if (string.IsNullOrWhiteSpace(request.TellerId))
+            if (string.IsNullOrWhiteSpace(request.TellerId) && !allowSystemTeller)
             {
                 throw new InvalidOperationException("TellerId is required");
             }
 
-            var teller = await _context.Staff.FirstOrDefaultAsync(s => s.Id == request.TellerId);
-            if (teller == null || !string.Equals(teller.Status, "Active", StringComparison.OrdinalIgnoreCase))
+            Staff? teller = null;
+            if (!string.IsNullOrWhiteSpace(request.TellerId))
             {
-                throw new InvalidOperationException("Invalid or inactive teller");
+                teller = await _context.Staff.FirstOrDefaultAsync(s => s.Id == request.TellerId);
+                if (teller == null || !string.Equals(teller.Status, "Active", StringComparison.OrdinalIgnoreCase))
+                {
+                    throw new InvalidOperationException("Invalid or inactive teller");
+                }
             }
 
             if (string.IsNullOrWhiteSpace(account.CustomerId))
@@ -179,10 +183,10 @@ public class TransactionService
                 EntityId = account.Id,
                 Amount = request.Amount,
                 Currency = account.Currency ?? "GHS",
-                BranchId = request.TellerId,
+                BranchId = account.BranchId ?? teller?.BranchId ?? "001",
                 Reference = refNum,
-                PayloadJson = System.Text.Json.JsonSerializer.Serialize(new { Method = "Cash/Direct" }),
-                CreatedBy = request.TellerId
+                PayloadJson = System.Text.Json.JsonSerializer.Serialize(new { Method = allowSystemTeller ? "System" : "Cash/Direct" }),
+                CreatedBy = request.TellerId ?? createdBy ?? "SYSTEM"
             };
             
             var postResult = await _postingEngine.ProcessEventAsync(financialEvent);
@@ -217,7 +221,7 @@ public class TransactionService
                     action: "POST_TRANSACTION_FAILED",
                     entityType: "TRANSACTION",
                     entityId: null,
-                    userId: request.TellerId,
+                    userId: request.TellerId ?? createdBy,
                     description: $"Failed to post {request.Type} transaction of {request.Amount:C}",
                     status: "FAILED",
                     errorMessage: ex.Message
@@ -236,7 +240,7 @@ public class TransactionService
                 action: "POST_TRANSACTION",
                 entityType: "TRANSACTION",
                 entityId: txnId,
-                userId: request.TellerId,
+                userId: request.TellerId ?? createdBy,
                 description: $"Posted {normalizedType} transaction of {request.Amount:C} to account {request.AccountId}",
                 status: "SUCCESS",
                 newValues: new
@@ -255,7 +259,7 @@ public class TransactionService
                 request.AccountId,
                 request.Amount,
                 normalizedType,
-                request.TellerId);
+                request.TellerId ?? createdBy);
         }
         catch
         {

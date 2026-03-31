@@ -5,9 +5,19 @@
 @inject NavigationManager Navigation
 
 <MudPaper Class="login-card pa-6" Elevation="8">
-    <MudText Typo="Typo.overline" Class="login-eyebrow">CoreBanker</MudText>
-    <MudText Typo="Typo.h4" Class="mb-2">Sign in to your banking workspace</MudText>
-    <MudText Typo="Typo.body1" Class="mb-4">Use your BankInsight operator credentials to open the live operational console.</MudText>
+    <div class="login-card-header">
+        <div class="login-card-badge">Secure Access</div>
+        <MudText Typo="Typo.overline" Class="login-eyebrow">CoreBanker</MudText>
+        <MudText Typo="Typo.h4" Class="mb-2">Sign in to your banking workspace</MudText>
+        <MudText Typo="Typo.body1" Class="mb-4">Use your BankInsight operator credentials to open the live operational console.</MudText>
+    </div>
+
+    @if (!string.IsNullOrWhiteSpace(AppState.WorkspaceMessage))
+    {
+        <MudAlert Severity="@AppState.WorkspaceMessageSeverity" Dense="true" Class="mb-4">
+            @AppState.WorkspaceMessage
+        </MudAlert>
+    }
 
     @if (!string.IsNullOrWhiteSpace(statusMessage))
     {
@@ -17,15 +27,17 @@
     @if (!mfaRequired)
     {
         <MudForm @ref="form">
-            <MudTextField @bind-Value="Email" Label="Email" Required="true" For="@(() => Email)" Immediate="true" Variant="Variant.Outlined" />
+            <MudTextField @bind-Value="Email" Label="Email" Placeholder="name@bankinsight.local" Required="true" For="@(() => Email)" Immediate="true" Variant="Variant.Outlined" />
             <MudTextField @bind-Value="Password" Label="Password" InputType="InputType.Password" Required="true" For="@(() => Password)" Immediate="true" Variant="Variant.Outlined" Class="mt-3" />
-            <MudButton OnClick="HandleLogin" Color="Color.Primary" Variant="Variant.Filled" Class="mt-4" Disabled="@loading" FullWidth="true">Login</MudButton>
+            <MudButton OnClick="HandleLogin" Color="Color.Primary" Variant="Variant.Filled" Class="mt-4 login-primary-action" Disabled="@loading" FullWidth="true">Login</MudButton>
         </MudForm>
         <MudProgressLinear Indeterminate="true" Visible="@loading" Class="mt-3" />
         @if (!string.IsNullOrEmpty(error))
         {
             <MudAlert Severity="Severity.Error" Dense="true" Class="mt-3">@error</MudAlert>
         }
+
+        <MudText Typo="Typo.caption" Class="login-help-copy mt-4">Use the local admin credentials or your provisioned BankInsight operator account to continue.</MudText>
     }
     else
     {
@@ -38,16 +50,18 @@
         </MudAlert>
 
         <MudForm @ref="mfaForm">
-            <MudTextField @bind-Value="MfaCode" Label="MFA Code" Required="true" For="@(() => MfaCode)" Immediate="true" Variant="Variant.Outlined" />
-            <MudButton OnClick="HandleMfa" Color="Color.Primary" Variant="Variant.Filled" Class="mt-4" Disabled="@mfaLoading" FullWidth="true">Verify</MudButton>
+            <MudTextField @bind-Value="MfaCode" Label="MFA Code" Placeholder="Enter 6-digit code" Required="true" For="@(() => MfaCode)" Immediate="true" Variant="Variant.Outlined" />
+            <MudButton OnClick="HandleMfa" Color="Color.Primary" Variant="Variant.Filled" Class="mt-4 login-primary-action" Disabled="@mfaLoading" FullWidth="true">Verify</MudButton>
         </MudForm>
         <MudProgressLinear Indeterminate="true" Visible="@mfaLoading" Class="mt-3" />
         @if (!string.IsNullOrEmpty(mfaError))
         {
             <MudAlert Severity="Severity.Error" Dense="true" Class="mt-3">@mfaError</MudAlert>
         }
-        <MudButton Variant="Variant.Text" OnClick="ResendMfa" Disabled="@mfaLoading" Class="mt-2">Resend Code</MudButton>
-        <MudButton Variant="Variant.Text" Color="Color.Secondary" OnClick="RestartLogin" Disabled="@mfaLoading" Class="mt-2">Use different account</MudButton>
+        <div class="login-secondary-actions">
+            <MudButton Variant="Variant.Text" OnClick="ResendMfa" Disabled="@mfaLoading" Class="mt-2">Resend Code</MudButton>
+            <MudButton Variant="Variant.Text" Color="Color.Secondary" OnClick="RestartLogin" Disabled="@mfaLoading" Class="mt-2">Use different account</MudButton>
+        </div>
     }
 </MudPaper>
 
@@ -197,5 +211,13 @@
         MfaCode = string.Empty;
         statusMessage = null;
         mfaError = null;
+    }
+
+    protected override void OnAfterRender(bool firstRender)
+    {
+        if (firstRender && !AppState.IsAuthenticated)
+        {
+            AppState.ClearWorkspaceMessage();
+        }
     }
 }

@@ -923,5 +923,5 @@
 
     private static string GetField(CoreBanker.Services.GroupReportRowDto row, string key) => row.Fields.TryGetValue(key, out var value) ? value : "-";
     private static string DisplayValue(string? value) => string.IsNullOrWhiteSpace(value) ? "Not provided" : value;
-    private static string FormatCurrency(decimal amount) => amount.ToString("C");
+    private static string FormatCurrency(decimal amount) => CoreBanker.Utilities.CurrencyFormatter.Format(amount);
 }

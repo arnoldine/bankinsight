@@ -20,4 +20,9 @@ public class CreateAccountRequest
 
     [StringLength(50, ErrorMessage = "ProductCode must not exceed 50 characters")]
     public string? ProductCode { get; set; }
+
+    public bool IsConfidential { get; set; }
+
+    [StringLength(50, ErrorMessage = "OwnerStaffId must not exceed 50 characters")]
+    public string? OwnerStaffId { get; set; }
 }

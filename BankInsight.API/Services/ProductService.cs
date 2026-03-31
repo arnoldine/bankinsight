@@ -24,6 +24,7 @@ public class ProductService
         return await _context.Products
             .Include(p => p.GroupRule)
             .Include(p => p.EligibilityRule)
+            .Include(p => p.Charges)
             .OrderBy(p => p.Name)
             .ToListAsync();
     }
@@ -78,11 +79,13 @@ public class ProductService
 
         _context.Products.Add(product);
         UpsertRules(product.Id, request);
+        UpsertCharges(product.Id, request.Charges);
         await _context.SaveChangesAsync();
 
         return await _context.Products
             .Include(p => p.GroupRule)
             .Include(p => p.EligibilityRule)
+            .Include(p => p.Charges)
             .FirstAsync(p => p.Id == product.Id);
     }
 
@@ -91,6 +94,7 @@ public class ProductService
         var product = await _context.Products
             .Include(p => p.GroupRule)
             .Include(p => p.EligibilityRule)
+            .Include(p => p.Charges)
             .FirstOrDefaultAsync(p => p.Id == id);
 
         if (product == null) return null;
@@ -138,6 +142,7 @@ public class ProductService
         product.GroupOfficerAssignmentMode = request.GroupOfficerAssignmentMode;
 
         UpsertRules(product.Id, request);
+        UpsertCharges(product.Id, request.Charges);
         await _context.SaveChangesAsync();
 
         return product;
@@ -218,6 +223,62 @@ public class ProductService
         catch
         {
             return new[] { "Monthly" };
+        }
+    }
+
+    private void UpsertCharges(string productId, List<ProductChargeDefinitionDto>? charges)
+    {
+        var existingCharges = _context.ProductChargeDefinitions
+            .Where(charge => charge.ProductId == productId)
+            .ToList();
+
+        if (charges == null || charges.Count == 0)
+        {
+            if (existingCharges.Count > 0)
+            {
+                _context.ProductChargeDefinitions.RemoveRange(existingCharges);
+            }
+
+            return;
+        }
+
+        var requestedCodes = charges
+            .Where(charge => !string.IsNullOrWhiteSpace(charge.Code))
+            .Select(charge => charge.Code.Trim().ToUpperInvariant())
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var staleCharge in existingCharges.Where(charge => !requestedCodes.Contains(charge.Code)))
+        {
+            _context.ProductChargeDefinitions.Remove(staleCharge);
+        }
+
+        foreach (var chargeRequest in charges.Where(charge => !string.IsNullOrWhiteSpace(charge.Code)))
+        {
+            var normalizedCode = chargeRequest.Code.Trim().ToUpperInvariant();
+            var charge = existingCharges.FirstOrDefault(existing => existing.Code == normalizedCode)
+                ?? new ProductChargeDefinition
+                {
+                    ProductId = productId,
+                    Code = normalizedCode,
+                    CreatedAt = DateTime.UtcNow,
+                };
+
+            charge.Name = string.IsNullOrWhiteSpace(chargeRequest.Name) ? normalizedCode : chargeRequest.Name.Trim();
+            charge.ChargeType = string.IsNullOrWhiteSpace(chargeRequest.ChargeType) ? "FEE" : chargeRequest.ChargeType.Trim().ToUpperInvariant();
+            charge.CalculationType = string.IsNullOrWhiteSpace(chargeRequest.CalculationType) ? "FLAT" : chargeRequest.CalculationType.Trim().ToUpperInvariant();
+            charge.FlatAmount = chargeRequest.FlatAmount;
+            charge.Rate = chargeRequest.Rate;
+            charge.MinimumAmount = chargeRequest.MinimumAmount;
+            charge.MaximumAmount = chargeRequest.MaximumAmount;
+            charge.ApplyOn = string.IsNullOrWhiteSpace(chargeRequest.ApplyOn) ? "MANUAL" : chargeRequest.ApplyOn.Trim().ToUpperInvariant();
+            charge.IncomeGlCode = string.IsNullOrWhiteSpace(chargeRequest.IncomeGlCode) ? null : chargeRequest.IncomeGlCode.Trim().ToUpperInvariant();
+            charge.Status = string.IsNullOrWhiteSpace(chargeRequest.Status) ? "ACTIVE" : chargeRequest.Status.Trim().ToUpperInvariant();
+            charge.UpdatedAt = DateTime.UtcNow;
+
+            if (_context.Entry(charge).State == EntityState.Detached)
+            {
+                _context.ProductChargeDefinitions.Add(charge);
+            }
         }
     }
 }

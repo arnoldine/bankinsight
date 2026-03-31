@@ -4,13 +4,14 @@
 @inject CoreBanker.Services.TransactionService TransactionService
 @inject CoreBanker.Services.AccountService AccountService
 @inject CoreBanker.Services.ClientService ClientService
+@inject CoreBanker.State.AppState AppState
 
 <MudStack Spacing="3">
-    <MudPaper Class="pa-4">
+    <MudPaper Class="pa-4 corebanker-workspace-header">
         <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
             <div>
-                <MudText Typo="Typo.h4">Transaction Explorer</MudText>
-                <MudText Typo="Typo.body2" Class="mud-text-secondary">Review posted activity with account and customer context from the live banking API.</MudText>
+                <MudText Typo="Typo.h4">Payments and Transactions</MudText>
+                <MudText Typo="Typo.body2" Class="mud-text-secondary">Review posted activity, submit bulk payment batches, and monitor cheque clearing operations from one workspace.</MudText>
             </div>
             <MudButton Variant="Variant.Outlined" Color="Color.Secondary" OnClick="LoadWorkspaceAsync">Refresh</MudButton>
         </MudStack>
@@ -18,51 +19,59 @@
 
     <MudGrid>
         <MudItem xs="12" sm="6" md="3">
-            <MudCard><MudCardContent><MudText Typo="Typo.subtitle2">Transactions</MudText><MudText Typo="Typo.h5">@FilteredTransactions.Count()</MudText></MudCardContent></MudCard>
+            <MudCard Class="corebanker-friendly-stat"><MudCardContent><MudText Typo="Typo.subtitle2">Transactions</MudText><MudText Typo="Typo.h5">@FilteredTransactions.Count()</MudText></MudCardContent></MudCard>
         </MudItem>
         <MudItem xs="12" sm="6" md="3">
-            <MudCard><MudCardContent><MudText Typo="Typo.subtitle2">Posted Value</MudText><MudText Typo="Typo.h5">@FormatAmount(FilteredTransactions.Where(t => t.Status == "POSTED").Sum(t => t.Amount))</MudText></MudCardContent></MudCard>
+            <MudCard Class="corebanker-friendly-stat"><MudCardContent><MudText Typo="Typo.subtitle2">Posted Value</MudText><MudText Typo="Typo.h5">@FormatAmount(FilteredTransactions.Where(t => t.Status == "POSTED").Sum(t => t.Amount))</MudText></MudCardContent></MudCard>
         </MudItem>
         <MudItem xs="12" sm="6" md="3">
-            <MudCard><MudCardContent><MudText Typo="Typo.subtitle2">Deposits</MudText><MudText Typo="Typo.h5">@FilteredTransactions.Count(t => t.Type == "DEPOSIT")</MudText></MudCardContent></MudCard>
+            <MudCard Class="corebanker-friendly-stat"><MudCardContent><MudText Typo="Typo.subtitle2">Bulk Batches</MudText><MudText Typo="Typo.h5">@_bulkBatches.Count</MudText></MudCardContent></MudCard>
         </MudItem>
         <MudItem xs="12" sm="6" md="3">
-            <MudCard><MudCardContent><MudText Typo="Typo.subtitle2">Withdrawals</MudText><MudText Typo="Typo.h5">@FilteredTransactions.Count(t => t.Type == "WITHDRAWAL")</MudText></MudCardContent></MudCard>
+            <MudCard Class="corebanker-friendly-stat"><MudCardContent><MudText Typo="Typo.subtitle2">Cheques In Flight</MudText><MudText Typo="Typo.h5">@_chequeItems.Count(item => item.Status is "LODGED" or "PENDING_CLEARING")</MudText></MudCardContent></MudCard>
+        </MudItem>
+        <MudItem xs="12" sm="6" md="3">
+            <MudCard Class="corebanker-friendly-stat"><MudCardContent><MudText Typo="Typo.subtitle2">Cheque Books</MudText><MudText Typo="Typo.h5">@_chequeBooks.Count</MudText></MudCardContent></MudCard>
         </MudItem>
     </MudGrid>
-
-    <MudPaper Class="pa-4">
-        <MudGrid>
-            <MudItem xs="12" md="5">
-                <MudTextField @bind-Value="_searchTerm" Label="Search by account, customer, reference, or type" Variant="Variant.Outlined" Immediate="true" />
-            </MudItem>
-            <MudItem xs="12" md="3">
-                <MudSelect @bind-Value="_statusFilter" Label="Status" Variant="Variant.Outlined">
-                    <MudSelectItem Value="@string.Empty">All</MudSelectItem>
-                    <MudSelectItem Value="@("POSTED")">Posted</MudSelectItem>
-                    <MudSelectItem Value="@("PENDING")">Pending</MudSelectItem>
-                    <MudSelectItem Value="@("FAILED")">Failed</MudSelectItem>
-                </MudSelect>
-            </MudItem>
-            <MudItem xs="12" md="4">
-                <MudSelect @bind-Value="_accountFilter" Label="Account" Variant="Variant.Outlined">
-                    <MudSelectItem Value="@string.Empty">All accounts</MudSelectItem>
-                    @foreach (var account in _accounts.OrderBy(account => account.Id))
-                    {
-                        <MudSelectItem Value="@account.Id">@($"{account.Id} • {GetCustomerName(account.CustomerId)}")</MudSelectItem>
-                    }
-                </MudSelect>
-            </MudItem>
-        </MudGrid>
-    </MudPaper>
 
     @if (!string.IsNullOrWhiteSpace(_loadError))
     {
         <MudAlert Severity="Severity.Error">@_loadError</MudAlert>
     }
 
-    <MudTabs @bind-ActivePanelIndex="_tabIndex" Rounded="true">
-        <MudTabPanel Text="Recent">
+    @if (!string.IsNullOrWhiteSpace(_workspaceMessage))
+    {
+        <MudAlert Severity="@(_workspaceSuccess ? Severity.Success : Severity.Info)">@_workspaceMessage</MudAlert>
+    }
+
+    <MudTabs Rounded="true">
+        <MudTabPanel Text="Explorer">
+            <MudPaper Class="pa-4">
+                <MudGrid>
+                    <MudItem xs="12" md="5">
+                        <MudTextField @bind-Value="_searchTerm" Label="Search by account, customer, reference, or type" Variant="Variant.Outlined" Immediate="true" />
+                    </MudItem>
+                    <MudItem xs="12" md="3">
+                        <MudSelect T="string" @bind-Value="_statusFilter" Label="Status" Variant="Variant.Outlined">
+                            <MudSelectItem T="string" Value="@string.Empty">All</MudSelectItem>
+                            <MudSelectItem T="string" Value="@("POSTED")">Posted</MudSelectItem>
+                            <MudSelectItem T="string" Value="@("PENDING")">Pending</MudSelectItem>
+                            <MudSelectItem T="string" Value="@("FAILED")">Failed</MudSelectItem>
+                        </MudSelect>
+                    </MudItem>
+                    <MudItem xs="12" md="4">
+                        <MudSelect T="string" @bind-Value="_accountFilter" Label="Account" Variant="Variant.Outlined">
+                            <MudSelectItem T="string" Value="@string.Empty">All accounts</MudSelectItem>
+                            @foreach (var account in _accounts.OrderBy(account => account.Id))
+                            {
+                                <MudSelectItem T="string" Value="@account.Id">@($"{account.Id} • {GetCustomerName(account.CustomerId)}")</MudSelectItem>
+                            }
+                        </MudSelect>
+                    </MudItem>
+                </MudGrid>
+            </MudPaper>
+
             <MudTable Items="@RecentTransactions" Hover="true" Dense="true" Loading="@_isLoading">
                 <HeaderContent>
                     <MudTh>Txn ID</MudTh>
@@ -82,48 +91,374 @@
                     <MudTd DataLabel="Type">@context.Type</MudTd>
                     <MudTd DataLabel="Amount">@FormatAmount(context.Amount, CurrencyFor(context.AccountId))</MudTd>
                     <MudTd DataLabel="Reference">@DisplayValue(context.Reference)</MudTd>
-                    <MudTd DataLabel="Status">@context.Status</MudTd>
+                        <MudTd DataLabel="Status"><MudChip T="string" Size="Size.Small" Color="@StatusColor(context.Status)">@context.Status</MudChip></MudTd>
                     <MudTd DataLabel="Date">@context.Date.ToLocalTime().ToString("dd MMM yyyy HH:mm")</MudTd>
                 </RowTemplate>
             </MudTable>
         </MudTabPanel>
-        <MudTabPanel Text="Posted">
-            <MudTable Items="@PostedTransactions" Hover="true" Dense="true">
-                <HeaderContent>
-                    <MudTh>Txn ID</MudTh>
-                    <MudTh>Account</MudTh>
-                    <MudTh>Type</MudTh>
-                    <MudTh>Amount</MudTh>
-                    <MudTh>Narration</MudTh>
-                    <MudTh>Date</MudTh>
-                </HeaderContent>
-                <RowTemplate>
-                    <MudTd DataLabel="Txn ID">@context.Id</MudTd>
-                    <MudTd DataLabel="Account">@context.AccountId</MudTd>
-                    <MudTd DataLabel="Type">@context.Type</MudTd>
-                    <MudTd DataLabel="Amount">@FormatAmount(context.Amount, CurrencyFor(context.AccountId))</MudTd>
-                    <MudTd DataLabel="Narration">@DisplayValue(context.Narration)</MudTd>
-                    <MudTd DataLabel="Date">@context.Date.ToLocalTime().ToString("dd MMM yyyy HH:mm")</MudTd>
-                </RowTemplate>
-            </MudTable>
+
+        <MudTabPanel Text="Bulk Payments">
+            <MudGrid>
+                <MudItem xs="12" lg="5">
+                    <MudPaper Class="pa-4">
+                        <MudText Typo="Typo.h6">Create Bulk Payment Batch</MudText>
+                        <MudText Typo="Typo.body2" Class="mud-text-secondary">Submit multiple postings in one batch for payroll, collections, or mass reversals.</MudText>
+
+                        <MudSelect T="string" @bind-Value="_bulkDraft.TransactionType" Label="Transaction Type" Variant="Variant.Outlined" Class="mt-3">
+                            <MudSelectItem T="string" Value="@("DEPOSIT")">Deposit</MudSelectItem>
+                            <MudSelectItem T="string" Value="@("WITHDRAWAL")">Withdrawal</MudSelectItem>
+                            <MudSelectItem T="string" Value="@("TRANSFER")">Transfer</MudSelectItem>
+                            <MudSelectItem T="string" Value="@("LOAN_REPAYMENT")">Loan Repayment</MudSelectItem>
+                        </MudSelect>
+                        <MudTextField @bind-Value="_bulkDraft.AccountId" Label="Account ID" Variant="Variant.Outlined" Class="mt-3" />
+                        <MudNumericField T="decimal" @bind-Value="_bulkDraft.Amount" Label="Amount" Variant="Variant.Outlined" Class="mt-3" Min="0.01m" />
+                        <MudTextField @bind-Value="_bulkDraft.Narration" Label="Narration" Variant="Variant.Outlined" Class="mt-3" />
+                        <MudTextField @bind-Value="_bulkNarration" Label="Batch Narration" Variant="Variant.Outlined" Class="mt-3" />
+                        <MudButton Variant="Variant.Outlined" Color="Color.Primary" Class="mt-3" OnClick="AddBulkLine">Add Line</MudButton>
+                        <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="mt-3 ml-2" Disabled="@(!_bulkLines.Any() || _isSubmittingBulk)" OnClick="SubmitBulkBatchAsync">Submit Batch</MudButton>
+                    </MudPaper>
+                </MudItem>
+                <MudItem xs="12" lg="7">
+                    <MudPaper Class="pa-4">
+                        <MudText Typo="Typo.h6">Current Batch Lines</MudText>
+                        @if (!_bulkLines.Any())
+                        {
+                            <MudAlert Severity="Severity.Info" Dense="true" Class="mt-3">Add at least one line to submit a batch.</MudAlert>
+                        }
+                        else
+                        {
+                            <MudTable Items="@_bulkLines" Dense="true" Hover="true" Class="mt-3">
+                                <HeaderContent>
+                                    <MudTh>Account</MudTh>
+                                    <MudTh>Type</MudTh>
+                                    <MudTh>Amount</MudTh>
+                                    <MudTh>Narration</MudTh>
+                                </HeaderContent>
+                                <RowTemplate>
+                                    <MudTd>@context.AccountId</MudTd>
+                                    <MudTd>@context.TransactionType</MudTd>
+                                    <MudTd>@FormatAmount(context.Amount)</MudTd>
+                                    <MudTd>@DisplayValue(context.Narration)</MudTd>
+                                </RowTemplate>
+                            </MudTable>
+                        }
+                    </MudPaper>
+
+                    <MudPaper Class="pa-4 mt-3">
+                        <MudText Typo="Typo.h6">Recent Bulk Batches</MudText>
+                        <MudTable Items="@_bulkBatches" Dense="true" Hover="true" Class="mt-3">
+                            <HeaderContent>
+                                <MudTh>Reference</MudTh>
+                                <MudTh>Status</MudTh>
+                                <MudTh>Items</MudTh>
+                                <MudTh>Processed</MudTh>
+                                <MudTh>Created</MudTh>
+                            </HeaderContent>
+                            <RowTemplate>
+                                <MudTd>@context.BatchReference</MudTd>
+                                <MudTd><MudChip T="string" Size="Size.Small" Color="@StatusColor(context.Status)">@context.Status</MudChip></MudTd>
+                                <MudTd>@context.ItemCount</MudTd>
+                                <MudTd>@FormatAmount(context.ProcessedAmount, context.Currency)</MudTd>
+                                <MudTd>
+                                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                                        <MudText Typo="Typo.body2">@context.CreatedAt.ToLocalTime().ToString("dd MMM yyyy HH:mm")</MudText>
+                                        <MudButton Variant="Variant.Text" Size="Size.Small" OnClick="@(() => SelectBatch(context))">View</MudButton>
+                                    </MudStack>
+                                </MudTd>
+                            </RowTemplate>
+                        </MudTable>
+                    </MudPaper>
+
+                    @if (_selectedBatch is not null)
+                    {
+                        <MudPaper Class="pa-4 mt-3">
+                            <MudText Typo="Typo.h6">Batch Detail</MudText>
+                            <MudText Typo="Typo.body2" Class="mud-text-secondary">Reference: @_selectedBatch.BatchReference</MudText>
+                            <MudText Typo="Typo.body2" Class="mud-text-secondary">Status: @_selectedBatch.Status</MudText>
+                            <MudText Typo="Typo.body2" Class="mud-text-secondary">Processed: @_selectedBatch.ProcessedCount / @_selectedBatch.ItemCount</MudText>
+                            <MudTable Items="@_selectedBatch.Items" Dense="true" Hover="true" Class="mt-3">
+                                <HeaderContent>
+                                    <MudTh>Account</MudTh>
+                                    <MudTh>Type</MudTh>
+                                    <MudTh>Amount</MudTh>
+                                    <MudTh>Status</MudTh>
+                                    <MudTh>Result</MudTh>
+                                </HeaderContent>
+                                <RowTemplate>
+                                    <MudTd>@context.AccountId</MudTd>
+                                    <MudTd>@context.TransactionType</MudTd>
+                                    <MudTd>@FormatAmount(context.Amount, _selectedBatch.Currency)</MudTd>
+                                    <MudTd><MudChip T="string" Size="Size.Small" Color="@StatusColor(context.Status)">@context.Status</MudChip></MudTd>
+                                    <MudTd>@DisplayValue(string.IsNullOrWhiteSpace(context.ErrorMessage) ? context.PostedTransactionId : context.ErrorMessage)</MudTd>
+                                </RowTemplate>
+                            </MudTable>
+                        </MudPaper>
+                    }
+                </MudItem>
+            </MudGrid>
         </MudTabPanel>
-        <MudTabPanel Text="Exceptions">
-            <MudTable Items="@ExceptionTransactions" Hover="true" Dense="true">
-                <HeaderContent>
-                    <MudTh>Txn ID</MudTh>
-                    <MudTh>Account</MudTh>
-                    <MudTh>Status</MudTh>
-                    <MudTh>Reference</MudTh>
-                    <MudTh>Date</MudTh>
-                </HeaderContent>
-                <RowTemplate>
-                    <MudTd DataLabel="Txn ID">@context.Id</MudTd>
-                    <MudTd DataLabel="Account">@context.AccountId</MudTd>
-                    <MudTd DataLabel="Status">@context.Status</MudTd>
-                    <MudTd DataLabel="Reference">@DisplayValue(context.Reference)</MudTd>
-                    <MudTd DataLabel="Date">@context.Date.ToLocalTime().ToString("dd MMM yyyy HH:mm")</MudTd>
-                </RowTemplate>
-            </MudTable>
+
+        <MudTabPanel Text="Cheques">
+            <MudGrid>
+                <MudItem xs="12" lg="5">
+                    <MudPaper Class="pa-4">
+                        <MudText Typo="Typo.h6">Lodge Cheque Deposit</MudText>
+                        <MudSelect T="string" @bind-Value="_chequeDeposit.AccountId" Label="Account" Variant="Variant.Outlined" Class="mt-3">
+                            @foreach (var account in _accounts.OrderBy(account => account.Id))
+                            {
+                                <MudSelectItem T="string" Value="@account.Id">@($"{account.Id} • {GetCustomerName(account.CustomerId)}")</MudSelectItem>
+                            }
+                        </MudSelect>
+                        <MudTextField @bind-Value="_chequeDeposit.ChequeNumber" Label="Cheque Number" Variant="Variant.Outlined" Class="mt-3" />
+                        <MudNumericField T="decimal" @bind-Value="_chequeDeposit.Amount" Label="Amount" Variant="Variant.Outlined" Class="mt-3" Min="0.01m" />
+                        <MudTextField @bind-Value="_chequeDeposit.PresentingBankCode" Label="Presenting Bank Code" Variant="Variant.Outlined" Class="mt-3" />
+                        <MudTextField @bind-Value="_chequeDeposit.DraweeBankCode" Label="Drawee Bank Code" Variant="Variant.Outlined" Class="mt-3" />
+                        <MudCheckBox @bind-Value="_chequeDeposit.IsOtherBankCheque" Label="Other bank cheque" Class="mt-2" />
+                        <MudTextField @bind-Value="_chequeDeposit.DrawerName" Label="Drawer Name" Variant="Variant.Outlined" Class="mt-3" />
+                        <MudTextField @bind-Value="_chequeDeposit.Narration" Label="Narration" Variant="Variant.Outlined" Class="mt-3" />
+                        <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="mt-3" Disabled="@_isSubmittingCheque" OnClick="LodgeChequeAsync">Lodge Cheque</MudButton>
+                    </MudPaper>
+                </MudItem>
+                <MudItem xs="12" lg="7">
+                    <MudPaper Class="pa-4">
+                        <MudText Typo="Typo.h6">Cheque Clearing Queue</MudText>
+                        <MudTable Items="@_chequeItems.OrderByDescending(item => item.LodgedAt)" Dense="true" Hover="true" Class="mt-3">
+                            <HeaderContent>
+                                <MudTh>Cheque</MudTh>
+                                <MudTh>Account</MudTh>
+                                <MudTh>Amount</MudTh>
+                                <MudTh>Status</MudTh>
+                                <MudTh>Clearing Date</MudTh>
+                                <MudTh>Channel</MudTh>
+                                <MudTh>Action</MudTh>
+                            </HeaderContent>
+                            <RowTemplate>
+                                <MudTd>@context.ChequeNumber</MudTd>
+                                <MudTd>@context.AccountId</MudTd>
+                                <MudTd>@FormatAmount(context.Amount, context.Currency)</MudTd>
+                                <MudTd><MudChip T="string" Size="Size.Small" Color="@StatusColor(context.Status)">@context.Status</MudChip></MudTd>
+                                <MudTd>@DisplayValue(context.ClearingDate)</MudTd>
+                                <MudTd>@DisplayValue(context.ClearingChannel)</MudTd>
+                                <MudTd>
+                                    @if (CanReturnCheque(context))
+                                    {
+                                        <MudButton Variant="Variant.Text" Size="Size.Small" Color="Color.Error" OnClick="@(() => PrepareChequeReturn(context))">Return</MudButton>
+                                    }
+                                    else
+                                    {
+                                        <MudText Typo="Typo.caption" Class="mud-text-secondary">No action</MudText>
+                                    }
+                                </MudTd>
+                            </RowTemplate>
+                        </MudTable>
+                    </MudPaper>
+
+                    @if (_selectedChequeToReturn is not null)
+                    {
+                        <MudPaper Class="pa-4 mt-3">
+                            <MudText Typo="Typo.h6">Return Cheque</MudText>
+                            <MudText Typo="Typo.body2" Class="mud-text-secondary">Cheque: @_selectedChequeToReturn.ChequeNumber</MudText>
+                            <MudText Typo="Typo.body2" Class="mud-text-secondary">Account: @_selectedChequeToReturn.AccountId</MudText>
+                            <MudTextField @bind-Value="_chequeReturnReason" Label="Return reason" Variant="Variant.Outlined" Lines="3" Class="mt-3" />
+                            <MudButton Variant="Variant.Filled" Color="Color.Error" Class="mt-3" Disabled="@(_isReturningCheque || string.IsNullOrWhiteSpace(_chequeReturnReason))" OnClick="ReturnChequeAsync">Confirm Return</MudButton>
+                            <MudButton Variant="Variant.Text" Color="Color.Secondary" Class="mt-3 ml-2" OnClick="CancelChequeReturn">Cancel</MudButton>
+                        </MudPaper>
+                    }
+                </MudItem>
+            </MudGrid>
+        </MudTabPanel>
+        <MudTabPanel Text="Cheque Books">
+            <MudGrid>
+                <MudItem xs="12" lg="4">
+                    <MudPaper Class="pa-4">
+                        <MudText Typo="Typo.h6">Receive Cheque Book Stock</MudText>
+                        <MudTextField @bind-Value="_chequeBookStock.BranchId" Label="Branch ID" Variant="Variant.Outlined" Class="mt-3" />
+                        <MudTextField @bind-Value="_chequeBookStock.SeriesPrefix" Label="Series Prefix" Variant="Variant.Outlined" Class="mt-3" />
+                        <MudNumericField T="long" @bind-Value="_chequeBookStock.StartSerialNumber" Label="Start Serial Number" Variant="Variant.Outlined" Class="mt-3" Min="1" />
+                        <MudNumericField T="int" @bind-Value="_chequeBookStock.LeafCount" Label="Leaf Count" Variant="Variant.Outlined" Class="mt-3" Min="1" />
+                        <MudTextField @bind-Value="_chequeBookStock.Remarks" Label="Remarks" Variant="Variant.Outlined" Class="mt-3" />
+                        <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="mt-3" Disabled="@_isSubmittingChequeBook" OnClick="CreateChequeBookStockAsync">Record Stock</MudButton>
+                    </MudPaper>
+                </MudItem>
+                <MudItem xs="12" lg="8">
+                    <MudGrid>
+                        <MudItem xs="12" sm="6" md="3">
+                            <MudCard Class="corebanker-friendly-stat">
+                                <MudCardContent>
+                                    <MudText Typo="Typo.subtitle2">In Stock</MudText>
+                                    <MudText Typo="Typo.h5">@_chequeBooks.Count(book => book.Status == "IN_STOCK")</MudText>
+                                </MudCardContent>
+                            </MudCard>
+                        </MudItem>
+                        <MudItem xs="12" sm="6" md="3">
+                            <MudCard Class="corebanker-friendly-stat">
+                                <MudCardContent>
+                                    <MudText Typo="Typo.subtitle2">Issued</MudText>
+                                    <MudText Typo="Typo.h5">@_chequeBooks.Count(book => book.Status == "ISSUED")</MudText>
+                                </MudCardContent>
+                            </MudCard>
+                        </MudItem>
+                        <MudItem xs="12" sm="6" md="3">
+                            <MudCard Class="corebanker-friendly-stat">
+                                <MudCardContent>
+                                    <MudText Typo="Typo.subtitle2">Available Leaves</MudText>
+                                    <MudText Typo="Typo.h5">@_chequeBooks.Sum(book => book.AvailableLeafCount)</MudText>
+                                </MudCardContent>
+                            </MudCard>
+                        </MudItem>
+                        <MudItem xs="12" sm="6" md="3">
+                            <MudCard Class="corebanker-friendly-stat">
+                                <MudCardContent>
+                                    <MudText Typo="Typo.subtitle2">Cancelled Leaves</MudText>
+                                    <MudText Typo="Typo.h5">@_chequeBooks.Sum(book => book.CancelledLeafCount)</MudText>
+                                </MudCardContent>
+                            </MudCard>
+                        </MudItem>
+                    </MudGrid>
+
+                    <MudPaper Class="pa-4 mt-3">
+                        <MudGrid>
+                            <MudItem xs="12" md="7">
+                                <MudText Typo="Typo.h6">Cheque Book Inventory</MudText>
+                                <MudText Typo="Typo.body2" Class="mud-text-secondary">Track stock received, books issued to clients, and remaining leaves ready for withdrawal.</MudText>
+                            </MudItem>
+                            <MudItem xs="12" md="5">
+                                <MudSelect T="string" @bind-Value="_chequeBookStatusFilter" Label="Book status" Variant="Variant.Outlined">
+                                    <MudSelectItem T="string" Value="@string.Empty">All books</MudSelectItem>
+                                    <MudSelectItem T="string" Value="@("IN_STOCK")">In Stock</MudSelectItem>
+                                    <MudSelectItem T="string" Value="@("ISSUED")">Issued</MudSelectItem>
+                                    <MudSelectItem T="string" Value="@("COMPLETED")">Completed</MudSelectItem>
+                                </MudSelect>
+                            </MudItem>
+                        </MudGrid>
+                    </MudPaper>
+
+                    <MudPaper Class="pa-4 mt-3">
+                        <MudTable Items="@FilteredChequeBooks" Dense="true" Hover="true" Class="mt-3">
+                            <HeaderContent>
+                                <MudTh>Reference</MudTh>
+                                <MudTh>Series</MudTh>
+                                <MudTh>Status</MudTh>
+                                <MudTh>Availability</MudTh>
+                                <MudTh>Account</MudTh>
+                                <MudTh>Action</MudTh>
+                            </HeaderContent>
+                            <RowTemplate>
+                                <MudTd>@context.BookReference</MudTd>
+                                <MudTd>@($"{context.SeriesPrefix}{context.StartSerialNumber:D6} - {context.SeriesPrefix}{context.EndSerialNumber:D6}")</MudTd>
+                                <MudTd><MudChip T="string" Size="Size.Small" Color="@StatusColor(context.Status)">@context.Status</MudChip></MudTd>
+                                <MudTd>@($"{context.AvailableLeafCount} / {context.LeafCount}")</MudTd>
+                                <MudTd>@DisplayValue(context.AccountId)</MudTd>
+                                <MudTd>
+                                    @if (context.Status == "IN_STOCK")
+                                    {
+                                        <MudButton Variant="Variant.Text" Size="Size.Small" OnClick="@(() => SelectChequeBook(context))">Issue</MudButton>
+                                    }
+                                    else
+                                    {
+                                        <MudText Typo="Typo.caption" Class="mud-text-secondary">Tracked</MudText>
+                                    }
+                                </MudTd>
+                            </RowTemplate>
+                        </MudTable>
+                    </MudPaper>
+
+                    @if (_selectedChequeBook is not null)
+                    {
+                        <MudPaper Class="pa-4 mt-3">
+                            <MudGrid>
+                                <MudItem xs="12" md="5">
+                                    <MudText Typo="Typo.h6">Book Detail</MudText>
+                                    <MudText Typo="Typo.body2" Class="mud-text-secondary">Reference: @_selectedChequeBook.BookReference</MudText>
+                                    <MudText Typo="Typo.body2" Class="mud-text-secondary">Series: @($"{_selectedChequeBook.SeriesPrefix}{_selectedChequeBook.StartSerialNumber:D6} - {_selectedChequeBook.SeriesPrefix}{_selectedChequeBook.EndSerialNumber:D6}")</MudText>
+                                    <MudText Typo="Typo.body2" Class="mud-text-secondary">Branch: @DisplayValue(_selectedChequeBook.BranchId)</MudText>
+                                    <MudText Typo="Typo.body2" Class="mud-text-secondary">Account: @DisplayValue(_selectedChequeBook.AccountId)</MudText>
+                                    <MudChip T="string" Size="Size.Small" Color="@StatusColor(_selectedChequeBook.Status)" Class="mt-2">@_selectedChequeBook.Status</MudChip>
+
+                                    <MudPaper Class="pa-3 mt-3 corebanker-friendly-guide">
+                                        <MudText Typo="Typo.subtitle2">Leaf Summary</MudText>
+                                        <MudText Typo="Typo.body2">Available: @_selectedChequeBook.AvailableLeafCount</MudText>
+                                        <MudText Typo="Typo.body2">Used: @_selectedChequeBook.UsedLeafCount</MudText>
+                                        <MudText Typo="Typo.body2">Cancelled: @_selectedChequeBook.CancelledLeafCount</MudText>
+                                        <MudText Typo="Typo.body2">Issued On: @DisplayDate(_selectedChequeBook.IssuedAt)</MudText>
+                                    </MudPaper>
+                                </MudItem>
+                                <MudItem xs="12" md="7">
+                                    <MudText Typo="Typo.h6">Issue Cheque Book</MudText>
+                                    <MudText Typo="Typo.body2" Class="mud-text-secondary">Link this stock item to a customer account before the teller can use its leaves.</MudText>
+                                    <MudTextField @bind-Value="_chequeBookIssue.AccountId" Label="Account ID" Variant="Variant.Outlined" Class="mt-3" />
+                                    <MudTextField @bind-Value="_chequeBookIssue.Remarks" Label="Issue Remarks" Variant="Variant.Outlined" Class="mt-3" />
+                                    <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="mt-3" Disabled="@(_isSubmittingChequeBook || string.IsNullOrWhiteSpace(_chequeBookIssue.AccountId) || _selectedChequeBook.Status != "IN_STOCK")" OnClick="IssueChequeBookAsync">Issue Book</MudButton>
+                                    <MudButton Variant="Variant.Text" Color="Color.Secondary" Class="mt-3 ml-2" OnClick="CancelChequeBookIssue">Close</MudButton>
+                                    @if (_selectedChequeBook.Status != "IN_STOCK")
+                                    {
+                                        <MudAlert Severity="Severity.Info" Dense="true" Class="mt-3">This cheque book is already linked and is being tracked for leaf usage.</MudAlert>
+                                    }
+                                </MudItem>
+                            </MudGrid>
+                        </MudPaper>
+                    }
+
+                    @if (_selectedChequeBook is not null)
+                    {
+                        <MudPaper Class="pa-4 mt-3">
+                            <MudGrid>
+                                <MudItem xs="12" md="7">
+                                    <MudText Typo="Typo.h6">Leaf Inventory</MudText>
+                                    <MudText Typo="Typo.body2" Class="mud-text-secondary">Track issued, used, and cancelled cheque leaves for @_selectedChequeBook.BookReference.</MudText>
+                                </MudItem>
+                                <MudItem xs="12" md="5">
+                                    <MudSelect T="string" @bind-Value="_chequeLeafStatusFilter" Label="Leaf status" Variant="Variant.Outlined">
+                                        <MudSelectItem T="string" Value="@string.Empty">All leaves</MudSelectItem>
+                                        <MudSelectItem T="string" Value="@("AVAILABLE")">Available</MudSelectItem>
+                                        <MudSelectItem T="string" Value="@("ISSUED")">Issued</MudSelectItem>
+                                        <MudSelectItem T="string" Value="@("USED")">Used</MudSelectItem>
+                                        <MudSelectItem T="string" Value="@("CANCELLED")">Cancelled</MudSelectItem>
+                                    </MudSelect>
+                                </MudItem>
+                            </MudGrid>
+                            <MudTable Items="@FilteredSelectedChequeLeaves" Dense="true" Hover="true" Class="mt-3">
+                                <HeaderContent>
+                                    <MudTh>Cheque Number</MudTh>
+                                    <MudTh>Serial</MudTh>
+                                    <MudTh>Status</MudTh>
+                                    <MudTh>Used At</MudTh>
+                                    <MudTh>Result</MudTh>
+                                    <MudTh>Action</MudTh>
+                                </HeaderContent>
+                                <RowTemplate>
+                                    <MudTd>@context.ChequeNumber</MudTd>
+                                    <MudTd>@context.SerialNumber</MudTd>
+                                    <MudTd><MudChip T="string" Size="Size.Small" Color="@StatusColor(context.Status)">@context.Status</MudChip></MudTd>
+                                    <MudTd>@DisplayDate(context.UsedAt)</MudTd>
+                                    <MudTd>@DisplayValue(string.IsNullOrWhiteSpace(context.CancelReason) ? context.UsedTransactionId : context.CancelReason)</MudTd>
+                                    <MudTd>
+                                        @if (CanCancelLeaf(context))
+                                        {
+                                            <MudButton Variant="Variant.Text" Size="Size.Small" Color="Color.Error" OnClick="@(() => PrepareChequeLeafCancellation(context))">Cancel Leaf</MudButton>
+                                        }
+                                        else
+                                        {
+                                            <MudText Typo="Typo.caption" Class="mud-text-secondary">Tracked</MudText>
+                                        }
+                                    </MudTd>
+                                </RowTemplate>
+                            </MudTable>
+                        </MudPaper>
+                    }
+
+                    @if (_selectedLeafToCancel is not null)
+                    {
+                        <MudPaper Class="pa-4 mt-3">
+                            <MudText Typo="Typo.h6">Cancel Cheque Leaf</MudText>
+                            <MudText Typo="Typo.body2" Class="mud-text-secondary">Leaf: @_selectedLeafToCancel.ChequeNumber</MudText>
+                            <MudTextField @bind-Value="_chequeLeafCancelReason" Label="Cancellation reason" Variant="Variant.Outlined" Lines="3" Class="mt-3" />
+                            <MudButton Variant="Variant.Filled" Color="Color.Error" Class="mt-3" Disabled="@(_isCancellingChequeLeaf || string.IsNullOrWhiteSpace(_chequeLeafCancelReason))" OnClick="CancelChequeLeafAsync">Confirm Cancel</MudButton>
+                            <MudButton Variant="Variant.Text" Color="Color.Secondary" Class="mt-3 ml-2" OnClick="ClearChequeLeafCancellation">Close</MudButton>
+                        </MudPaper>
+                    }
+                </MudItem>
+            </MudGrid>
         </MudTabPanel>
     </MudTabs>
 </MudStack>
@@ -132,12 +467,35 @@
     private List<CoreBanker.Services.TransactionDto> _transactions = new();
     private List<CoreBanker.Services.AccountDto> _accounts = new();
     private List<CoreBanker.Services.ClientDto> _clients = new();
+    private List<CoreBanker.Services.BulkPaymentBatchDto> _bulkBatches = new();
+    private List<CoreBanker.Services.ChequeClearingItemDto> _chequeItems = new();
+    private List<CoreBanker.Services.ChequeBookInventoryDto> _chequeBooks = new();
     private string _searchTerm = string.Empty;
     private string _statusFilter = string.Empty;
     private string _accountFilter = string.Empty;
     private string _loadError = string.Empty;
+    private string _workspaceMessage = string.Empty;
+    private bool _workspaceSuccess;
     private bool _isLoading;
-    private int _tabIndex;
+    private bool _isSubmittingBulk;
+    private bool _isSubmittingCheque;
+    private bool _isReturningCheque;
+    private bool _isSubmittingChequeBook;
+    private bool _isCancellingChequeLeaf;
+    private string _bulkNarration = string.Empty;
+    private string _chequeReturnReason = string.Empty;
+    private string _chequeLeafCancelReason = string.Empty;
+    private string _chequeBookStatusFilter = string.Empty;
+    private string _chequeLeafStatusFilter = string.Empty;
+    private CoreBanker.Services.BulkPaymentItemRequest _bulkDraft = new() { TransactionType = "DEPOSIT" };
+    private List<CoreBanker.Services.BulkPaymentItemRequest> _bulkLines = new();
+    private CoreBanker.Services.ChequeDepositRequest _chequeDeposit = new() { Currency = "GHS", ClearingChannel = "GHIPSS", BogRegulatoryClass = "LOCAL", IsOtherBankCheque = true };
+    private CoreBanker.Services.CreateChequeBookStockRequest _chequeBookStock = new() { BranchId = "BR001", SeriesPrefix = "GH", LeafCount = 25 };
+    private CoreBanker.Services.IssueChequeBookRequest _chequeBookIssue = new();
+    private CoreBanker.Services.BulkPaymentBatchDto? _selectedBatch;
+    private CoreBanker.Services.ChequeClearingItemDto? _selectedChequeToReturn;
+    private CoreBanker.Services.ChequeBookInventoryDto? _selectedChequeBook;
+    private CoreBanker.Services.ChequeBookLeafDto? _selectedLeafToCancel;
 
     protected override async Task OnInitializedAsync()
     {
@@ -154,12 +512,24 @@
             var transactionsTask = TransactionService.GetTransactionsAsync();
             var accountsTask = AccountService.GetAccountsAsync();
             var clientsTask = ClientService.GetClientsAsync();
+            var bulkTask = TransactionService.GetBulkPaymentBatchesAsync();
+            var chequeTask = TransactionService.GetChequeItemsAsync();
+            var chequeBooksTask = TransactionService.GetChequeBooksAsync();
 
-            await Task.WhenAll(transactionsTask, accountsTask, clientsTask);
+            await Task.WhenAll(transactionsTask, accountsTask, clientsTask, bulkTask, chequeTask, chequeBooksTask);
 
             _transactions = transactionsTask.Result;
             _accounts = accountsTask.Result;
             _clients = clientsTask.Result;
+            _bulkBatches = bulkTask.Result;
+            _chequeItems = chequeTask.Result;
+            _chequeBooks = chequeBooksTask.Result;
+            _selectedBatch = _selectedBatch is null ? null : _bulkBatches.FirstOrDefault(batch => batch.Id == _selectedBatch.Id);
+            _selectedChequeToReturn = _selectedChequeToReturn is null ? null : _chequeItems.FirstOrDefault(item => item.Id == _selectedChequeToReturn.Id);
+            _selectedChequeBook = _selectedChequeBook is null ? null : _chequeBooks.FirstOrDefault(book => book.Id == _selectedChequeBook.Id);
+            _selectedLeafToCancel = _selectedLeafToCancel is null || _selectedChequeBook is null
+                ? null
+                : _selectedChequeBook.Leaves.FirstOrDefault(leaf => leaf.Id == _selectedLeafToCancel.Id);
         }
         catch (CoreBanker.Services.ApiClientException ex)
         {
@@ -170,6 +540,251 @@
             _isLoading = false;
         }
     }
+
+    private void AddBulkLine()
+    {
+        if (string.IsNullOrWhiteSpace(_bulkDraft.AccountId) || _bulkDraft.Amount <= 0m)
+        {
+            _workspaceSuccess = false;
+            _workspaceMessage = "Provide an account and amount before adding a bulk payment line.";
+            return;
+        }
+
+        _bulkLines.Add(new CoreBanker.Services.BulkPaymentItemRequest
+        {
+            AccountId = _bulkDraft.AccountId.Trim(),
+            TransactionType = _bulkDraft.TransactionType,
+            Amount = _bulkDraft.Amount,
+            Narration = string.IsNullOrWhiteSpace(_bulkDraft.Narration) ? null : _bulkDraft.Narration.Trim(),
+            TellerId = string.IsNullOrWhiteSpace(AppState.UserId) ? null : AppState.UserId,
+            ClientReference = $"BLK-{DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}"
+        });
+
+        _bulkDraft = new CoreBanker.Services.BulkPaymentItemRequest { TransactionType = _bulkDraft.TransactionType };
+        _workspaceSuccess = true;
+        _workspaceMessage = "Bulk payment line added to the draft batch.";
+    }
+
+    private async Task SubmitBulkBatchAsync()
+    {
+        _isSubmittingBulk = true;
+        try
+        {
+            var batch = await TransactionService.CreateBulkPaymentBatchAsync(new CoreBanker.Services.BulkPaymentBatchRequest
+            {
+                Currency = "GHS",
+                Narration = string.IsNullOrWhiteSpace(_bulkNarration) ? null : _bulkNarration.Trim(),
+                SubmittedBy = string.IsNullOrWhiteSpace(AppState.UserId) ? null : AppState.UserId,
+                Items = _bulkLines.ToList()
+            });
+
+            _bulkLines.Clear();
+            _bulkNarration = string.Empty;
+            _workspaceSuccess = true;
+            _workspaceMessage = $"Bulk batch {batch?.BatchReference ?? "submitted"} processed.";
+            await LoadWorkspaceAsync();
+        }
+        catch (CoreBanker.Services.ApiClientException ex)
+        {
+            _workspaceSuccess = false;
+            _workspaceMessage = ex.Message;
+        }
+        finally
+        {
+            _isSubmittingBulk = false;
+        }
+    }
+
+    private async Task LodgeChequeAsync()
+    {
+        _isSubmittingCheque = true;
+        try
+        {
+            _chequeDeposit.TellerId = string.IsNullOrWhiteSpace(AppState.UserId) ? null : AppState.UserId;
+            var lodged = await TransactionService.LodgeChequeDepositAsync(_chequeDeposit);
+            _workspaceSuccess = true;
+            _workspaceMessage = $"Cheque {lodged?.ChequeNumber ?? _chequeDeposit.ChequeNumber} lodged successfully.";
+            _chequeDeposit = new CoreBanker.Services.ChequeDepositRequest { Currency = "GHS", ClearingChannel = "GHIPSS", BogRegulatoryClass = "LOCAL", IsOtherBankCheque = true };
+            await LoadWorkspaceAsync();
+        }
+        catch (CoreBanker.Services.ApiClientException ex)
+        {
+            _workspaceSuccess = false;
+            _workspaceMessage = ex.Message;
+        }
+        finally
+        {
+            _isSubmittingCheque = false;
+        }
+    }
+
+    private void SelectBatch(CoreBanker.Services.BulkPaymentBatchDto batch)
+    {
+        _selectedBatch = batch;
+    }
+
+    private static bool CanReturnCheque(CoreBanker.Services.ChequeClearingItemDto item)
+    {
+        return item.Status is "LODGED" or "PENDING_CLEARING";
+    }
+
+    private void PrepareChequeReturn(CoreBanker.Services.ChequeClearingItemDto item)
+    {
+        _selectedChequeToReturn = item;
+        _chequeReturnReason = string.Empty;
+    }
+
+    private void CancelChequeReturn()
+    {
+        _selectedChequeToReturn = null;
+        _chequeReturnReason = string.Empty;
+    }
+
+    private async Task ReturnChequeAsync()
+    {
+        if (_selectedChequeToReturn is null || string.IsNullOrWhiteSpace(_chequeReturnReason))
+        {
+            return;
+        }
+
+        _isReturningCheque = true;
+        try
+        {
+            var result = await TransactionService.ReturnChequeAsync(_selectedChequeToReturn.Id, _chequeReturnReason.Trim());
+            _workspaceSuccess = true;
+            _workspaceMessage = $"Cheque {result?.ChequeNumber ?? _selectedChequeToReturn.ChequeNumber} returned successfully.";
+            CancelChequeReturn();
+            await LoadWorkspaceAsync();
+        }
+        catch (CoreBanker.Services.ApiClientException ex)
+        {
+            _workspaceSuccess = false;
+            _workspaceMessage = ex.Message;
+        }
+        finally
+        {
+            _isReturningCheque = false;
+        }
+    }
+
+    private void SelectChequeBook(CoreBanker.Services.ChequeBookInventoryDto book)
+    {
+        _selectedChequeBook = book;
+        _chequeBookIssue = new CoreBanker.Services.IssueChequeBookRequest();
+        ClearChequeLeafCancellation();
+    }
+
+    private void CancelChequeBookIssue()
+    {
+        _selectedChequeBook = null;
+        _chequeBookIssue = new CoreBanker.Services.IssueChequeBookRequest();
+        ClearChequeLeafCancellation();
+    }
+
+    private static bool CanCancelLeaf(CoreBanker.Services.ChequeBookLeafDto leaf)
+    {
+        return leaf.Status is "AVAILABLE" or "ISSUED";
+    }
+
+    private void PrepareChequeLeafCancellation(CoreBanker.Services.ChequeBookLeafDto leaf)
+    {
+        _selectedLeafToCancel = leaf;
+        _chequeLeafCancelReason = string.Empty;
+    }
+
+    private void ClearChequeLeafCancellation()
+    {
+        _selectedLeafToCancel = null;
+        _chequeLeafCancelReason = string.Empty;
+    }
+
+    private async Task CreateChequeBookStockAsync()
+    {
+        _isSubmittingChequeBook = true;
+        try
+        {
+            var result = await TransactionService.CreateChequeBookStockAsync(_chequeBookStock);
+            _workspaceSuccess = true;
+            _workspaceMessage = $"Cheque book {result?.BookReference ?? "stock"} recorded successfully.";
+            _chequeBookStock = new CoreBanker.Services.CreateChequeBookStockRequest { BranchId = "BR001", SeriesPrefix = "GH", LeafCount = 25 };
+            await LoadWorkspaceAsync();
+        }
+        catch (CoreBanker.Services.ApiClientException ex)
+        {
+            _workspaceSuccess = false;
+            _workspaceMessage = ex.Message;
+        }
+        finally
+        {
+            _isSubmittingChequeBook = false;
+        }
+    }
+
+    private async Task IssueChequeBookAsync()
+    {
+        if (_selectedChequeBook is null)
+        {
+            return;
+        }
+
+        _isSubmittingChequeBook = true;
+        try
+        {
+            _chequeBookIssue.IssuedBy = string.IsNullOrWhiteSpace(AppState.UserId) ? null : AppState.UserId;
+            var result = await TransactionService.IssueChequeBookAsync(_selectedChequeBook.Id, _chequeBookIssue);
+            _workspaceSuccess = true;
+            _workspaceMessage = $"Cheque book {result?.BookReference ?? _selectedChequeBook.BookReference} issued successfully.";
+            CancelChequeBookIssue();
+            await LoadWorkspaceAsync();
+        }
+        catch (CoreBanker.Services.ApiClientException ex)
+        {
+            _workspaceSuccess = false;
+            _workspaceMessage = ex.Message;
+        }
+        finally
+        {
+            _isSubmittingChequeBook = false;
+        }
+    }
+
+    private async Task CancelChequeLeafAsync()
+    {
+        if (_selectedLeafToCancel is null)
+        {
+            return;
+        }
+
+        _isCancellingChequeLeaf = true;
+        try
+        {
+            var result = await TransactionService.CancelChequeLeafAsync(_selectedLeafToCancel.Id, _chequeLeafCancelReason.Trim());
+            _workspaceSuccess = true;
+            _workspaceMessage = $"Cheque leaf {_selectedLeafToCancel.ChequeNumber} cancelled successfully.";
+            _selectedChequeBook = result;
+            ClearChequeLeafCancellation();
+            await LoadWorkspaceAsync();
+        }
+        catch (CoreBanker.Services.ApiClientException ex)
+        {
+            _workspaceSuccess = false;
+            _workspaceMessage = ex.Message;
+        }
+        finally
+        {
+            _isCancellingChequeLeaf = false;
+        }
+    }
+
+    private IEnumerable<CoreBanker.Services.ChequeBookInventoryDto> FilteredChequeBooks =>
+        _chequeBooks
+            .Where(book => string.IsNullOrWhiteSpace(_chequeBookStatusFilter) || string.Equals(book.Status, _chequeBookStatusFilter, StringComparison.OrdinalIgnoreCase))
+            .OrderByDescending(book => book.CreatedAt);
+
+    private IEnumerable<CoreBanker.Services.ChequeBookLeafDto> FilteredSelectedChequeLeaves =>
+        (_selectedChequeBook?.Leaves ?? Enumerable.Empty<CoreBanker.Services.ChequeBookLeafDto>())
+            .Where(leaf => string.IsNullOrWhiteSpace(_chequeLeafStatusFilter) || string.Equals(leaf.Status, _chequeLeafStatusFilter, StringComparison.OrdinalIgnoreCase))
+            .OrderBy(leaf => leaf.SerialNumber);
 
     private IEnumerable<CoreBanker.Services.TransactionDto> FilteredTransactions =>
         _transactions.Where(transaction =>
@@ -183,12 +798,6 @@
 
     private IEnumerable<CoreBanker.Services.TransactionDto> RecentTransactions =>
         FilteredTransactions.OrderByDescending(transaction => transaction.Date).Take(20);
-
-    private IEnumerable<CoreBanker.Services.TransactionDto> PostedTransactions =>
-        FilteredTransactions.Where(transaction => transaction.Status == "POSTED").OrderByDescending(transaction => transaction.Date);
-
-    private IEnumerable<CoreBanker.Services.TransactionDto> ExceptionTransactions =>
-        FilteredTransactions.Where(transaction => transaction.Status != "POSTED").OrderByDescending(transaction => transaction.Date);
 
     private string GetCustomerNameForTransaction(string accountId)
     {
@@ -211,14 +820,30 @@
         return _accounts.FirstOrDefault(account => account.Id == accountId)?.Currency ?? "GHS";
     }
 
-    private static string DisplayValue(string value)
+    private static string DisplayValue(string? value)
     {
         return string.IsNullOrWhiteSpace(value) ? "Not provided" : value;
     }
 
+    private static string DisplayDate(DateTime? value)
+    {
+        return value?.ToLocalTime().ToString("dd MMM yyyy HH:mm") ?? "Not recorded";
+    }
+
+    private static Color StatusColor(string? status)
+    {
+        return (status ?? string.Empty).ToUpperInvariant() switch
+        {
+            "POSTED" or "COMPLETED" or "CLEARED" or "PAID" => Color.Success,
+            "PENDING" or "PROCESSING" or "LODGED" or "PENDING_CLEARING" => Color.Warning,
+            "FAILED" or "RETURNED" => Color.Error,
+            "PARTIAL" => Color.Info,
+            _ => Color.Default
+        };
+    }
+
     private static string FormatAmount(decimal amount, string currency = "GHS")
     {
-        var culture = currency == "USD" ? System.Globalization.CultureInfo.GetCultureInfo("en-US") : System.Globalization.CultureInfo.GetCultureInfo("en-GH");
-        return string.Format(culture, "{0:C}", amount);
+        return CoreBanker.Utilities.CurrencyFormatter.Format(amount, currency);
     }
 }

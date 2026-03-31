@@ -91,6 +91,12 @@ public class CustomerProfileResponse
     public string? CreatedAt { get; set; }
     public List<CustomerNoteDto> Notes { get; set; } = new();
     public List<CustomerDocumentDto> Documents { get; set; } = new();
+    public List<CustomerMediaDto> MediaAssets { get; set; } = new();
+    public CustomerMediaDto? ProfilePhoto { get; set; }
+    public CustomerMediaDto? Signature { get; set; }
+    public CustomerMediaDto? IdCardFront { get; set; }
+    public CustomerMediaDto? IdCardBack { get; set; }
+    public CustomerKycReadinessDto KycReadiness { get; set; } = new();
 }
 
 public class CreateCustomerNoteRequest
@@ -114,6 +120,41 @@ public class CreateCustomerDocumentRequest
     public string Name { get; set; } = string.Empty;
 }
 
+public class CustomerMediaDto
+{
+    public string Id { get; set; } = string.Empty;
+    public string MediaType { get; set; } = string.Empty;
+    public string? MediaSide { get; set; }
+    public string FileName { get; set; } = string.Empty;
+    public string ContentType { get; set; } = "image/png";
+    public string PreviewUrl { get; set; } = string.Empty;
+    public string Status { get; set; } = "PENDING";
+    public long? FileSizeBytes { get; set; }
+    public string? UploadedBy { get; set; }
+    public string UploadedAt { get; set; } = string.Empty;
+}
+
+public class UploadCustomerMediaRequest
+{
+    [Required(ErrorMessage = "MediaType is required")]
+    [StringLength(30, ErrorMessage = "MediaType must not exceed 30 characters")]
+    public string MediaType { get; set; } = string.Empty;
+
+    [StringLength(10, ErrorMessage = "MediaSide must not exceed 10 characters")]
+    public string? MediaSide { get; set; }
+
+    [Required(ErrorMessage = "FileName is required")]
+    [StringLength(255, MinimumLength = 2, ErrorMessage = "FileName must be between 2 and 255 characters")]
+    public string FileName { get; set; } = string.Empty;
+
+    [Required(ErrorMessage = "ContentType is required")]
+    [StringLength(100, ErrorMessage = "ContentType must not exceed 100 characters")]
+    public string ContentType { get; set; } = "image/png";
+
+    [Required(ErrorMessage = "Image data is required")]
+    public string DataUrl { get; set; } = string.Empty;
+}
+
 public class CustomerKycStatusResponse
 {
     public string CustomerId { get; set; } = string.Empty;
@@ -124,6 +165,23 @@ public class CustomerKycStatusResponse
     public bool IsUnlimited { get; set; }
     public bool GhanaCardMatchesProfile { get; set; }
     public decimal TodayPostedTotal { get; set; }
+    public CustomerKycReadinessDto? Readiness { get; set; }
+}
+
+public class CustomerKycChecklistItemDto
+{
+    public string Key { get; set; } = string.Empty;
+    public string Label { get; set; } = string.Empty;
+    public bool IsSatisfied { get; set; }
+    public string Detail { get; set; } = string.Empty;
+}
+
+public class CustomerKycReadinessDto
+{
+    public bool IsReadyForAccountOpening { get; set; }
+    public bool IsReadyForLoanOrigination { get; set; }
+    public List<string> MissingRequirements { get; set; } = new();
+    public List<CustomerKycChecklistItemDto> Checklist { get; set; } = new();
 }
 
 public class ValidateGhanaCardRequest

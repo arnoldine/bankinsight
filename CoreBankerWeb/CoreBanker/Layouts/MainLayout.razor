@@ -11,20 +11,21 @@
 <MudSnackbarProvider />
 
 <MudLayout>
-    <MudAppBar Color="Color.Primary" Elevation="1">
-        <MudIconButton Icon="@Icons.Material.Filled.Menu" Color="Color.Inherit" Edge="Edge.Start" OnClick="ToggleDrawer" Class="mr-2" />
-        <div class="d-flex flex-column">
+    <MudAppBar Color="Color.Default" Elevation="0" Class="corebanker-appbar">
+        <MudIconButton Icon="@Icons.Material.Filled.Menu" Color="Color.Default" Edge="Edge.Start" OnClick="ToggleDrawer" Class="mr-2" />
+        <div class="d-flex flex-column corebanker-brand">
+            <MudText Typo="Typo.overline" Class="corebanker-brand-kicker">BankInsight Replatform</MudText>
             <MudText Typo="Typo.h6">CoreBanker</MudText>
-            <MudText Typo="Typo.caption">Connected operational workspace</MudText>
+            <MudText Typo="Typo.caption">Operational workspace</MudText>
         </div>
         <MudSpacer />
-        <div class="d-none d-md-flex align-center ga-2">
-            <MudChip T="string" Color="Color.Success" Variant="Variant.Outlined">Secure session</MudChip>
-            <MudChip T="string" Color="Color.Info" Variant="Variant.Outlined">@DateTime.Now.ToString("ddd, dd MMM yyyy")</MudChip>
+        <div class="d-none d-md-flex align-center ga-2 corebanker-toolbar-chips">
+            <MudChip T="string" Color="Color.Default" Variant="Variant.Text">@AuthStateProvider.UserRole</MudChip>
+            <MudChip T="string" Color="Color.Default" Variant="Variant.Text">@DateTime.Now.ToString("ddd, dd MMM yyyy")</MudChip>
         </div>
-        <MudMenu Icon="@Icons.Material.Filled.AccountCircle" Color="Color.Inherit" AnchorOrigin="Origin.BottomCenter" TransformOrigin="Origin.TopCenter">
+        <MudMenu Icon="@Icons.Material.Filled.AccountCircle" Color="Color.Default" AnchorOrigin="Origin.BottomCenter" TransformOrigin="Origin.TopCenter">
             <ActivatorContent>
-                <MudButton Variant="Variant.Text" Color="Color.Inherit">
+                <MudButton Variant="Variant.Text" Color="Color.Default" Class="corebanker-user-trigger">
                     @AuthStateProvider.UserName
                 </MudButton>
             </ActivatorContent>
@@ -37,19 +38,40 @@
         </MudMenu>
     </MudAppBar>
 
-    <MudDrawer @bind-Open="_drawerOpen" ClipMode="DrawerClipMode.Always" Elevation="1" Variant="DrawerVariant.Responsive">
-        <MudStack Class="pa-4" Spacing="2">
-            <div>
-                <MudText Typo="Typo.overline">Workspace</MudText>
+    <MudDrawer @bind-Open="_drawerOpen" ClipMode="DrawerClipMode.Always" Elevation="0" Variant="DrawerVariant.Responsive" Class="corebanker-drawer">
+        <MudStack Class="pa-4" Spacing="3">
+            <MudPaper Class="pa-4 corebanker-drawer-profile" Elevation="0">
+                <MudText Typo="Typo.overline" Class="corebanker-brand-kicker">Workspace</MudText>
                 <MudText Typo="Typo.h6">@AuthStateProvider.UserRole</MudText>
                 <MudText Typo="Typo.caption">@AuthStateProvider.UserEmail</MudText>
-            </div>
+                <MudDivider Class="my-3" />
+                <MudStack Row="true" Spacing="1">
+                    <MudChip T="string" Size="Size.Small" Color="Color.Default" Variant="Variant.Text">Live API</MudChip>
+                    <MudChip T="string" Size="Size.Small" Color="Color.Default" Variant="Variant.Text">@ShortcutRoutes.Count shortcut(s)</MudChip>
+                </MudStack>
+            </MudPaper>
             <CoreBanker.Components.Shared.AppNavMenu />
         </MudStack>
     </MudDrawer>
 
     <MudMainContent>
         <MudContainer MaxWidth="MaxWidth.False" Class="pa-4 corebanker-shell">
+            @if (!string.IsNullOrWhiteSpace(AppState.WorkspaceMessage))
+            {
+                <MudAlert Severity="@AppState.WorkspaceMessageSeverity" Variant="Variant.Filled" Dense="true" Class="mb-4 corebanker-global-alert">
+                    <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="flex-wrap">
+                        <MudText Typo="Typo.body2">@AppState.WorkspaceMessage</MudText>
+                        <MudStack Row="true" Spacing="1" Class="mt-2 mt-md-0">
+                            @if (AppState.SessionExpired)
+                            {
+                                <MudButton Variant="Variant.Text" Color="Color.Inherit" OnClick="HandleReauthenticate">Sign In Again</MudButton>
+                            }
+                            <MudButton Variant="Variant.Text" Color="Color.Inherit" OnClick="DismissWorkspaceMessage">Dismiss</MudButton>
+                        </MudStack>
+                    </MudStack>
+                </MudAlert>
+            }
+
             <MudPaper Class="pa-5 mb-4 corebanker-hero" Elevation="0">
                 <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Start" Class="flex-wrap">
                     <div>
@@ -60,7 +82,7 @@
                     <MudStack Row="true" Spacing="1" Class="mt-2 mt-md-0">
                         @foreach (var shortcut in ShortcutRoutes)
                         {
-                            <MudButton Variant="Variant.Outlined" Color="Color.Default" StartIcon="@shortcut.Icon" OnClick="@(() => NavigateTo(shortcut.Route))">
+                            <MudButton Variant="Variant.Outlined" Color="Color.Default" StartIcon="@shortcut.Icon" Class="corebanker-shortcut" OnClick="@(() => NavigateTo(shortcut.Route))">
                                 @shortcut.Title
                             </MudButton>
                         }
@@ -105,6 +127,17 @@
     {
         await AuthService.LogoutAsync();
         Navigation.NavigateTo("/login", true);
+    }
+
+    private async Task HandleReauthenticate()
+    {
+        await AuthService.LogoutAsync();
+        Navigation.NavigateTo("/login", true);
+    }
+
+    private void DismissWorkspaceMessage()
+    {
+        AppState.ClearWorkspaceMessage();
     }
 
     private void OnAppStateChanged()

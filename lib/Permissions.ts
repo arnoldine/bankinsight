@@ -11,6 +11,7 @@ export const Permissions = {
   },
   Accounts: {
     View: "accounts.view",
+    ViewConfidential: "accounts.view.confidential",
     Open: "accounts.open",
     Edit: "accounts.edit",
     Close: "accounts.close",
@@ -19,6 +20,7 @@ export const Permissions = {
   },
   Loans: {
     View: "loans.view",
+    ViewConfidential: "loans.view.confidential",
     Create: "loans.create",
     Edit: "loans.edit",
     Approve: "loans.approve",
@@ -27,6 +29,12 @@ export const Permissions = {
     WriteOff: "loans.writeoff",
     Reschedule: "loans.reschedule",
     ConfigureProducts: "loans.products.configure"
+  },
+  Investments: {
+    View: "investments.view",
+    ViewConfidential: "investments.view.confidential",
+    Create: "investments.create",
+    Approve: "investments.approve"
   },
   Transactions: {
     View: "transactions.view",

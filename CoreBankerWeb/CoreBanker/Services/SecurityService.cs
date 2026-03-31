@@ -2,7 +2,7 @@ namespace CoreBanker.Services
 {
     public class SecurityService : ApiClientBase
     {
-        public SecurityService(HttpClient httpClient) : base(httpClient) { }
+        public SecurityService(HttpClient httpClient, CoreBanker.State.AppState appState) : base(httpClient, appState) { }
 
         public async Task<SecuritySummaryDto?> GetSummaryAsync(int sinceHours = 24, CancellationToken cancellationToken = default)
         {

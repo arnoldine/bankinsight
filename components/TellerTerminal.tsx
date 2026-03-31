@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Account, Customer } from '../types';
+import { Account, ChequeClearingItem, Customer } from '../types';
 import { ledgerService } from '../src/services/ledgerService';
 import { customerService } from '../src/services/customerService';
 import { TellerTillSummaryDto, vaultService } from '../src/services/vaultService';
@@ -32,6 +32,30 @@ interface TellerTerminalProps {
   ) => Promise<{ success: boolean; id: string; message: string; status: 'POSTED' | 'PENDING_APPROVAL' }>;
   initialTransactionType?: 'DEPOSIT' | 'WITHDRAWAL' | 'TRANSFER';
   onOpenNotes?: () => void;
+  chequeItems?: ChequeClearingItem[];
+  onLodgeChequeDeposit?: (payload: {
+    accountId: string;
+    chequeNumber: string;
+    amount: number;
+    currency: string;
+    drawerName?: string;
+    drawerAccountNumber?: string;
+    presentingBankCode: string;
+    draweeBankCode: string;
+    isOtherBankCheque: boolean;
+    clearingChannel: string;
+    bogRegulatoryClass: string;
+    tellerId?: string;
+    narration?: string;
+  }) => Promise<void>;
+  onProcessChequeWithdrawal?: (payload: {
+    accountId: string;
+    chequeNumber: string;
+    amount: number;
+    currency: string;
+    tellerId: string;
+    narration?: string;
+  }) => Promise<void>;
 }
 
 type VerificationMode = 'ACCOUNT_HOLDER' | 'THIRD_PARTY';
@@ -83,7 +107,17 @@ function getTransactionLabel(type: 'DEPOSIT' | 'WITHDRAWAL' | 'TRANSFER') {
   return type === 'DEPOSIT' ? 'Cash Deposit' : type === 'WITHDRAWAL' ? 'Cash Withdrawal' : 'Transfer';
 }
 
-const TellerTerminal: React.FC<TellerTerminalProps> = ({ accounts, customers, tellerId = 'TLR001', onTransaction, initialTransactionType = 'DEPOSIT', onOpenNotes }) => {
+const TellerTerminal: React.FC<TellerTerminalProps> = ({
+  accounts,
+  customers,
+  tellerId = 'TLR001',
+  onTransaction,
+  initialTransactionType = 'DEPOSIT',
+  onOpenNotes,
+  chequeItems = [],
+  onLodgeChequeDeposit,
+  onProcessChequeWithdrawal,
+}) => {
   const [accountNum, setAccountNum] = useState('');
   const [selectedAccount, setSelectedAccount] = useState<Account | null>(null);
   const [amount, setAmount] = useState('');
@@ -100,6 +134,26 @@ const TellerTerminal: React.FC<TellerTerminalProps> = ({ accounts, customers, te
   const [tillSummary, setTillSummary] = useState<TellerTillSummaryDto | null>(null);
   const [tillLoading, setTillLoading] = useState(false);
   const [availableNotes, setAvailableNotes] = useState<TellerNoteRecord[]>([]);
+  const [chequeDeposit, setChequeDeposit] = useState({
+    chequeNumber: '',
+    amount: '',
+    drawerName: '',
+    drawerAccountNumber: '',
+    presentingBankCode: 'BANKINSIGHT',
+    draweeBankCode: 'GCB',
+    isOtherBankCheque: true,
+    clearingChannel: 'GHIPSS',
+    bogRegulatoryClass: 'LOCAL',
+    narration: '',
+  });
+  const [chequeWithdrawal, setChequeWithdrawal] = useState({
+    chequeNumber: '',
+    amount: '',
+    currency: 'GHS',
+    narration: '',
+  });
+  const [chequeBusy, setChequeBusy] = useState<'deposit' | 'withdrawal' | null>(null);
+  const [chequeFeedback, setChequeFeedback] = useState<{ tone: 'success' | 'error'; message: string } | null>(null);
 
   useEffect(() => {
     setTxType(initialTransactionType);
@@ -214,6 +268,8 @@ const TellerTerminal: React.FC<TellerTerminalProps> = ({ accounts, customers, te
     setSuccessMsg(null);
     setPendingMsg(null);
   };
+
+  const clearChequeFeedback = () => setChequeFeedback(null);
 
   const resetVerification = () => {
     setVerificationDraft(defaultVerificationDraft);
@@ -381,6 +437,96 @@ const TellerTerminal: React.FC<TellerTerminalProps> = ({ accounts, customers, te
     setNarration('');
     clearMessages();
     resetVerification();
+  };
+
+  const submitChequeDeposit = async () => {
+    clearChequeFeedback();
+    if (!selectedAccount) {
+      setChequeFeedback({ tone: 'error', message: 'Lookup and load an account before lodging a cheque.' });
+      return;
+    }
+    if (!onLodgeChequeDeposit) {
+      setChequeFeedback({ tone: 'error', message: 'Cheque deposit workflow is not available in this session.' });
+      return;
+    }
+
+    const amountValue = Number(chequeDeposit.amount);
+    if (!chequeDeposit.chequeNumber.trim() || amountValue <= 0) {
+      setChequeFeedback({ tone: 'error', message: 'Enter a cheque number and valid amount before lodging the cheque.' });
+      return;
+    }
+
+    setChequeBusy('deposit');
+    try {
+      await onLodgeChequeDeposit({
+        accountId: selectedAccount.id,
+        chequeNumber: chequeDeposit.chequeNumber.trim(),
+        amount: amountValue,
+        currency: 'GHS',
+        drawerName: chequeDeposit.drawerName.trim(),
+        drawerAccountNumber: chequeDeposit.drawerAccountNumber.trim(),
+        presentingBankCode: chequeDeposit.presentingBankCode.trim(),
+        draweeBankCode: chequeDeposit.draweeBankCode.trim(),
+        isOtherBankCheque: chequeDeposit.isOtherBankCheque,
+        clearingChannel: chequeDeposit.clearingChannel.trim(),
+        bogRegulatoryClass: chequeDeposit.bogRegulatoryClass.trim(),
+        tellerId,
+        narration: chequeDeposit.narration.trim(),
+      });
+      setChequeFeedback({ tone: 'success', message: `Cheque ${chequeDeposit.chequeNumber.trim()} lodged successfully.` });
+      setChequeDeposit({
+        chequeNumber: '',
+        amount: '',
+        drawerName: '',
+        drawerAccountNumber: '',
+        presentingBankCode: 'BANKINSIGHT',
+        draweeBankCode: 'GCB',
+        isOtherBankCheque: true,
+        clearingChannel: 'GHIPSS',
+        bogRegulatoryClass: 'LOCAL',
+        narration: '',
+      });
+    } catch (error: any) {
+      setChequeFeedback({ tone: 'error', message: error?.message || 'Cheque deposit could not be completed.' });
+    } finally {
+      setChequeBusy(null);
+    }
+  };
+
+  const submitChequeWithdrawal = async () => {
+    clearChequeFeedback();
+    if (!selectedAccount) {
+      setChequeFeedback({ tone: 'error', message: 'Lookup and load an account before processing a cheque withdrawal.' });
+      return;
+    }
+    if (!onProcessChequeWithdrawal) {
+      setChequeFeedback({ tone: 'error', message: 'Cheque withdrawal workflow is not available in this session.' });
+      return;
+    }
+
+    const amountValue = Number(chequeWithdrawal.amount);
+    if (!chequeWithdrawal.chequeNumber.trim() || amountValue <= 0) {
+      setChequeFeedback({ tone: 'error', message: 'Enter a cheque number and valid amount before processing withdrawal.' });
+      return;
+    }
+
+    setChequeBusy('withdrawal');
+    try {
+      await onProcessChequeWithdrawal({
+        accountId: selectedAccount.id,
+        chequeNumber: chequeWithdrawal.chequeNumber.trim(),
+        amount: amountValue,
+        currency: chequeWithdrawal.currency,
+        tellerId,
+        narration: chequeWithdrawal.narration.trim(),
+      });
+      setChequeFeedback({ tone: 'success', message: `Cheque withdrawal ${chequeWithdrawal.chequeNumber.trim()} posted successfully.` });
+      setChequeWithdrawal({ chequeNumber: '', amount: '', currency: 'GHS', narration: '' });
+    } catch (error: any) {
+      setChequeFeedback({ tone: 'error', message: error?.message || 'Cheque withdrawal could not be completed.' });
+    } finally {
+      setChequeBusy(null);
+    }
   };
 
   return (
@@ -701,7 +847,147 @@ const TellerTerminal: React.FC<TellerTerminalProps> = ({ accounts, customers, te
             </aside>
           </div>
         </section>
+        <section className="rounded-[28px] border border-slate-200/80 bg-white/95 p-5 shadow-soft dark:border-slate-700 dark:bg-slate-900/85 xl:col-span-2">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-brand-700 dark:text-brand-300">Cheque desk</div>
+              <h3 className="mt-2 text-xl font-heading font-bold text-slate-950 dark:text-white">Cheque deposits, withdrawals, and clearing watch</h3>
+              <p className="mt-2 max-w-3xl text-sm text-slate-500 dark:text-slate-400">
+                Use the loaded account to lodge same-bank or other-bank cheques, process cheque withdrawals, and monitor the live clearing queue in line with GHIPSS operations.
+              </p>
+            </div>
+            <div className="rounded-full bg-slate-100 px-3 py-2 text-xs font-semibold uppercase tracking-[0.16em] text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+              {selectedAccount ? `Loaded account ${selectedAccount.id}` : 'Lookup an account to activate cheque operations'}
+            </div>
+          </div>
 
+          {chequeFeedback && (
+            <div className="mt-4">
+              <Banner
+                tone={chequeFeedback.tone === 'success' ? 'success' : 'error'}
+                message={chequeFeedback.message}
+                icon={chequeFeedback.tone === 'success' ? <CheckCircle className="h-5 w-5" /> : <AlertCircle className="h-5 w-5" />}
+              />
+            </div>
+          )}
+
+          <div className="mt-5 grid gap-5 xl:grid-cols-[1fr_1fr_1.15fr]">
+            <div className="rounded-[24px] border border-slate-200 bg-slate-50 p-5 dark:border-slate-700 dark:bg-slate-800/60">
+              <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Front office</div>
+              <h4 className="mt-2 text-lg font-semibold text-slate-950 dark:text-white">Cheque deposit</h4>
+              <div className="mt-4 space-y-3">
+                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                  Cheque number
+                  <input value={chequeDeposit.chequeNumber} onChange={(event) => setChequeDeposit((current) => ({ ...current, chequeNumber: event.target.value }))} className="mt-2 w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm dark:border-slate-600 dark:bg-slate-950 dark:text-white" placeholder="CHQ-000123" />
+                </label>
+                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                  Amount
+                  <input type="number" value={chequeDeposit.amount} onChange={(event) => setChequeDeposit((current) => ({ ...current, amount: event.target.value }))} className="mt-2 w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm dark:border-slate-600 dark:bg-slate-950 dark:text-white" placeholder="0.00" />
+                </label>
+                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                  Drawer name
+                  <input value={chequeDeposit.drawerName} onChange={(event) => setChequeDeposit((current) => ({ ...current, drawerName: event.target.value }))} className="mt-2 w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm dark:border-slate-600 dark:bg-slate-950 dark:text-white" placeholder="Name on instrument" />
+                </label>
+                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                  Drawer account
+                  <input value={chequeDeposit.drawerAccountNumber} onChange={(event) => setChequeDeposit((current) => ({ ...current, drawerAccountNumber: event.target.value }))} className="mt-2 w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm dark:border-slate-600 dark:bg-slate-950 dark:text-white" placeholder="Optional drawer account reference" />
+                </label>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                    Presenting bank
+                    <input value={chequeDeposit.presentingBankCode} onChange={(event) => setChequeDeposit((current) => ({ ...current, presentingBankCode: event.target.value }))} className="mt-2 w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm dark:border-slate-600 dark:bg-slate-950 dark:text-white" />
+                  </label>
+                  <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                    Drawee bank
+                    <input value={chequeDeposit.draweeBankCode} onChange={(event) => setChequeDeposit((current) => ({ ...current, draweeBankCode: event.target.value }))} className="mt-2 w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm dark:border-slate-600 dark:bg-slate-950 dark:text-white" />
+                  </label>
+                </div>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                    Channel
+                    <input value={chequeDeposit.clearingChannel} onChange={(event) => setChequeDeposit((current) => ({ ...current, clearingChannel: event.target.value }))} className="mt-2 w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm dark:border-slate-600 dark:bg-slate-950 dark:text-white" />
+                  </label>
+                  <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                    Regulatory class
+                    <input value={chequeDeposit.bogRegulatoryClass} onChange={(event) => setChequeDeposit((current) => ({ ...current, bogRegulatoryClass: event.target.value }))} className="mt-2 w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm dark:border-slate-600 dark:bg-slate-950 dark:text-white" />
+                  </label>
+                </div>
+                <label className="flex items-center gap-3 text-sm font-medium text-slate-700 dark:text-slate-300">
+                  <input type="checkbox" checked={chequeDeposit.isOtherBankCheque} onChange={(event) => setChequeDeposit((current) => ({ ...current, isOtherBankCheque: event.target.checked }))} />
+                  Treat as other-bank cheque with clearing hold
+                </label>
+                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                  Narration
+                  <input value={chequeDeposit.narration} onChange={(event) => setChequeDeposit((current) => ({ ...current, narration: event.target.value }))} className="mt-2 w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm dark:border-slate-600 dark:bg-slate-950 dark:text-white" placeholder="Cheque lodgement remarks" />
+                </label>
+                <button onClick={() => void submitChequeDeposit()} disabled={!selectedAccount || chequeBusy === 'deposit'} className="w-full rounded-2xl bg-brand-600 px-4 py-3 text-sm font-semibold text-white hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-50">
+                  {chequeBusy === 'deposit' ? 'Lodging cheque...' : 'Lodge cheque deposit'}
+                </button>
+              </div>
+            </div>
+
+            <div className="rounded-[24px] border border-slate-200 bg-slate-50 p-5 dark:border-slate-700 dark:bg-slate-800/60">
+              <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Cash withdrawal instrument</div>
+              <h4 className="mt-2 text-lg font-semibold text-slate-950 dark:text-white">Cheque withdrawal</h4>
+              <div className="mt-4 space-y-3">
+                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                  Cheque number
+                  <input value={chequeWithdrawal.chequeNumber} onChange={(event) => setChequeWithdrawal((current) => ({ ...current, chequeNumber: event.target.value }))} className="mt-2 w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm dark:border-slate-600 dark:bg-slate-950 dark:text-white" placeholder="CHQ-WD-001" />
+                </label>
+                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                  Amount
+                  <input type="number" value={chequeWithdrawal.amount} onChange={(event) => setChequeWithdrawal((current) => ({ ...current, amount: event.target.value }))} className="mt-2 w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm dark:border-slate-600 dark:bg-slate-950 dark:text-white" placeholder="0.00" />
+                </label>
+                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                  Narration
+                  <input value={chequeWithdrawal.narration} onChange={(event) => setChequeWithdrawal((current) => ({ ...current, narration: event.target.value }))} className="mt-2 w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm dark:border-slate-600 dark:bg-slate-950 dark:text-white" placeholder="Cheque encashment reason" />
+                </label>
+                <div className="rounded-[20px] border border-slate-200 bg-white px-4 py-4 text-sm text-slate-600 dark:border-slate-700 dark:bg-slate-950/40 dark:text-slate-300">
+                  The selected account is used as the settlement account, and the posted transaction will be reflected in the transaction explorer and cheque queue.
+                </div>
+                <button onClick={() => void submitChequeWithdrawal()} disabled={!selectedAccount || chequeBusy === 'withdrawal'} className="w-full rounded-2xl bg-slate-950 px-4 py-3 text-sm font-semibold text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-white dark:text-slate-950 dark:hover:bg-slate-200">
+                  {chequeBusy === 'withdrawal' ? 'Processing withdrawal...' : 'Process cheque withdrawal'}
+                </button>
+              </div>
+            </div>
+
+            <div className="rounded-[24px] border border-slate-200 bg-white p-5 shadow-soft dark:border-slate-700 dark:bg-slate-900/70">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Clearing queue</div>
+                  <h4 className="mt-2 text-lg font-semibold text-slate-950 dark:text-white">Recent cheque items</h4>
+                </div>
+                <div className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+                  {chequeItems.length} item(s)
+                </div>
+              </div>
+              <div className="mt-4 space-y-3">
+                {chequeItems.slice(0, 6).map((item) => (
+                  <div key={item.id} className="rounded-[20px] border border-slate-200 bg-slate-50 px-4 py-4 dark:border-slate-700 dark:bg-slate-800/60">
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <div className="font-semibold text-slate-950 dark:text-white">{item.chequeNumber}</div>
+                        <div className="text-xs text-slate-500 dark:text-slate-400">{item.accountId} • {item.currency} {formatAmount(item.amount)}</div>
+                      </div>
+                      <div className={`rounded-full px-2 py-1 text-[10px] font-bold uppercase border ${item.status === 'CLEARED' || item.status === 'PAID' ? 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-200' : item.status === 'RETURNED' || item.status === 'FAILED' ? 'border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-500/30 dark:bg-rose-500/10 dark:text-rose-200' : 'border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200'}`}>
+                        {item.status}
+                      </div>
+                    </div>
+                    <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                      <ActionStat label="Drawer" value={item.drawerName || 'Not supplied'} subtle />
+                      <ActionStat label="Clearing date" value={item.clearingDate || 'Immediate'} subtle />
+                    </div>
+                  </div>
+                ))}
+                {chequeItems.length === 0 && (
+                  <div className="rounded-[20px] border border-dashed border-slate-300 px-4 py-10 text-center text-sm text-slate-500 dark:border-slate-700 dark:text-slate-400">
+                    No cheque items are in the queue yet. Lodge a cheque above to start the clearing workflow.
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </section>
       </div>
     </div>
   );

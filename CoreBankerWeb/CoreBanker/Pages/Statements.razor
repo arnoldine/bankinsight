@@ -34,9 +34,9 @@
     <MudTabs Rounded="true">
         <MudTabPanel Text="Income Statement">
             <MudGrid>
-                <MudItem xs="12" md="4"><MudPaper Class="pa-4"><MudText Typo="Typo.caption">Revenue</MudText><MudText Typo="Typo.h5">@FormatCurrency(_incomeStatement?.TotalRevenue ?? 0m)</MudText></MudPaper></MudItem>
-                <MudItem xs="12" md="4"><MudPaper Class="pa-4"><MudText Typo="Typo.caption">Expenses</MudText><MudText Typo="Typo.h5">@FormatCurrency(_incomeStatement?.TotalExpenses ?? 0m)</MudText></MudPaper></MudItem>
-                <MudItem xs="12" md="4"><MudPaper Class="pa-4"><MudText Typo="Typo.caption">Net Profit</MudText><MudText Typo="Typo.h5">@FormatCurrency(_incomeStatement?.NetProfit ?? 0m)</MudText></MudPaper></MudItem>
+                <MudItem xs="12" md="4"><MudPaper Class="pa-4"><MudText Typo="Typo.caption">Revenue</MudText><MudText Typo="Typo.h5">@FormatCurrency(_incomeStatement?.TotalRevenue ?? 0m, true)</MudText></MudPaper></MudItem>
+                <MudItem xs="12" md="4"><MudPaper Class="pa-4"><MudText Typo="Typo.caption">Expenses</MudText><MudText Typo="Typo.h5">@FormatCurrency(_incomeStatement?.TotalExpenses ?? 0m, true)</MudText></MudPaper></MudItem>
+                <MudItem xs="12" md="4"><MudPaper Class="pa-4"><MudText Typo="Typo.caption">Net Profit</MudText><MudText Typo="Typo.h5">@FormatCurrency(_incomeStatement?.NetProfit ?? 0m, true)</MudText></MudPaper></MudItem>
             </MudGrid>
             <MudGrid Class="mt-1">
                 <MudItem xs="12" lg="6">
@@ -44,7 +44,7 @@
                         <MudText Typo="Typo.h6">Revenue Items</MudText>
                         <MudTable T="CoreBanker.Services.IncomeStatementLineItemDto" Items="@(_incomeStatement?.RevenueItems ?? new())" Dense="true" Hover="true" Class="mt-3">
                             <HeaderContent><MudTh>Line Item</MudTh><MudTh>Amount</MudTh></HeaderContent>
-                            <RowTemplate><MudTd DataLabel="Line Item">@context.LineItem</MudTd><MudTd DataLabel="Amount">@FormatCurrency(context.Amount)</MudTd></RowTemplate>
+                            <RowTemplate><MudTd DataLabel="Line Item">@context.LineItem</MudTd><MudTd DataLabel="Amount">@FormatCurrency(context.Amount, true)</MudTd></RowTemplate>
                         </MudTable>
                     </MudPaper>
                 </MudItem>
@@ -53,7 +53,7 @@
                         <MudText Typo="Typo.h6">Expense Items</MudText>
                         <MudTable T="CoreBanker.Services.IncomeStatementLineItemDto" Items="@(_incomeStatement?.ExpenseItems ?? new())" Dense="true" Hover="true" Class="mt-3">
                             <HeaderContent><MudTh>Line Item</MudTh><MudTh>Amount</MudTh></HeaderContent>
-                            <RowTemplate><MudTd DataLabel="Line Item">@context.LineItem</MudTd><MudTd DataLabel="Amount">@FormatCurrency(context.Amount)</MudTd></RowTemplate>
+                            <RowTemplate><MudTd DataLabel="Line Item">@context.LineItem</MudTd><MudTd DataLabel="Amount">@FormatCurrency(context.Amount, true)</MudTd></RowTemplate>
                         </MudTable>
                     </MudPaper>
                 </MudItem>
@@ -62,9 +62,9 @@
 
         <MudTabPanel Text="Cash Flow">
             <MudGrid>
-                <MudItem xs="12" md="4"><MudPaper Class="pa-4"><MudText Typo="Typo.caption">Operating</MudText><MudText Typo="Typo.h5">@FormatCurrency(_cashFlow?.NetOperatingCashFlow ?? 0m)</MudText></MudPaper></MudItem>
-                <MudItem xs="12" md="4"><MudPaper Class="pa-4"><MudText Typo="Typo.caption">Investing</MudText><MudText Typo="Typo.h5">@FormatCurrency(_cashFlow?.NetInvestingCashFlow ?? 0m)</MudText></MudPaper></MudItem>
-                <MudItem xs="12" md="4"><MudPaper Class="pa-4"><MudText Typo="Typo.caption">Net Change</MudText><MudText Typo="Typo.h5">@FormatCurrency(_cashFlow?.NetChangeInCash ?? 0m)</MudText></MudPaper></MudItem>
+                <MudItem xs="12" md="4"><MudPaper Class="pa-4"><MudText Typo="Typo.caption">Operating</MudText><MudText Typo="Typo.h5">@FormatCurrency(_cashFlow?.NetOperatingCashFlow ?? 0m, true)</MudText></MudPaper></MudItem>
+                <MudItem xs="12" md="4"><MudPaper Class="pa-4"><MudText Typo="Typo.caption">Investing</MudText><MudText Typo="Typo.h5">@FormatCurrency(_cashFlow?.NetInvestingCashFlow ?? 0m, true)</MudText></MudPaper></MudItem>
+                <MudItem xs="12" md="4"><MudPaper Class="pa-4"><MudText Typo="Typo.caption">Net Change</MudText><MudText Typo="Typo.h5">@FormatCurrency(_cashFlow?.NetChangeInCash ?? 0m, true)</MudText></MudPaper></MudItem>
             </MudGrid>
             <MudGrid Class="mt-1">
                 <MudItem xs="12" lg="4">
@@ -72,7 +72,7 @@
                         <MudText Typo="Typo.h6">Operating Activities</MudText>
                         <MudTable T="CoreBanker.Services.CashFlowLineItemDto" Items="@(_cashFlow?.OperatingActivities ?? new())" Dense="true" Hover="true" Class="mt-3">
                             <HeaderContent><MudTh>Activity</MudTh><MudTh>Amount</MudTh></HeaderContent>
-                            <RowTemplate><MudTd DataLabel="Activity">@context.Activity</MudTd><MudTd DataLabel="Amount">@FormatCurrency(context.Amount)</MudTd></RowTemplate>
+                            <RowTemplate><MudTd DataLabel="Activity">@context.Activity</MudTd><MudTd DataLabel="Amount">@FormatCurrency(context.Amount, true)</MudTd></RowTemplate>
                         </MudTable>
                     </MudPaper>
                 </MudItem>
@@ -81,7 +81,7 @@
                         <MudText Typo="Typo.h6">Investing Activities</MudText>
                         <MudTable T="CoreBanker.Services.CashFlowLineItemDto" Items="@(_cashFlow?.InvestingActivities ?? new())" Dense="true" Hover="true" Class="mt-3">
                             <HeaderContent><MudTh>Activity</MudTh><MudTh>Amount</MudTh></HeaderContent>
-                            <RowTemplate><MudTd DataLabel="Activity">@context.Activity</MudTd><MudTd DataLabel="Amount">@FormatCurrency(context.Amount)</MudTd></RowTemplate>
+                            <RowTemplate><MudTd DataLabel="Activity">@context.Activity</MudTd><MudTd DataLabel="Amount">@FormatCurrency(context.Amount, true)</MudTd></RowTemplate>
                         </MudTable>
                     </MudPaper>
                 </MudItem>
@@ -90,7 +90,7 @@
                         <MudText Typo="Typo.h6">Financing Activities</MudText>
                         <MudTable T="CoreBanker.Services.CashFlowLineItemDto" Items="@(_cashFlow?.FinancingActivities ?? new())" Dense="true" Hover="true" Class="mt-3">
                             <HeaderContent><MudTh>Activity</MudTh><MudTh>Amount</MudTh></HeaderContent>
-                            <RowTemplate><MudTd DataLabel="Activity">@context.Activity</MudTd><MudTd DataLabel="Amount">@FormatCurrency(context.Amount)</MudTd></RowTemplate>
+                            <RowTemplate><MudTd DataLabel="Activity">@context.Activity</MudTd><MudTd DataLabel="Amount">@FormatCurrency(context.Amount, true)</MudTd></RowTemplate>
                         </MudTable>
                     </MudPaper>
                 </MudItem>
@@ -99,8 +99,8 @@
 
         <MudTabPanel Text="Trial Balance">
             <MudGrid>
-                <MudItem xs="12" md="4"><MudPaper Class="pa-4"><MudText Typo="Typo.caption">Total Debits</MudText><MudText Typo="Typo.h5">@FormatCurrency(_trialBalance?.TotalDebits ?? 0m)</MudText></MudPaper></MudItem>
-                <MudItem xs="12" md="4"><MudPaper Class="pa-4"><MudText Typo="Typo.caption">Total Credits</MudText><MudText Typo="Typo.h5">@FormatCurrency(_trialBalance?.TotalCredits ?? 0m)</MudText></MudPaper></MudItem>
+                <MudItem xs="12" md="4"><MudPaper Class="pa-4"><MudText Typo="Typo.caption">Total Debits</MudText><MudText Typo="Typo.h5">@FormatCurrency(_trialBalance?.TotalDebits ?? 0m, true)</MudText></MudPaper></MudItem>
+                <MudItem xs="12" md="4"><MudPaper Class="pa-4"><MudText Typo="Typo.caption">Total Credits</MudText><MudText Typo="Typo.h5">@FormatCurrency(_trialBalance?.TotalCredits ?? 0m, true)</MudText></MudPaper></MudItem>
                 <MudItem xs="12" md="4"><MudPaper Class="pa-4"><MudText Typo="Typo.caption">Balanced</MudText><MudText Typo="Typo.h5">@((_trialBalance?.IsBalanced ?? false) ? "Yes" : "No")</MudText></MudPaper></MudItem>
             </MudGrid>
             <MudPaper Class="pa-4 mt-3">
@@ -109,9 +109,9 @@
                     <RowTemplate>
                         <MudTd DataLabel="Account">@context.AccountNumber</MudTd>
                         <MudTd DataLabel="Name">@context.AccountName</MudTd>
-                        <MudTd DataLabel="Debit">@FormatCurrency(context.DebitBalance)</MudTd>
-                        <MudTd DataLabel="Credit">@FormatCurrency(context.CreditBalance)</MudTd>
-                        <MudTd DataLabel="Balance">@FormatCurrency(context.Balance)</MudTd>
+                        <MudTd DataLabel="Debit">@FormatCurrency(context.DebitBalance, true)</MudTd>
+                        <MudTd DataLabel="Credit">@FormatCurrency(context.CreditBalance, true)</MudTd>
+                        <MudTd DataLabel="Balance">@FormatCurrency(context.Balance, true)</MudTd>
                     </RowTemplate>
                 </MudTable>
             </MudPaper>
@@ -186,5 +186,5 @@
         _asOfDate = DateOnly.FromDateTime((value ?? DateTime.Today).Date);
     }
 
-    private static string FormatCurrency(decimal value) => value.ToString("C");
+    private static string FormatCurrency(decimal value, bool includeCode = false) => CoreBanker.Utilities.CurrencyFormatter.Format(value, "GHS", includeCode);
 }

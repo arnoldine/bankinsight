@@ -5,7 +5,7 @@ namespace CoreBanker.Services
 {
     public class ApprovalService : ApiClientBase
     {
-        public ApprovalService(HttpClient httpClient) : base(httpClient) { }
+        public ApprovalService(HttpClient httpClient, CoreBanker.State.AppState appState) : base(httpClient, appState) { }
 
         public async Task<List<ApprovalDto>> GetApprovalsAsync(CancellationToken cancellationToken = default)
         {

@@ -48,7 +48,14 @@ public class AccountController : ControllerBase
     [RequirePermission("CREATE_ACCOUNTS")]
     public async Task<IActionResult> CreateAccount([FromBody] CreateAccountRequest request)
     {
-        var account = await _accountService.CreateAccountAsync(request);
-        return StatusCode(201, account);
+        try
+        {
+            var account = await _accountService.CreateAccountAsync(request);
+            return StatusCode(201, account);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
     }
 }

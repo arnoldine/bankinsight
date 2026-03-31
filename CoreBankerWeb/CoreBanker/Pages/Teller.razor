@@ -9,35 +9,82 @@
 <MudGrid>
     <MudItem xs="12" xl="5">
         <MudStack Spacing="3">
-            <MudPaper Class="pa-4">
+            <MudPaper Class="pa-4 corebanker-workspace-header">
                 <MudText Typo="Typo.h4">Teller Terminal</MudText>
-                <MudText Typo="Typo.body2" Class="mud-text-secondary">Post live cash transactions and immediately refresh balances and recent activity.</MudText>
+                <MudText Typo="Typo.body2" Class="mud-text-secondary">Post live cash and cheque transactions with a cleaner frontline workflow.</MudText>
             </MudPaper>
 
-            <MudPaper Class="pa-4">
-                <MudForm @ref="_form" OnValidSubmit="PostTransactionAsync">
-                    <MudSelect @bind-Value="_request.AccountId" @bind-Value:after="SyncSelectedAccount" Label="Account" Required="true" Variant="Variant.Outlined">
-                        @foreach (var account in _accounts.OrderBy(account => account.Id))
+            <MudTabs Rounded="true">
+                <MudTabPanel Text="Cash">
+                    <MudPaper Class="pa-4">
+                        <MudForm @ref="_form">
+                            <MudSelect T="string" @bind-Value="_request.AccountId" @bind-Value:after="SyncSelectedAccount" Label="Account" Required="true" Variant="Variant.Outlined">
+                                @foreach (var account in _accounts.OrderBy(account => account.Id))
+                                {
+                                    <MudSelectItem T="string" Value="@account.Id">@($"{account.Id} • {account.CustomerId} • {FormatAmount(account.AvailableBalance, account.Currency)}")</MudSelectItem>
+                                }
+                            </MudSelect>
+                            <MudSelect T="string" @bind-Value="_request.Type" Label="Transaction type" Required="true" Variant="Variant.Outlined" Class="mt-3">
+                                <MudSelectItem T="string" Value="@("DEPOSIT")">Deposit</MudSelectItem>
+                                <MudSelectItem T="string" Value="@("WITHDRAWAL")">Withdrawal</MudSelectItem>
+                                <MudSelectItem T="string" Value="@("TRANSFER")">Transfer</MudSelectItem>
+                                <MudSelectItem T="string" Value="@("LOAN_REPAYMENT")">Loan Repayment</MudSelectItem>
+                            </MudSelect>
+                            <MudNumericField T="decimal" @bind-Value="_request.Amount" Label="Amount" Required="true" Variant="Variant.Outlined" Class="mt-3" Min="0.01m" />
+                            <MudTextField @bind-Value="_request.Narration" Label="Narration" Variant="Variant.Outlined" Class="mt-3" />
+                            <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="mt-4" Disabled="@_isPosting" OnClick="PostTransactionAsync">Post Transaction</MudButton>
+                        </MudForm>
+                    </MudPaper>
+                </MudTabPanel>
+
+                <MudTabPanel Text="Cheque Deposit">
+                    <MudPaper Class="pa-4">
+                        <MudSelect T="string" @bind-Value="_chequeDeposit.AccountId" @bind-Value:after="SyncSelectedAccount" Label="Account" Variant="Variant.Outlined">
+                            @foreach (var account in _accounts.OrderBy(account => account.Id))
+                            {
+                                <MudSelectItem T="string" Value="@account.Id">@($"{account.Id} • {account.CustomerId}")</MudSelectItem>
+                            }
+                        </MudSelect>
+                        <MudTextField @bind-Value="_chequeDeposit.ChequeNumber" Label="Cheque Number" Variant="Variant.Outlined" Class="mt-3" />
+                        <MudNumericField T="decimal" @bind-Value="_chequeDeposit.Amount" Label="Amount" Variant="Variant.Outlined" Class="mt-3" Min="0.01m" />
+                        <MudTextField @bind-Value="_chequeDeposit.PresentingBankCode" Label="Presenting Bank Code" Variant="Variant.Outlined" Class="mt-3" />
+                        <MudTextField @bind-Value="_chequeDeposit.DraweeBankCode" Label="Drawee Bank Code" Variant="Variant.Outlined" Class="mt-3" />
+                        <MudCheckBox @bind-Value="_chequeDeposit.IsOtherBankCheque" Label="Other bank cheque" Class="mt-2" />
+                        <MudTextField @bind-Value="_chequeDeposit.DrawerName" Label="Drawer Name" Variant="Variant.Outlined" Class="mt-3" />
+                        <MudTextField @bind-Value="_chequeDeposit.Narration" Label="Narration" Variant="Variant.Outlined" Class="mt-3" />
+                        <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="mt-4" Disabled="@_isChequePosting" OnClick="LodgeChequeDepositAsync">Lodge Cheque</MudButton>
+                    </MudPaper>
+                </MudTabPanel>
+
+                <MudTabPanel Text="Cheque Withdrawal">
+                    <MudPaper Class="pa-4">
+                        <MudSelect T="string" @bind-Value="_chequeWithdrawal.AccountId" @bind-Value:after="SyncSelectedAccount" Label="Account" Variant="Variant.Outlined">
+                            @foreach (var account in _accounts.OrderBy(account => account.Id))
+                            {
+                                <MudSelectItem T="string" Value="@account.Id">@($"{account.Id} • {account.CustomerId}")</MudSelectItem>
+                            }
+                        </MudSelect>
+                        <MudSelect T="string" @bind-Value="_chequeWithdrawal.ChequeNumber" Label="Issued Cheque Leaf" Variant="Variant.Outlined" Class="mt-3">
+                            @foreach (var leaf in AvailableChequeLeaves)
+                            {
+                                <MudSelectItem T="string" Value="@leaf.ChequeNumber">@($"{leaf.ChequeNumber} • Serial {leaf.SerialNumber}")</MudSelectItem>
+                            }
+                        </MudSelect>
+                        <MudNumericField T="decimal" @bind-Value="_chequeWithdrawal.Amount" Label="Amount" Variant="Variant.Outlined" Class="mt-3" Min="0.01m" />
+                        <MudTextField @bind-Value="_chequeWithdrawal.Narration" Label="Narration" Variant="Variant.Outlined" Class="mt-3" />
+                        <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="mt-4" Disabled="@_isChequePosting" OnClick="ProcessChequeWithdrawalAsync">Pay Cheque</MudButton>
+                        @if (!AvailableChequeLeaves.Any())
                         {
-                            <MudSelectItem Value="@account.Id">@($"{account.Id} • {account.CustomerId} • {FormatAmount(account.AvailableBalance, account.Currency)}")</MudSelectItem>
+                            <MudAlert Severity="Severity.Info" Dense="true" Class="mt-3">No issued cheque leaves are available for the selected account. Issue a cheque book from Payments and Transactions first.</MudAlert>
                         }
-                    </MudSelect>
-                    <MudSelect @bind-Value="_request.Type" Label="Transaction type" Required="true" Variant="Variant.Outlined" Class="mt-3">
-                        <MudSelectItem Value="@("DEPOSIT")">Deposit</MudSelectItem>
-                        <MudSelectItem Value="@("WITHDRAWAL")">Withdrawal</MudSelectItem>
-                        <MudSelectItem Value="@("TRANSFER")">Transfer</MudSelectItem>
-                        <MudSelectItem Value="@("LOAN_REPAYMENT")">Loan Repayment</MudSelectItem>
-                    </MudSelect>
-                    <MudNumericField T="decimal" @bind-Value="_request.Amount" Label="Amount" Required="true" Variant="Variant.Outlined" Class="mt-3" Min="0.01m" />
-                    <MudTextField @bind-Value="_request.Narration" Label="Narration" Variant="Variant.Outlined" Class="mt-3" />
-                    <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary" Class="mt-4" Disabled="@_isPosting">Post Transaction</MudButton>
-                </MudForm>
+                    </MudPaper>
+                </MudTabPanel>
+            </MudTabs>
 
-                @if (!string.IsNullOrWhiteSpace(_message))
-                {
-                    <MudAlert Severity="@(_isSuccess ? Severity.Success : Severity.Error)" Class="mt-4">@_message</MudAlert>
-                }
-            </MudPaper>
+            @if (!string.IsNullOrWhiteSpace(_message))
+            {
+                <MudAlert Severity="@(_isSuccess ? Severity.Success : Severity.Error)">@_message</MudAlert>
+            }
 
             @if (_selectedAccount is not null)
             {
@@ -59,8 +106,8 @@
             <MudPaper Class="pa-4">
                 <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
                     <div>
-                        <MudText Typo="Typo.h5">Recent Transactions</MudText>
-                        <MudText Typo="Typo.body2" Class="mud-text-secondary">Latest posted transaction activity, filtered to the selected account when one is chosen.</MudText>
+                        <MudText Typo="Typo.h5">Recent Activity</MudText>
+                        <MudText Typo="Typo.body2" Class="mud-text-secondary">Latest teller and cheque activity, filtered to the selected account when one is chosen.</MudText>
                     </div>
                     <MudButton Variant="Variant.Outlined" Color="Color.Secondary" OnClick="LoadWorkspaceAsync">Refresh</MudButton>
                 </MudStack>
@@ -89,6 +136,49 @@
                     <MudTd DataLabel="Date">@context.Date.ToLocalTime().ToString("dd MMM yyyy HH:mm")</MudTd>
                 </RowTemplate>
             </MudTable>
+
+            <MudPaper Class="pa-4">
+                <MudText Typo="Typo.h6">Cheque Queue</MudText>
+                <MudTable Items="@_chequeItems.OrderByDescending(item => item.LodgedAt).Take(10)" Dense="true" Hover="true" Class="mt-3">
+                    <HeaderContent>
+                        <MudTh>Cheque</MudTh>
+                        <MudTh>Account</MudTh>
+                        <MudTh>Amount</MudTh>
+                        <MudTh>Status</MudTh>
+                        <MudTh>Clearing Date</MudTh>
+                    </HeaderContent>
+                    <RowTemplate>
+                        <MudTd>@context.ChequeNumber</MudTd>
+                        <MudTd>@context.AccountId</MudTd>
+                        <MudTd>@FormatAmount(context.Amount, context.Currency)</MudTd>
+                        <MudTd>@context.Status</MudTd>
+                        <MudTd>@context.ClearingDate</MudTd>
+                    </RowTemplate>
+                </MudTable>
+            </MudPaper>
+
+            <MudPaper Class="pa-4">
+                <MudText Typo="Typo.h6">Issued Cheque Books</MudText>
+                <MudText Typo="Typo.body2" Class="mud-text-secondary">Cheque-book inventory for the selected account, including remaining leaves available for withdrawal.</MudText>
+                <MudTable Items="@SelectedAccountChequeBooks" Dense="true" Hover="true" Class="mt-3">
+                    <HeaderContent>
+                        <MudTh>Reference</MudTh>
+                        <MudTh>Status</MudTh>
+                        <MudTh>Available</MudTh>
+                        <MudTh>Used</MudTh>
+                    </HeaderContent>
+                    <RowTemplate>
+                        <MudTd>@context.BookReference</MudTd>
+                        <MudTd>@context.Status</MudTd>
+                        <MudTd>@context.AvailableLeafCount</MudTd>
+                        <MudTd>@context.UsedLeafCount</MudTd>
+                    </RowTemplate>
+                </MudTable>
+                @if (!SelectedAccountChequeBooks.Any())
+                {
+                    <MudAlert Severity="Severity.Info" Dense="true" Class="mt-3">No cheque books are currently linked to the selected account.</MudAlert>
+                }
+            </MudPaper>
         </MudStack>
     </MudItem>
 </MudGrid>
@@ -96,14 +186,16 @@
 @code {
     private List<CoreBanker.Services.AccountDto> _accounts = new();
     private List<CoreBanker.Services.TransactionDto> _transactions = new();
-    private CoreBanker.Services.TellerTransactionRequest _request = new()
-    {
-        Type = "DEPOSIT"
-    };
+    private List<CoreBanker.Services.ChequeClearingItemDto> _chequeItems = new();
+    private List<CoreBanker.Services.ChequeBookInventoryDto> _chequeBooks = new();
+    private CoreBanker.Services.TellerTransactionRequest _request = new() { Type = "DEPOSIT" };
+    private CoreBanker.Services.ChequeDepositRequest _chequeDeposit = new() { Currency = "GHS", ClearingChannel = "GHIPSS", BogRegulatoryClass = "LOCAL", IsOtherBankCheque = true };
+    private CoreBanker.Services.ChequeWithdrawalRequest _chequeWithdrawal = new() { Currency = "GHS" };
     private CoreBanker.Services.AccountDto? _selectedAccount;
     private MudForm? _form;
     private bool _isLoading;
     private bool _isPosting;
+    private bool _isChequePosting;
     private bool _isSuccess;
     private string _message = string.Empty;
     private string _loadError = string.Empty;
@@ -120,8 +212,16 @@
 
         try
         {
-            _accounts = await AccountService.GetAccountsAsync();
-            _transactions = await TransactionService.GetTransactionsAsync();
+            var accountsTask = AccountService.GetAccountsAsync();
+            var transactionsTask = TransactionService.GetTransactionsAsync();
+            var chequeTask = TransactionService.GetChequeItemsAsync();
+            var chequeBooksTask = TransactionService.GetChequeBooksAsync();
+            await Task.WhenAll(accountsTask, transactionsTask, chequeTask, chequeBooksTask);
+
+            _accounts = accountsTask.Result;
+            _transactions = transactionsTask.Result;
+            _chequeItems = chequeTask.Result;
+            _chequeBooks = chequeBooksTask.Result;
             SyncSelectedAccount();
         }
         catch (CoreBanker.Services.ApiClientException ex)
@@ -160,12 +260,7 @@
             _message = $"Transaction posted successfully. Reference: {result.Reference}";
 
             var accountId = _request.AccountId;
-            _request = new CoreBanker.Services.TellerTransactionRequest
-            {
-                AccountId = accountId,
-                Type = "DEPOSIT"
-            };
-
+            _request = new CoreBanker.Services.TellerTransactionRequest { AccountId = accountId, Type = "DEPOSIT" };
             await LoadWorkspaceAsync();
         }
         catch (CoreBanker.Services.ApiClientException ex)
@@ -179,18 +274,76 @@
         }
     }
 
+    private async Task LodgeChequeDepositAsync()
+    {
+        _isChequePosting = true;
+        _message = string.Empty;
+        try
+        {
+            _chequeDeposit.TellerId = string.IsNullOrWhiteSpace(AppState.UserId) ? "STF1123" : AppState.UserId;
+            var result = await TransactionService.LodgeChequeDepositAsync(_chequeDeposit);
+            _isSuccess = true;
+            _message = $"Cheque {result?.ChequeNumber ?? _chequeDeposit.ChequeNumber} lodged successfully.";
+            _chequeDeposit = new CoreBanker.Services.ChequeDepositRequest { Currency = "GHS", ClearingChannel = "GHIPSS", BogRegulatoryClass = "LOCAL", IsOtherBankCheque = true };
+            await LoadWorkspaceAsync();
+        }
+        catch (CoreBanker.Services.ApiClientException ex)
+        {
+            _isSuccess = false;
+            _message = ex.Message;
+        }
+        finally
+        {
+            _isChequePosting = false;
+        }
+    }
+
+    private async Task ProcessChequeWithdrawalAsync()
+    {
+        _isChequePosting = true;
+        _message = string.Empty;
+        try
+        {
+            _chequeWithdrawal.TellerId = string.IsNullOrWhiteSpace(AppState.UserId) ? "STF1123" : AppState.UserId;
+            var result = await TransactionService.ProcessChequeWithdrawalAsync(_chequeWithdrawal);
+            _isSuccess = true;
+            _message = $"Cheque {result?.ChequeNumber ?? _chequeWithdrawal.ChequeNumber} paid successfully.";
+            _chequeWithdrawal = new CoreBanker.Services.ChequeWithdrawalRequest { Currency = "GHS" };
+            await LoadWorkspaceAsync();
+        }
+        catch (CoreBanker.Services.ApiClientException ex)
+        {
+            _isSuccess = false;
+            _message = ex.Message;
+        }
+        finally
+        {
+            _isChequePosting = false;
+        }
+    }
+
     private void SyncSelectedAccount()
     {
-        _selectedAccount = _accounts.FirstOrDefault(account => account.Id == _request.AccountId);
+        var selectedAccountId = !string.IsNullOrWhiteSpace(_request.AccountId)
+            ? _request.AccountId
+            : !string.IsNullOrWhiteSpace(_chequeDeposit.AccountId)
+                ? _chequeDeposit.AccountId
+                : _chequeWithdrawal.AccountId;
+        _selectedAccount = _accounts.FirstOrDefault(account => account.Id == selectedAccountId);
     }
 
     private IEnumerable<CoreBanker.Services.TransactionDto> VisibleTransactions
     {
         get
         {
-            var items = string.IsNullOrWhiteSpace(_request.AccountId)
+            var selectedAccountId = !string.IsNullOrWhiteSpace(_request.AccountId)
+                ? _request.AccountId
+                : !string.IsNullOrWhiteSpace(_chequeDeposit.AccountId)
+                    ? _chequeDeposit.AccountId
+                    : _chequeWithdrawal.AccountId;
+            var items = string.IsNullOrWhiteSpace(selectedAccountId)
                 ? _transactions
-                : _transactions.Where(transaction => transaction.AccountId == _request.AccountId).ToList();
+                : _transactions.Where(transaction => transaction.AccountId == selectedAccountId).ToList();
 
             return items.OrderByDescending(transaction => transaction.Date).Take(12);
         }
@@ -201,10 +354,20 @@
         return _accounts.FirstOrDefault(account => account.Id == accountId)?.Currency ?? "GHS";
     }
 
+    private IEnumerable<CoreBanker.Services.ChequeBookInventoryDto> SelectedAccountChequeBooks =>
+        string.IsNullOrWhiteSpace(_selectedAccount?.Id)
+            ? Enumerable.Empty<CoreBanker.Services.ChequeBookInventoryDto>()
+            : _chequeBooks.Where(book => book.AccountId == _selectedAccount.Id);
+
+    private IEnumerable<CoreBanker.Services.ChequeBookLeafDto> AvailableChequeLeaves =>
+        SelectedAccountChequeBooks
+            .SelectMany(book => book.Leaves)
+            .Where(leaf => leaf.Status is "ISSUED" or "AVAILABLE")
+            .OrderBy(leaf => leaf.SerialNumber);
+
     private static string FormatAmount(decimal amount, string currency)
     {
-        var culture = currency == "USD" ? System.Globalization.CultureInfo.GetCultureInfo("en-US") : System.Globalization.CultureInfo.GetCultureInfo("en-GH");
-        return string.Format(culture, "{0:C}", amount);
+        return CoreBanker.Utilities.CurrencyFormatter.Format(amount, currency);
     }
 
     private static string DisplayDate(DateTime? value)

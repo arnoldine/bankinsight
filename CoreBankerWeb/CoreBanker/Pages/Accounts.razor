@@ -12,6 +12,30 @@
                 <MudText Typo="Typo.body2" Class="mud-text-secondary">Open customer accounts and review balances, product codes, and branch portfolio activity.</MudText>
             </MudPaper>
 
+            <MudGrid>
+                <MudItem xs="12" sm="4">
+                    <MudPaper Class="pa-4 corebanker-friendly-stat" Elevation="0">
+                        <MudText Typo="Typo.caption">Visible Accounts</MudText>
+                        <MudText Typo="Typo.h5">@FilteredAccounts.Count()</MudText>
+                        <MudText Typo="Typo.body2" Class="mud-text-secondary">@($"{_accounts.Count(account => string.Equals(account.Status, "ACTIVE", StringComparison.OrdinalIgnoreCase))} active")</MudText>
+                    </MudPaper>
+                </MudItem>
+                <MudItem xs="12" sm="4">
+                    <MudPaper Class="pa-4 corebanker-friendly-stat" Elevation="0">
+                        <MudText Typo="Typo.caption">Portfolio Value</MudText>
+                        <MudText Typo="Typo.h5">@FormatAmount(_accounts.Sum(account => account.AvailableBalance), "GHS")</MudText>
+                        <MudText Typo="Typo.body2" Class="mud-text-secondary">Available balances across the visible set.</MudText>
+                    </MudPaper>
+                </MudItem>
+                <MudItem xs="12" sm="4">
+                    <MudPaper Class="pa-4 corebanker-friendly-stat" Elevation="0">
+                        <MudText Typo="Typo.caption">Selected Customer</MudText>
+                        <MudText Typo="Typo.h5">@GetCustomerName(_request.CustomerId)</MudText>
+                        <MudText Typo="Typo.body2" Class="mud-text-secondary">@($"{_selectedCustomerAccounts.Count} linked account(s)")</MudText>
+                    </MudPaper>
+                </MudItem>
+            </MudGrid>
+
             <MudPaper Class="pa-4">
                 <MudGrid>
                     <MudItem xs="12" md="8">
@@ -33,30 +57,44 @@
                 <MudAlert Severity="Severity.Error">@_loadError</MudAlert>
             }
 
-            <MudTable Items="@FilteredAccounts" Hover="true" Dense="true" Loading="@_isLoadingAccounts">
-                <HeaderContent>
-                    <MudTh>Account</MudTh>
-                    <MudTh>Customer</MudTh>
-                    <MudTh>Type</MudTh>
-                    <MudTh>Product</MudTh>
-                    <MudTh>Available</MudTh>
-                    <MudTh>Status</MudTh>
-                </HeaderContent>
-                <RowTemplate>
-                    <MudTd DataLabel="Account">
-                        <MudText Typo="Typo.body2">@context.Id</MudText>
-                        <MudText Typo="Typo.caption" Class="mud-text-secondary">@context.BranchId</MudText>
-                    </MudTd>
-                    <MudTd DataLabel="Customer">
-                        <MudText Typo="Typo.body2">@GetCustomerName(context.CustomerId)</MudText>
-                        <MudText Typo="Typo.caption" Class="mud-text-secondary">@context.CustomerId</MudText>
-                    </MudTd>
-                    <MudTd DataLabel="Type">@context.Type</MudTd>
-                    <MudTd DataLabel="Product">@context.ProductCode</MudTd>
-                    <MudTd DataLabel="Available">@FormatAmount(context.AvailableBalance, context.Currency)</MudTd>
-                    <MudTd DataLabel="Status">@context.Status</MudTd>
-                </RowTemplate>
-            </MudTable>
+            @if (!_isLoadingAccounts && !FilteredAccounts.Any())
+            {
+                <MudPaper Class="pa-6 corebanker-empty-state" Elevation="0">
+                    <MudText Typo="Typo.h6">No accounts match this filter</MudText>
+                    <MudText Typo="Typo.body2" Class="mud-text-secondary">Search by customer name, account number, branch, or product to refine the list.</MudText>
+                </MudPaper>
+            }
+            else
+            {
+                <MudTable Items="@FilteredAccounts" Hover="true" Dense="true" Loading="@_isLoadingAccounts">
+                    <HeaderContent>
+                        <MudTh>Account</MudTh>
+                        <MudTh>Customer</MudTh>
+                        <MudTh>Type</MudTh>
+                        <MudTh>Product</MudTh>
+                        <MudTh>Available</MudTh>
+                        <MudTh>Status</MudTh>
+                    </HeaderContent>
+                    <RowTemplate>
+                        <MudTd DataLabel="Account">
+                            <MudText Typo="Typo.body2">@context.Id</MudText>
+                            <MudText Typo="Typo.caption" Class="mud-text-secondary">@context.BranchId</MudText>
+                        </MudTd>
+                        <MudTd DataLabel="Customer">
+                            <MudText Typo="Typo.body2">@GetCustomerName(context.CustomerId)</MudText>
+                            <MudText Typo="Typo.caption" Class="mud-text-secondary">@context.CustomerId</MudText>
+                        </MudTd>
+                        <MudTd DataLabel="Type">
+                            <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Color="Color.Primary">@context.Type</MudChip>
+                        </MudTd>
+                        <MudTd DataLabel="Product">@context.ProductCode</MudTd>
+                        <MudTd DataLabel="Available">@FormatAmount(context.AvailableBalance, context.Currency)</MudTd>
+                        <MudTd DataLabel="Status">
+                            <MudChip T="string" Size="Size.Small" Variant="Variant.Text" Color="@(string.Equals(context.Status, "ACTIVE", StringComparison.OrdinalIgnoreCase) ? Color.Success : Color.Default)">@context.Status</MudChip>
+                        </MudTd>
+                    </RowTemplate>
+                </MudTable>
+            }
         </MudStack>
     </MudItem>
 
@@ -65,6 +103,23 @@
             <MudPaper Class="pa-4">
                 <MudText Typo="Typo.h5">Open New Account</MudText>
                 <MudText Typo="Typo.body2" Class="mud-text-secondary">Create a live account against an existing customer record.</MudText>
+                <MudAlert Severity="Severity.Info" Dense="true" Class="mt-3">
+                    Choose the customer first and the portfolio panel below will show any existing linked accounts before you create another one.
+                </MudAlert>
+
+                @if (_selectedCustomerProfile?.KycReadiness is not null)
+                {
+                    <MudAlert Severity="@(_selectedCustomerProfile.KycReadiness.IsReadyForAccountOpening ? Severity.Success : Severity.Warning)" Dense="true" Variant="Variant.Outlined" Class="mt-3">
+                        @if (_selectedCustomerProfile.KycReadiness.IsReadyForAccountOpening)
+                        {
+                            <span>Customer KYC is verified for account opening.</span>
+                        }
+                        else
+                        {
+                            <span>Account opening is blocked until these are verified: @string.Join(", ", _selectedCustomerProfile.KycReadiness.MissingRequirements)</span>
+                        }
+                    </MudAlert>
+                }
 
                 <MudForm @ref="_form" OnValidSubmit="CreateAccountAsync" Class="mt-4">
                     <MudSelect @bind-Value="_request.CustomerId" @bind-Value:after="RefreshSelectedCustomerAccountsAsync" Label="Customer" Required="true" Variant="Variant.Outlined">
@@ -84,7 +139,7 @@
                         <MudSelectItem Value="@("USD")">USD</MudSelectItem>
                     </MudSelect>
                     <MudTextField @bind-Value="_request.ProductCode" Label="Product code" Variant="Variant.Outlined" Class="mt-3" HelperText="Defaults to SAV001, CUR001, or FD001 if left blank." />
-                    <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary" Class="mt-4" Disabled="@_isCreating">Create account</MudButton>
+                    <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary" Class="mt-4" Disabled="@(_isCreating || !CanCreateAccount)">Create account</MudButton>
                 </MudForm>
             </MudPaper>
 
@@ -121,6 +176,7 @@
     private List<CoreBanker.Services.AccountDto> _accounts = new();
     private List<CoreBanker.Services.ClientDto> _clients = new();
     private List<CoreBanker.Services.AccountDto> _selectedCustomerAccounts = new();
+    private CoreBanker.Services.ClientProfileDto? _selectedCustomerProfile;
     private CoreBanker.Services.CreateAccountRequest _request = new()
     {
         BranchId = "BR001",
@@ -135,6 +191,7 @@
     private bool _isSuccess;
     private bool _isCreating;
     private bool _isLoadingAccounts;
+    private bool CanCreateAccount => _selectedCustomerProfile?.KycReadiness?.IsReadyForAccountOpening ?? false;
 
     protected override async Task OnInitializedAsync()
     {
@@ -213,10 +270,12 @@
         if (string.IsNullOrWhiteSpace(_request.CustomerId))
         {
             _selectedCustomerAccounts.Clear();
+            _selectedCustomerProfile = null;
             return;
         }
 
         _selectedCustomerAccounts = await AccountService.GetAccountsByCustomerIdAsync(_request.CustomerId);
+        _selectedCustomerProfile = await ClientService.GetClientProfileAsync(_request.CustomerId);
     }
 
     private IEnumerable<CoreBanker.Services.AccountDto> FilteredAccounts =>
@@ -236,7 +295,6 @@
 
     private static string FormatAmount(decimal amount, string currency)
     {
-        var culture = currency == "USD" ? System.Globalization.CultureInfo.GetCultureInfo("en-US") : System.Globalization.CultureInfo.GetCultureInfo("en-GH");
-        return string.Format(culture, "{0:C}", amount);
+        return CoreBanker.Utilities.CurrencyFormatter.Format(amount, currency);
     }
 }

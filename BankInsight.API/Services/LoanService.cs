@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using BankInsight.API.Data;
 using BankInsight.API.DTOs;
 using BankInsight.API.Entities;
+using BankInsight.API.Security;
 using Microsoft.EntityFrameworkCore;
 
 namespace BankInsight.API.Services;
@@ -22,6 +23,7 @@ public class LoanService
     private readonly ISequenceGeneratorService _sequenceService;
     private readonly Security.ICurrentUserContext _currentUser;
     private readonly IPostingEngine _postingEngine;
+    private readonly CustomerService _customerService;
 
     public LoanService(
         ApplicationDbContext context,
@@ -32,7 +34,8 @@ public class LoanService
         ILoanAccountingPostingService loanAccountingPostingService,
         ISequenceGeneratorService sequenceService,
         Security.ICurrentUserContext currentUser,
-        IPostingEngine postingEngine)
+        IPostingEngine postingEngine,
+        CustomerService customerService)
     {
         _context = context;
         _auditLoggingService = auditLoggingService;
@@ -43,6 +46,7 @@ public class LoanService
         _sequenceService = sequenceService;
         _currentUser = currentUser;
         _postingEngine = postingEngine;
+        _customerService = customerService;
     }
 
     public async Task<List<LoanDto>> GetLoansAsync()
@@ -52,6 +56,8 @@ public class LoanService
         {
             query = query.Where(l => l.BranchId == _currentUser.BranchId);
         }
+
+        query = ApplyLoanVisibilityScope(query);
 
         return await query
             .Select(l => new LoanDto
@@ -73,9 +79,41 @@ public class LoanService
                 InterestMethod = l.InterestMethod,
                 RepaymentFrequency = l.RepaymentFrequency,
                 ScheduleType = l.ScheduleType,
-                LoanProductId = l.LoanProductId
+                LoanProductId = l.LoanProductId,
+                IsConfidential = l.IsConfidential,
+                OwnerStaffId = l.OwnerStaffId
             })
             .ToListAsync();
+    }
+
+    private IQueryable<Loan> ApplyLoanVisibilityScope(IQueryable<Loan> query)
+    {
+        if (CanViewConfidentialLoans() || string.IsNullOrWhiteSpace(_currentUser.UserId))
+        {
+            return query;
+        }
+
+        var userId = _currentUser.UserId;
+        return query.Where(loan => !loan.IsConfidential || loan.OwnerStaffId == userId);
+    }
+
+    private bool CanViewConfidentialLoans()
+    {
+        return _currentUser.HasPermission(AppPermissions.Loans.ViewConfidential)
+            || _currentUser.HasPermission(AppPermissions.Users.Manage);
+    }
+
+    private void EnsureLoanAccess(Loan loan)
+    {
+        if (!loan.IsConfidential || CanViewConfidentialLoans())
+        {
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(_currentUser.UserId) || !string.Equals(loan.OwnerStaffId, _currentUser.UserId, StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException("You are not allowed to access this confidential loan.");
+        }
     }
 
     public async Task<LoanDto> DisburseLoanAsync(DisburseLoanRequest request)
@@ -132,6 +170,9 @@ public class LoanService
                 throw new InvalidOperationException("Customer has no active account for disbursement");
             }
 
+            var servicingAccountId = await ResolveLoanDebitAccountIdAsync(request.Cif, request.ServicingAccountId, "servicing");
+            var collateralAccountId = await ResolveLoanDebitAccountIdAsync(request.Cif, request.CollateralAccountId, "collateral");
+
             var disbursementReference = string.IsNullOrWhiteSpace(request.ClientReference)
                 ? $"DSB-{DateTime.UtcNow:yyyyMMddHHmmss}-{RandomNumberGenerator.GetInt32(1000, 9999)}"
                 : $"DSB-{request.ClientReference.Trim()}";
@@ -181,6 +222,8 @@ public class LoanService
                 OutstandingBalance = principalAmount,
                 CollateralType = request.CollateralType,
                 CollateralValue = request.CollateralValue,
+                ServicingAccountId = servicingAccountId ?? account.Id,
+                CollateralAccountId = collateralAccountId,
                 ParBucket = "0"
             };
 
@@ -276,6 +319,17 @@ public class LoanService
 
     public async Task<List<LoanScheduleDto>> GetLoanScheduleAsync(string loanId)
     {
+        var loan = await _context.Loans
+            .AsNoTracking()
+            .FirstOrDefaultAsync(l => l.Id == loanId);
+
+        if (loan == null)
+        {
+            throw new InvalidOperationException("Loan not found");
+        }
+
+        EnsureLoanAccess(loan);
+
         return await _context.LoanSchedules
             .Where(s => s.LoanId == loanId)
             .OrderBy(s => s.Period)
@@ -303,6 +357,8 @@ public class LoanService
             throw new InvalidOperationException("Loan not found");
         }
 
+        EnsureLoanAccess(loan);
+
         var asOf = DateOnly.FromDateTime(DateTime.UtcNow);
         var disbursementDate = loan.DisbursementDate ?? asOf;
         var daysOnBook = Math.Max(0, asOf.DayNumber - disbursementDate.DayNumber);
@@ -326,7 +382,7 @@ public class LoanService
         };
     }
 
-    public async Task<LoanDto> RepayLoanAsync(string loanId, LoanRepayRequest request)
+    public async Task<LoanDto> RepayLoanAsync(string loanId, LoanRepayRequest request, bool bypassAccessCheck = false)
     {
         using var dbTransaction = await _context.Database.BeginTransactionAsync();
 
@@ -341,6 +397,11 @@ public class LoanService
             if (loan == null)
             {
                 throw new InvalidOperationException("Loan not found");
+            }
+
+            if (!bypassAccessCheck)
+            {
+                EnsureLoanAccess(loan);
             }
 
             if (!string.Equals(loan.Status, "ACTIVE", StringComparison.OrdinalIgnoreCase))
@@ -597,11 +658,15 @@ public class LoanService
             OutstandingBalance = loan.OutstandingBalance,
             CollateralType = loan.CollateralType,
             CollateralValue = loan.CollateralValue,
+            ServicingAccountId = loan.ServicingAccountId,
+            CollateralAccountId = loan.CollateralAccountId,
             Status = loan.Status,
             InterestMethod = loan.InterestMethod,
             RepaymentFrequency = loan.RepaymentFrequency,
             ScheduleType = loan.ScheduleType,
-            LoanProductId = loan.LoanProductId
+            LoanProductId = loan.LoanProductId,
+            IsConfidential = loan.IsConfidential,
+            OwnerStaffId = loan.OwnerStaffId
         };
     }
 
@@ -619,6 +684,8 @@ public class LoanService
             {
                 throw new InvalidOperationException("Loan not found");
             }
+
+            EnsureLoanAccess(loan);
 
             if (!string.Equals(loan.Status, "ACTIVE", StringComparison.OrdinalIgnoreCase))
             {
@@ -765,6 +832,8 @@ public class LoanService
                 throw new InvalidOperationException("Loan not found");
             }
 
+            EnsureLoanAccess(loan);
+
             var asOf = DateOnly.FromDateTime(DateTime.UtcNow);
             var daysPastDue = CalculateDaysPastDue(loan.Schedules, asOf);
 
@@ -864,11 +933,23 @@ public class LoanService
     public async Task<LoanDto> ApplyLoanAsync(ApplyLoanRequest request, string? makerId)
     {
         var resolvedMakerId = await ResolveStaffIdAsync(makerId);
+        var ownerStaffId = await ResolveConfidentialOwnerStaffIdAsync(request.OwnerStaffId, request.IsConfidential, resolvedMakerId);
 
         var customer = await _context.Customers.FirstOrDefaultAsync(c => c.Id == request.CustomerId);
         if (customer == null)
         {
             throw new InvalidOperationException("Customer not found");
+        }
+
+        var readiness = await _customerService.GetCustomerKycReadinessAsync(request.CustomerId);
+        if (readiness is null)
+        {
+            throw new InvalidOperationException("Customer not found");
+        }
+
+        if (!readiness.IsReadyForLoanOrigination)
+        {
+            throw new InvalidOperationException($"Customer is not KYC-ready for loan origination. Missing: {string.Join(", ", readiness.MissingRequirements)}");
         }
 
         var loanProduct = await _context.LoanProducts.FirstOrDefaultAsync(lp => lp.Id == request.LoanProductId && lp.IsActive);
@@ -889,6 +970,8 @@ public class LoanService
         var scheduleType = ResolveScheduleType(loanProduct).ToString();
 
         var defaultRetailLoanProductId = (await ResolveCoreLoanProductAsync()).Id;
+        var servicingAccountId = await ResolveLoanDebitAccountIdAsync(request.CustomerId, request.ServicingAccountId, "servicing");
+        var collateralAccountId = await ResolveLoanDebitAccountIdAsync(request.CustomerId, request.CollateralAccountId, "collateral");
 
         ValidateProductBusinessRules(loanProduct);
 
@@ -910,7 +993,11 @@ public class LoanService
             OutstandingBalance = request.Principal,
             ParBucket = "0",
             ApplicationDate = DateTime.UtcNow,
-            MakerId = resolvedMakerId
+            MakerId = resolvedMakerId,
+            IsConfidential = request.IsConfidential,
+            OwnerStaffId = ownerStaffId,
+            ServicingAccountId = servicingAccountId,
+            CollateralAccountId = collateralAccountId
         };
 
         var workflowId = await _context.Workflows
@@ -979,6 +1066,8 @@ public class LoanService
         {
             throw new InvalidOperationException("Loan not found");
         }
+
+        EnsureLoanAccess(loan);
 
         if (!string.Equals(loan.Status, "PENDING_APPROVAL", StringComparison.OrdinalIgnoreCase))
         {
@@ -1102,6 +1191,8 @@ public class LoanService
                 throw new InvalidOperationException("Loan not found");
             }
 
+            EnsureLoanAccess(loan);
+
             if (string.Equals(loan.Status, "ACTIVE", StringComparison.OrdinalIgnoreCase) && loan.DisbursementDate.HasValue)
             {
                 return MapLoanDto(loan);
@@ -1133,6 +1224,16 @@ public class LoanService
             if (existingEvent != null)
             {
                 return MapLoanDto(loan);
+            }
+
+            if (!string.IsNullOrWhiteSpace(request.ServicingAccountId))
+            {
+                loan.ServicingAccountId = await ResolveLoanDebitAccountIdAsync(loan.CustomerId, request.ServicingAccountId, "servicing");
+            }
+
+            if (!string.IsNullOrWhiteSpace(request.CollateralAccountId))
+            {
+                loan.CollateralAccountId = await ResolveLoanDebitAccountIdAsync(loan.CustomerId, request.CollateralAccountId, "collateral");
             }
 
             loan.DisbursementDate = DateOnly.FromDateTime(DateTime.UtcNow);
@@ -1610,6 +1711,8 @@ public class LoanService
         var loan = await _context.Loans.FirstOrDefaultAsync(l => l.Id == request.LoanId)
             ?? throw new InvalidOperationException("Loan not found");
 
+        EnsureLoanAccess(loan);
+
         var account = await _context.LoanAccounts.FirstOrDefaultAsync(a => a.LoanId == request.LoanId);
         if (account == null)
         {
@@ -1648,6 +1751,8 @@ public class LoanService
     {
         var loan = await _context.Loans.Include(l => l.Schedules).FirstOrDefaultAsync(l => l.Id == request.LoanId)
             ?? throw new InvalidOperationException("Loan not found");
+
+        EnsureLoanAccess(loan);
 
         if (!string.Equals(loan.Status, "ACTIVE", StringComparison.OrdinalIgnoreCase))
         {
@@ -1707,6 +1812,8 @@ public class LoanService
     {
         var loan = await _context.Loans.FirstOrDefaultAsync(l => l.Id == request.LoanId)
             ?? throw new InvalidOperationException("Loan not found");
+
+        EnsureLoanAccess(loan);
 
         var repayment = await _context.LoanRepayments.FirstOrDefaultAsync(r => r.Id == request.RepaymentId && r.LoanId == request.LoanId)
             ?? throw new InvalidOperationException("Repayment not found");
@@ -1809,10 +1916,129 @@ public class LoanService
         };
     }
 
+    public async Task<LoanAutoCollectionBatchResultDto> ProcessScheduledLoanCollectionsAsync(DateOnly asOfDate, string? userId)
+    {
+        var autoDebitEnabled = await GetBoolConfigAsync("loan.auto_debit_enabled", true);
+        if (!autoDebitEnabled)
+        {
+            return new LoanAutoCollectionBatchResultDto
+            {
+                AsOfDate = asOfDate,
+                LoansEvaluated = 0,
+                LoansCollected = 0,
+                LoansSkipped = 0,
+                TotalDebited = 0m
+            };
+        }
+
+        var resolvedUserId = await ResolveStaffIdAsync(userId);
+        var loans = await _context.Loans
+            .Include(l => l.Schedules)
+            .Where(l => l.Status != null && l.Status.ToUpper() == "ACTIVE")
+            .ToListAsync();
+
+        var result = new LoanAutoCollectionBatchResultDto
+        {
+            AsOfDate = asOfDate,
+            LoansEvaluated = loans.Count
+        };
+
+        foreach (var loan in loans)
+        {
+            var amountDue = CalculateAmountDueAsOf(loan, asOfDate);
+            if (amountDue <= 0m)
+            {
+                result.LoansSkipped++;
+                result.SkippedLoanIds.Add(loan.Id);
+                continue;
+            }
+
+            var debitAccountIds = BuildLoanAutoDebitAccountList(loan);
+            if (debitAccountIds.Count == 0)
+            {
+                result.LoansSkipped++;
+                result.SkippedLoanIds.Add(loan.Id);
+                continue;
+            }
+
+            decimal remainingAmount = amountDue;
+            decimal collectedAmount = 0m;
+
+            foreach (var accountId in debitAccountIds)
+            {
+                if (remainingAmount <= 0m)
+                {
+                    break;
+                }
+
+                var account = await _context.Accounts.FirstOrDefaultAsync(a => a.Id == accountId);
+                if (account == null ||
+                    !string.Equals(account.Status, "ACTIVE", StringComparison.OrdinalIgnoreCase) ||
+                    !string.Equals(account.CustomerId, loan.CustomerId, StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                var availableBalance = Math.Max(0m, account.Balance - account.LienAmount);
+                var debitAmount = Math.Min(availableBalance, remainingAmount);
+                if (debitAmount <= 0m)
+                {
+                    continue;
+                }
+
+                await RepayLoanAsync(
+                    loan.Id,
+                    new LoanRepayRequest
+                    {
+                        AccountId = account.Id,
+                        Amount = debitAmount,
+                        ClientReference = $"AUTO-{asOfDate:yyyyMMdd}-{loan.Id}-{account.Id}"
+                    },
+                    bypassAccessCheck: true);
+
+                collectedAmount += debitAmount;
+                remainingAmount -= debitAmount;
+            }
+
+            if (collectedAmount > 0m)
+            {
+                result.LoansCollected++;
+                result.TotalDebited += collectedAmount;
+                result.SuccessfulLoanIds.Add(loan.Id);
+            }
+            else
+            {
+                result.LoansSkipped++;
+                result.SkippedLoanIds.Add(loan.Id);
+            }
+        }
+
+        await _auditLoggingService.LogActionAsync(
+            "LOAN_AUTO_COLLECTION_BATCH",
+            "SYSTEM",
+            asOfDate.ToString("yyyy-MM-dd"),
+            resolvedUserId,
+            $"Scheduled loan auto-collection completed for {asOfDate:yyyy-MM-dd}",
+            status: "SUCCESS",
+            newValues: new
+            {
+                result.LoansEvaluated,
+                result.LoansCollected,
+                result.LoansSkipped,
+                result.TotalDebited,
+                result.SuccessfulLoanIds,
+                result.SkippedLoanIds
+            });
+
+        return result;
+    }
+
     public async Task<LoanDto> WriteOffLoanAsync(LoanWriteOffRequest request, string? userId)
     {
         var loan = await _context.Loans.FirstOrDefaultAsync(l => l.Id == request.LoanId)
             ?? throw new InvalidOperationException("Loan not found");
+
+        EnsureLoanAccess(loan);
 
         var writeOffAmount = Math.Min(request.Amount, loan.OutstandingBalance ?? 0m);
         if (writeOffAmount <= 0m)
@@ -1902,6 +2128,8 @@ public class LoanService
     {
         var loan = await _context.Loans.Include(l => l.Schedules).FirstOrDefaultAsync(l => l.Id == loanId)
             ?? throw new InvalidOperationException("Loan not found");
+
+        EnsureLoanAccess(loan);
 
         var repayments = await _context.LoanRepayments.Where(r => r.LoanId == loanId && !r.IsReversal).ToListAsync();
 
@@ -2080,6 +2308,13 @@ public class LoanService
 
     public async Task<List<LoanGlPostingDto>> GetLoanGlPostingsAsync(string loanId)
     {
+        var loan = await _context.Loans
+            .AsNoTracking()
+            .FirstOrDefaultAsync(l => l.Id == loanId)
+            ?? throw new InvalidOperationException("Loan not found");
+
+        EnsureLoanAccess(loan);
+
         var entries = await _loanAccountingPostingService.GetLoanPostingsAsync(loanId);
 
         return entries.Select(e => new LoanGlPostingDto
@@ -2204,6 +2439,81 @@ public class LoanService
             : product.RepaymentFrequency;
     }
 
+    private async Task<string?> ResolveLoanDebitAccountIdAsync(string? customerId, string? accountId, string accountPurpose)
+    {
+        if (string.IsNullOrWhiteSpace(accountId))
+        {
+            return null;
+        }
+
+        var trimmedAccountId = accountId.Trim();
+        var account = await _context.Accounts.FirstOrDefaultAsync(a => a.Id == trimmedAccountId);
+        if (account == null)
+        {
+            throw new InvalidOperationException($"Selected {accountPurpose} account was not found.");
+        }
+
+        if (!string.Equals(account.Status, "ACTIVE", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException($"Selected {accountPurpose} account is not active.");
+        }
+
+        if (!string.IsNullOrWhiteSpace(customerId) &&
+            !string.Equals(account.CustomerId, customerId, StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException($"Selected {accountPurpose} account does not belong to the loan customer.");
+        }
+
+        return account.Id;
+    }
+
+    private static decimal CalculateAmountDueAsOf(Loan loan, DateOnly asOfDate)
+    {
+        return loan.Schedules
+            .Where(s => IsCollectibleSchedule(s, asOfDate))
+            .Sum(s =>
+            {
+                var balance = s.Balance ?? Math.Max(0m, (s.Total ?? 0m) - (s.PaidAmount ?? 0m));
+                return Math.Max(0m, balance);
+            });
+    }
+
+    private static bool IsCollectibleSchedule(LoanSchedule schedule, DateOnly asOfDate)
+    {
+        if (!schedule.DueDate.HasValue || schedule.DueDate.Value > asOfDate)
+        {
+            return false;
+        }
+
+        var status = schedule.Status?.Trim();
+        if (string.Equals(status, "PAID", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(status, "SETTLED", StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        var balance = schedule.Balance ?? Math.Max(0m, (schedule.Total ?? 0m) - (schedule.PaidAmount ?? 0m));
+        return balance > 0m;
+    }
+
+    private static List<string> BuildLoanAutoDebitAccountList(Loan loan)
+    {
+        var accountIds = new List<string>();
+
+        if (!string.IsNullOrWhiteSpace(loan.ServicingAccountId))
+        {
+            accountIds.Add(loan.ServicingAccountId.Trim());
+        }
+
+        if (!string.IsNullOrWhiteSpace(loan.CollateralAccountId) &&
+            !accountIds.Contains(loan.CollateralAccountId.Trim(), StringComparer.OrdinalIgnoreCase))
+        {
+            accountIds.Add(loan.CollateralAccountId.Trim());
+        }
+
+        return accountIds;
+    }
+
     private async Task<string?> ResolveStaffIdAsync(string? userClaim)
     {
         if (string.IsNullOrWhiteSpace(userClaim))
@@ -2229,6 +2539,31 @@ public class LoanService
             .FirstOrDefaultAsync();
 
         return string.IsNullOrWhiteSpace(byEmail) ? null : byEmail;
+    }
+
+    private async Task<string?> ResolveConfidentialOwnerStaffIdAsync(string? requestedOwnerStaffId, bool isConfidential, string? fallbackStaffId)
+    {
+        if (!isConfidential)
+        {
+            return null;
+        }
+
+        var candidate = string.IsNullOrWhiteSpace(requestedOwnerStaffId)
+            ? fallbackStaffId
+            : requestedOwnerStaffId.Trim();
+
+        if (string.IsNullOrWhiteSpace(candidate))
+        {
+            throw new InvalidOperationException("Confidential loans must have an owning staff member.");
+        }
+
+        var resolved = await ResolveStaffIdAsync(candidate);
+        if (string.IsNullOrWhiteSpace(resolved))
+        {
+            throw new InvalidOperationException("The specified confidential loan owner was not found.");
+        }
+
+        return resolved;
     }
 
     private async Task<decimal> GetDecimalConfigAsync(string key, decimal defaultValue)

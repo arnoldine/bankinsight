@@ -195,7 +195,9 @@ public record InvestmentDto(
     DateTime? LastAccrualDate,
     string? Reference,
     string? Notes,
-    int DaysToMaturity
+    int DaysToMaturity,
+    bool IsConfidential,
+    string? OwnerStaffId
 );
 
 public record CreateInvestmentRequest(
@@ -210,7 +212,9 @@ public record CreateInvestmentRequest(
     DateTime MaturityDate,
     string? SettlementAccount,
     string? Reference,
-    string? Notes
+    string? Notes,
+    bool IsConfidential = false,
+    string? OwnerStaffId = null
 );
 
 public record RolloverInvestmentRequest(

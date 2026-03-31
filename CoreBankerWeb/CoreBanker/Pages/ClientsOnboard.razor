@@ -1,6 +1,8 @@
 @page "/clients/onboard"
 @layout CoreBanker.Layouts.MainLayout
 
+@using Microsoft.AspNetCore.Components.Forms
+
 @inject CoreBanker.Services.ClientService ClientService
 @inject NavigationManager Navigation
 
@@ -50,6 +52,23 @@
                 </MudItem>
             </MudGrid>
 
+            <MudPaper Class="pa-4 mt-4" Elevation="0">
+                <MudText Typo="Typo.subtitle1">Capture Client Media</MudText>
+                <MudText Typo="Typo.body2" Class="mud-text-secondary">Selected images will be uploaded right after the customer record is created. Use PNG or JPG files up to 3 MB each.</MudText>
+                <MudGrid Class="mt-2">
+                    @foreach (var slot in _mediaDrafts)
+                    {
+                        <MudItem xs="12" sm="6" lg="3">
+                            <MudPaper Class="pa-3">
+                                <MudText Typo="Typo.subtitle2">@slot.Label</MudText>
+                                <MudText Typo="Typo.caption" Class="mud-text-secondary">@DisplayValue(slot.FileName)</MudText>
+                                <InputFile OnChange="@(args => CaptureMediaDraftAsync(args, slot.Key))" accept="image/*" />
+                            </MudPaper>
+                        </MudItem>
+                    }
+                </MudGrid>
+            </MudPaper>
+
             <MudStack Row="true" Spacing="2" Class="mt-4">
                 <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary" Disabled="_isSubmitting">Create customer</MudButton>
                 <MudButton Variant="Variant.Outlined" Color="Color.Secondary" OnClick="@(() => Navigation.NavigateTo("/clients"))">Back to clients</MudButton>
@@ -64,6 +83,7 @@
 </MudStack>
 
 @code {
+    private const long MaxMediaBytes = 3 * 1024 * 1024;
     private MudForm? _form;
     private CoreBanker.Services.CreateClientRequest _request = new()
     {
@@ -74,6 +94,13 @@
     private bool _isSubmitting;
     private bool _isSuccess;
     private string _message = string.Empty;
+    private readonly List<MediaDraftSlot> _mediaDrafts =
+    [
+        new("profile-photo", "Profile Photo", "PROFILE_PHOTO", null),
+        new("signature", "Signature", "SIGNATURE", null),
+        new("id-front", "ID Card Front", "ID_CARD", "FRONT"),
+        new("id-back", "ID Card Back", "ID_CARD", "BACK")
+    ];
 
     private async Task CreateClientAsync()
     {
@@ -94,6 +121,20 @@
         try
         {
             var created = await ClientService.CreateClientAsync(_request);
+            if (created is not null)
+            {
+                foreach (var draft in _mediaDrafts.Where(slot => slot.DataUrl is not null))
+                {
+                    await ClientService.UploadClientMediaAsync(created.Id, new CoreBanker.Services.UploadClientMediaRequest
+                    {
+                        MediaType = draft.MediaType,
+                        MediaSide = draft.MediaSide,
+                        FileName = draft.FileName ?? $"{draft.Key}.png",
+                        ContentType = draft.ContentType ?? "image/png",
+                        DataUrl = draft.DataUrl!
+                    });
+                }
+            }
             _isSuccess = true;
             _message = created is null
                 ? "Customer was created."
@@ -105,6 +146,12 @@
                 KycLevel = "Tier 1",
                 RiskRating = "Low"
             };
+            foreach (var slot in _mediaDrafts)
+            {
+                slot.FileName = null;
+                slot.ContentType = null;
+                slot.DataUrl = null;
+            }
 
             await _form.ResetAsync();
         }
@@ -117,5 +164,52 @@
         {
             _isSubmitting = false;
         }
+    }
+
+    private async Task CaptureMediaDraftAsync(InputFileChangeEventArgs args, string key)
+    {
+        var slot = _mediaDrafts.FirstOrDefault(item => item.Key == key);
+        var file = args.File;
+        if (slot is null || file is null)
+        {
+            return;
+        }
+
+        if (!string.IsNullOrWhiteSpace(file.ContentType) && !file.ContentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase))
+        {
+            _isSuccess = false;
+            _message = "Only image uploads are supported for client media.";
+            return;
+        }
+
+        if (file.Size > MaxMediaBytes)
+        {
+            _isSuccess = false;
+            _message = "Client media images must be 3 MB or smaller.";
+            return;
+        }
+
+        using var stream = file.OpenReadStream(5 * 1024 * 1024);
+        using var memory = new MemoryStream();
+        await stream.CopyToAsync(memory);
+        slot.FileName = file.Name;
+        slot.ContentType = string.IsNullOrWhiteSpace(file.ContentType) ? "image/png" : file.ContentType;
+        slot.DataUrl = $"data:{slot.ContentType};base64,{Convert.ToBase64String(memory.ToArray())}";
+    }
+
+    private sealed class MediaDraftSlot(string key, string label, string mediaType, string? mediaSide)
+    {
+        public string Key { get; } = key;
+        public string Label { get; } = label;
+        public string MediaType { get; } = mediaType;
+        public string? MediaSide { get; } = mediaSide;
+        public string? FileName { get; set; }
+        public string? ContentType { get; set; }
+        public string? DataUrl { get; set; }
+    }
+
+    private static string DisplayValue(string? value)
+    {
+        return string.IsNullOrWhiteSpace(value) ? "No file selected" : value;
     }
 }

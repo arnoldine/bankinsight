@@ -2,7 +2,7 @@ namespace CoreBanker.Services
 {
     public class TreasuryService : ApiClientBase
     {
-        public TreasuryService(HttpClient httpClient) : base(httpClient) { }
+        public TreasuryService(HttpClient httpClient, CoreBanker.State.AppState appState) : base(httpClient, appState) { }
 
         public async Task<List<TreasuryPositionDto>> GetPositionsAsync(CancellationToken cancellationToken = default)
         {

@@ -2,7 +2,7 @@ namespace CoreBanker.Services
 {
     public class VaultService : ApiClientBase
     {
-        public VaultService(HttpClient httpClient) : base(httpClient) { }
+        public VaultService(HttpClient httpClient, CoreBanker.State.AppState appState) : base(httpClient, appState) { }
 
         public async Task<List<BranchVaultDto>> GetVaultsAsync(CancellationToken cancellationToken = default)
         {

@@ -20,6 +20,8 @@ export interface Loan {
     repaymentFrequency?: string;
     scheduleType?: string;
     loanProductId?: string;
+    isConfidential?: boolean;
+    ownerStaffId?: string;
 }
 
 export interface DisburseLoanRequest {
@@ -72,6 +74,8 @@ export interface LoanApplyRequest {
     loanProductId: string;
     principal: number;
     clientReference?: string;
+    isConfidential?: boolean;
+    ownerStaffId?: string;
 }
 
 export interface LoanApproveRequest {

@@ -16,12 +16,14 @@ public class ApplicationDbContext : DbContext
     public DbSet<RolePermission> RolePermissions { get; set; }
     public DbSet<UserRole> UserRoles { get; set; }
     public DbSet<Customer> Customers { get; set; }
+    public DbSet<CustomerMediaAsset> CustomerMediaAssets { get; set; }
     public DbSet<Group> Groups { get; set; }
     public DbSet<GroupMember> GroupMembers { get; set; }
     public DbSet<LendingCenter> LendingCenters { get; set; }
     public DbSet<Product> Products { get; set; }
     public DbSet<ProductGroupRule> ProductGroupRules { get; set; }
     public DbSet<ProductEligibilityRule> ProductEligibilityRules { get; set; }
+    public DbSet<ProductChargeDefinition> ProductChargeDefinitions { get; set; }
     public DbSet<Account> Accounts { get; set; }
     public DbSet<Loan> Loans { get; set; }
     public DbSet<LoanProduct> LoanProducts { get; set; }
@@ -45,6 +47,11 @@ public class ApplicationDbContext : DbContext
     public DbSet<GroupGuaranteeLink> GroupGuaranteeLinks { get; set; }
     public DbSet<GroupLoanDelinquencySnapshot> GroupLoanDelinquencySnapshots { get; set; }
     public DbSet<Transaction> Transactions { get; set; }
+    public DbSet<BulkPaymentBatch> BulkPaymentBatches { get; set; }
+    public DbSet<BulkPaymentItem> BulkPaymentItems { get; set; }
+    public DbSet<ChequeClearingItem> ChequeClearingItems { get; set; }
+    public DbSet<ChequeBookInventory> ChequeBookInventories { get; set; }
+    public DbSet<ChequeBookLeaf> ChequeBookLeaves { get; set; }
     public DbSet<AuditLog> AuditLogs { get; set; }
     public DbSet<GlAccount> GlAccounts { get; set; }
     public DbSet<JournalEntry> JournalEntries { get; set; }
@@ -144,6 +151,15 @@ public class ApplicationDbContext : DbContext
             .HasIndex(g => g.GroupCode)
             .IsUnique(false);
 
+        modelBuilder.Entity<CustomerMediaAsset>()
+            .HasOne(m => m.Customer)
+            .WithMany(c => c.MediaAssets)
+            .HasForeignKey(m => m.CustomerId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<CustomerMediaAsset>()
+            .HasIndex(m => new { m.CustomerId, m.MediaType, m.MediaSide, m.UploadedAt });
+
         modelBuilder.Entity<GroupMember>()
             .HasIndex(gm => new { gm.GroupId, gm.CustomerId })
             .IsUnique();
@@ -170,6 +186,16 @@ public class ApplicationDbContext : DbContext
             .WithOne(p => p.EligibilityRule)
             .HasForeignKey<ProductEligibilityRule>(r => r.ProductId)
             .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<ProductChargeDefinition>()
+            .HasOne(c => c.Product)
+            .WithMany(p => p.Charges)
+            .HasForeignKey(c => c.ProductId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<ProductChargeDefinition>()
+            .HasIndex(c => new { c.ProductId, c.Code })
+            .IsUnique();
 
         modelBuilder.Entity<GroupLoanApplication>()
             .HasOne(a => a.Group)
@@ -207,6 +233,45 @@ public class ApplicationDbContext : DbContext
         modelBuilder.Entity<SystemConfig>()
             .HasIndex(sc => sc.Key)
             .IsUnique();
+
+        modelBuilder.Entity<BulkPaymentBatch>()
+            .HasIndex(b => b.BatchReference)
+            .IsUnique();
+
+        modelBuilder.Entity<BulkPaymentItem>()
+            .HasOne(i => i.Batch)
+            .WithMany(b => b.Items)
+            .HasForeignKey(i => i.BatchId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<BulkPaymentItem>()
+            .HasIndex(i => new { i.BatchId, i.Status });
+
+        modelBuilder.Entity<ChequeClearingItem>()
+            .HasIndex(c => new { c.Status, c.ClearingDate });
+
+        modelBuilder.Entity<ChequeClearingItem>()
+            .HasIndex(c => c.ChequeNumber);
+
+        modelBuilder.Entity<ChequeBookInventory>()
+            .HasIndex(c => c.BookReference)
+            .IsUnique();
+
+        modelBuilder.Entity<ChequeBookInventory>()
+            .HasIndex(c => new { c.Status, c.BranchId });
+
+        modelBuilder.Entity<ChequeBookLeaf>()
+            .HasOne(l => l.Book)
+            .WithMany(b => b.Leaves)
+            .HasForeignKey(l => l.BookId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<ChequeBookLeaf>()
+            .HasIndex(l => l.ChequeNumber)
+            .IsUnique();
+
+        modelBuilder.Entity<ChequeBookLeaf>()
+            .HasIndex(l => new { l.BookId, l.Status });
         
         modelBuilder.Entity<Branch>()
             .HasIndex(b => b.Code)

@@ -16,7 +16,7 @@ import {
   Wallet,
   X,
 } from 'lucide-react';
-import { Account, ClientDocument, ClientNote, Customer, Loan, Product, Transaction } from '../types';
+import { Account, ClientDocument, ClientMediaAsset, ClientNote, Customer, Loan, Product, Transaction } from '../types';
 import { customerService, CustomerKycStatus } from '../src/services/customerService';
 
 interface ClientManagerProps {
@@ -27,7 +27,7 @@ interface ClientManagerProps {
   products?: Product[];
   onCreateCustomer: (data: Partial<Customer>) => Promise<unknown> | unknown;
   onUpdateCustomer: (id: string, data: Partial<Customer>) => Promise<unknown> | unknown;
-  onCreateAccount: (cif: string, productCode: string) => Promise<unknown> | unknown;
+  onCreateAccount: (cif: string, productCode: string, options?: { isConfidential?: boolean; ownerStaffId?: string }) => Promise<unknown> | unknown;
   onDirtyChange?: (dirty: boolean) => void;
   initialView?: 'LIST' | 'CREATE' | 'DETAILS';
   initialDetailTab?: 'OVERVIEW' | 'ACCOUNTS' | 'LOANS' | 'TRANSACTIONS' | 'DOCS' | 'NOTES';
@@ -70,6 +70,27 @@ const badgeTone = (value?: string) => {
   return 'bg-slate-50 text-slate-700 border-slate-200';
 };
 
+const readFileAsDataUrl = (file: File): Promise<string> =>
+  new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ''));
+    reader.onerror = () => reject(new Error('Unable to read the selected image.'));
+    reader.readAsDataURL(file);
+  });
+
+const mediaLabel = (mediaType: ClientMediaAsset['mediaType'], mediaSide?: ClientMediaAsset['mediaSide']) => {
+  if (mediaType === 'PROFILE_PHOTO') return 'Profile Photo';
+  if (mediaType === 'SIGNATURE') return 'Signature';
+  return mediaSide === 'BACK' ? 'ID Card Back' : 'ID Card Front';
+};
+
+const emptyMediaDraft = () => ({
+  profilePhoto: null as File | null,
+  signature: null as File | null,
+  idCardFront: null as File | null,
+  idCardBack: null as File | null,
+});
+
 export default function ClientManager({
   customers,
   accounts,
@@ -103,7 +124,9 @@ export default function ClientManager({
   const [editFormData, setEditFormData] = useState<Partial<Customer>>({});
   const [noteInput, setNoteInput] = useState('');
   const [newDoc, setNewDoc] = useState({ type: 'ID Card', name: '' });
+  const [newClientMedia, setNewClientMedia] = useState(emptyMediaDraft());
   const [newAccountProduct, setNewAccountProduct] = useState('');
+  const [newAccountIsConfidential, setNewAccountIsConfidential] = useState(false);
 
   useEffect(() => setView(initialView), [initialView]);
   useEffect(() => setDetailTab(initialDetailTab), [initialDetailTab]);
@@ -139,6 +162,7 @@ export default function ClientManager({
     [products],
   );
   const createDraftDirty = useMemo(() => JSON.stringify(newClient) !== JSON.stringify(newClientTemplate()), [newClient]);
+  const createMediaDirty = useMemo(() => Object.values(newClientMedia).some(Boolean), [newClientMedia]);
   const editDraftDirty = useMemo(() => {
     if (!selectedClient || !isEditing) {
       return false;
@@ -154,11 +178,11 @@ export default function ClientManager({
   }, [editFormData, isEditing, selectedClient]);
   const noteDraftDirty = noteInput.trim().length > 0;
   const documentDraftDirty = newDoc.type.trim() !== 'ID Card' || newDoc.name.trim().length > 0;
-  const accountDraftDirty = newAccountProduct.trim().length > 0;
+  const accountDraftDirty = newAccountProduct.trim().length > 0 || newAccountIsConfidential;
 
   useEffect(() => {
-    onDirtyChange?.(createDraftDirty || editDraftDirty || noteDraftDirty || documentDraftDirty || accountDraftDirty);
-  }, [accountDraftDirty, createDraftDirty, documentDraftDirty, editDraftDirty, noteDraftDirty, onDirtyChange]);
+    onDirtyChange?.(createDraftDirty || createMediaDirty || editDraftDirty || noteDraftDirty || documentDraftDirty || accountDraftDirty);
+  }, [accountDraftDirty, createDraftDirty, createMediaDirty, documentDraftDirty, editDraftDirty, noteDraftDirty, onDirtyChange]);
 
   useEffect(() => {
     if (!selectedClientId) {
@@ -194,6 +218,15 @@ export default function ClientManager({
     };
   }, [selectedClientId]);
 
+  const reloadSelectedClientProfile = async (clientId: string) => {
+    const [profile, kyc] = await Promise.all([customerService.getCustomerProfile(clientId), customerService.getCustomerKyc(clientId)]);
+    setSelectedClient(profile);
+    setKycStatus(kyc);
+    setNotes(profile.notes || []);
+    setDocuments(profile.documents || []);
+    return profile;
+  };
+
   const openClient = (id: string) => {
     setSelectedClientId(id);
     setView('DETAILS');
@@ -220,9 +253,53 @@ export default function ClientManager({
     setIsSaving(true);
     setError(null);
     try {
-      await Promise.resolve(onCreateCustomer(newClient));
+      const created = await Promise.resolve(onCreateCustomer(newClient)) as Customer | undefined;
+      const createdId = created?.id || created?.cif;
+
+      if (createdId) {
+        if (newClientMedia.profilePhoto) {
+          const dataUrl = await readFileAsDataUrl(newClientMedia.profilePhoto);
+          await customerService.uploadCustomerMedia(createdId, {
+            mediaType: 'PROFILE_PHOTO',
+            fileName: newClientMedia.profilePhoto.name,
+            contentType: newClientMedia.profilePhoto.type || 'image/png',
+            dataUrl,
+          });
+        }
+        if (newClientMedia.signature) {
+          const dataUrl = await readFileAsDataUrl(newClientMedia.signature);
+          await customerService.uploadCustomerMedia(createdId, {
+            mediaType: 'SIGNATURE',
+            fileName: newClientMedia.signature.name,
+            contentType: newClientMedia.signature.type || 'image/png',
+            dataUrl,
+          });
+        }
+        if (newClientMedia.idCardFront) {
+          const dataUrl = await readFileAsDataUrl(newClientMedia.idCardFront);
+          await customerService.uploadCustomerMedia(createdId, {
+            mediaType: 'ID_CARD',
+            mediaSide: 'FRONT',
+            fileName: newClientMedia.idCardFront.name,
+            contentType: newClientMedia.idCardFront.type || 'image/png',
+            dataUrl,
+          });
+        }
+        if (newClientMedia.idCardBack) {
+          const dataUrl = await readFileAsDataUrl(newClientMedia.idCardBack);
+          await customerService.uploadCustomerMedia(createdId, {
+            mediaType: 'ID_CARD',
+            mediaSide: 'BACK',
+            fileName: newClientMedia.idCardBack.name,
+            contentType: newClientMedia.idCardBack.type || 'image/png',
+            dataUrl,
+          });
+        }
+      }
+
       setFeedback('Client profile created successfully.');
       setNewClient(newClientTemplate());
+      setNewClientMedia(emptyMediaDraft());
       setView('LIST');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unable to create the client profile.');
@@ -282,6 +359,51 @@ export default function ClientManager({
     }
   };
 
+  const uploadMedia = async (
+    event: React.ChangeEvent<HTMLInputElement>,
+    mediaType: ClientMediaAsset['mediaType'],
+    mediaSide?: ClientMediaAsset['mediaSide'],
+  ) => {
+    const file = event.target.files?.[0];
+    if (!selectedClient || !file) return;
+
+    setIsSaving(true);
+    setError(null);
+    try {
+      const dataUrl = await readFileAsDataUrl(file);
+      await customerService.uploadCustomerMedia(selectedClient.id, {
+        mediaType,
+        mediaSide,
+        fileName: file.name,
+        contentType: file.type || 'image/png',
+        dataUrl,
+      });
+      await reloadSelectedClientProfile(selectedClient.id);
+      setFeedback(`${mediaLabel(mediaType, mediaSide)} uploaded successfully.`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Unable to upload the client image.');
+    } finally {
+      event.target.value = '';
+      setIsSaving(false);
+    }
+  };
+
+  const updateMediaStatus = async (asset: ClientMediaAsset, status: ClientMediaAsset['status']) => {
+    if (!selectedClient) return;
+
+    setIsSaving(true);
+    setError(null);
+    try {
+      await customerService.updateCustomerMediaStatus(selectedClient.id, asset.id, status);
+      await reloadSelectedClientProfile(selectedClient.id);
+      setFeedback(`${mediaLabel(asset.mediaType, asset.mediaSide)} marked ${status.toLowerCase()}.`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Unable to update the media status.');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   const submitAccountOpening = async () => {
     if (!selectedClient || !newAccountProduct) {
       setError('Select a product before opening the account.');
@@ -295,9 +417,10 @@ export default function ClientManager({
 
     setIsSaving(true);
     try {
-      await Promise.resolve(onCreateAccount(selectedClient.id, selectedProduct.id));
+      await Promise.resolve(onCreateAccount(selectedClient.id, selectedProduct.id, { isConfidential: newAccountIsConfidential }));
       setShowAccountModal(false);
       setNewAccountProduct('');
+      setNewAccountIsConfidential(false);
       setFeedback(`Account opening submitted using ${selectedProduct.name}.`);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unable to open the account.');
@@ -312,6 +435,7 @@ export default function ClientManager({
     { label: 'Digital Address', value: selectedClient.digitalAddress || 'Not recorded' },
     { label: 'Identity', value: selectedClient.ghanaCard || selectedClient.businessRegistrationNo || 'Not recorded' },
   ] : [];
+  const kycReadiness = selectedClient?.kycReadiness;
 
   return (
     <div className="min-h-full space-y-6 p-4 sm:p-6">
@@ -438,6 +562,41 @@ export default function ClientManager({
                 <option value="Tier 2">Tier 2</option>
                 <option value="Tier 3">Tier 3</option>
               </select>
+              <label className="flex items-center gap-3 rounded-[20px] border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
+                <input
+                  type="checkbox"
+                  checked={newAccountIsConfidential}
+                  onChange={(event) => setNewAccountIsConfidential(event.target.checked)}
+                />
+                Mark as confidential. Only the owning staff member and super admin will be able to view it.
+              </label>
+            </div>
+
+            <div className="mt-6 rounded-[24px] border border-slate-200 bg-slate-50 p-5">
+              <p className="text-sm font-semibold text-slate-900">Capture Client Media</p>
+              <p className="mt-1 text-sm text-slate-500">Selected images will be uploaded automatically after the customer record is created.</p>
+              <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                {[
+                  { key: 'profilePhoto', label: 'Profile Photo' },
+                  { key: 'signature', label: 'Signature' },
+                  { key: 'idCardFront', label: 'ID Card Front' },
+                  { key: 'idCardBack', label: 'ID Card Back' },
+                ].map((slot) => (
+                  <label key={slot.key} className="rounded-[20px] border border-slate-200 bg-white p-4 text-sm text-slate-700">
+                    <span className="block font-semibold text-slate-900">{slot.label}</span>
+                    <span className="mt-1 block text-xs text-slate-500">{(newClientMedia as Record<string, File | null>)[slot.key]?.name || 'Choose image'}</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="mt-3 block w-full text-xs"
+                      onChange={(event) => {
+                        const file = event.target.files?.[0] || null;
+                        setNewClientMedia((current) => ({ ...current, [slot.key]: file }));
+                      }}
+                    />
+                  </label>
+                ))}
+              </div>
             </div>
 
             <div className="mt-6 flex justify-end gap-3">
@@ -526,6 +685,82 @@ export default function ClientManager({
                       ))}
                     </div>
 
+                    {kycReadiness && (
+                      <div className="rounded-[24px] border border-slate-200 bg-white p-5">
+                        <div className="flex flex-wrap items-start justify-between gap-4">
+                          <div>
+                            <p className="text-xs uppercase tracking-[0.18em] text-slate-500">KYC Readiness</p>
+                            <h4 className="mt-2 text-lg font-semibold text-slate-900">
+                              {kycReadiness.isReadyForAccountOpening ? 'Ready for governed servicing' : 'Pending KYC completion'}
+                            </h4>
+                            <p className="mt-1 text-sm text-slate-500">
+                              Account opening and loan origination now respect the verified client media checklist.
+                            </p>
+                          </div>
+                          <div className="flex flex-wrap gap-2">
+                            <span className={`rounded-full border px-3 py-1 text-xs font-semibold ${kycReadiness.isReadyForAccountOpening ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-amber-200 bg-amber-50 text-amber-700'}`}>
+                              {kycReadiness.isReadyForAccountOpening ? 'Account opening ready' : 'Account opening blocked'}
+                            </span>
+                            <span className={`rounded-full border px-3 py-1 text-xs font-semibold ${kycReadiness.isReadyForLoanOrigination ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-amber-200 bg-amber-50 text-amber-700'}`}>
+                              {kycReadiness.isReadyForLoanOrigination ? 'Loan origination ready' : 'Loan origination blocked'}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="mt-4 grid gap-3 md:grid-cols-2">
+                          {kycReadiness.checklist.map((item) => (
+                            <div
+                              key={item.key}
+                              className={`rounded-[18px] border px-4 py-3 ${item.isSatisfied ? 'border-emerald-200 bg-emerald-50/60' : 'border-amber-200 bg-amber-50/70'}`}
+                            >
+                              <div className="flex items-center justify-between gap-3">
+                                <p className="text-sm font-semibold text-slate-900">{item.label}</p>
+                                <span className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold ${item.isSatisfied ? 'border-emerald-200 bg-white text-emerald-700' : 'border-amber-200 bg-white text-amber-700'}`}>
+                                  {item.isSatisfied ? 'Ready' : 'Pending'}
+                                </span>
+                              </div>
+                              <p className="mt-2 text-xs text-slate-500">{item.detail}</p>
+                            </div>
+                          ))}
+                        </div>
+
+                        {!kycReadiness.isReadyForAccountOpening && kycReadiness.missingRequirements.length > 0 && (
+                          <div className="mt-4 rounded-[18px] border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+                            Missing before account opening: {kycReadiness.missingRequirements.join(', ')}
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                      {[
+                        { title: 'Profile Photo', asset: selectedClient.profilePhoto },
+                        { title: 'Signature', asset: selectedClient.signature },
+                        { title: 'ID Card Front', asset: selectedClient.idCardFront },
+                        { title: 'ID Card Back', asset: selectedClient.idCardBack },
+                      ].map((slot) => (
+                        <div key={slot.title} className="rounded-[22px] border border-slate-200 bg-white p-4">
+                          <p className="text-xs uppercase tracking-[0.18em] text-slate-500">{slot.title}</p>
+                          <div className="mt-3 flex h-28 items-center justify-center overflow-hidden rounded-[16px] border border-slate-100 bg-slate-50">
+                            {slot.asset?.previewUrl ? (
+                              <img src={slot.asset.previewUrl} alt={slot.title} className="h-full w-full object-cover" />
+                            ) : (
+                              <span className="px-3 text-center text-xs text-slate-400">Pending capture</span>
+                            )}
+                          </div>
+                          <div className="mt-3 flex items-center justify-between gap-2">
+                            <span className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold ${badgeTone(slot.asset?.status || 'PENDING')}`}>{slot.asset?.status || 'PENDING'}</span>
+                            {slot.asset && (
+                              <div className="flex gap-2">
+                                <button type="button" onClick={() => updateMediaStatus(slot.asset, 'VERIFIED')} className="rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[11px] font-semibold text-emerald-700">Verify</button>
+                                <button type="button" onClick={() => updateMediaStatus(slot.asset, 'REJECTED')} className="rounded-full border border-red-200 bg-red-50 px-2.5 py-1 text-[11px] font-semibold text-red-700">Reject</button>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
                     {isEditing && (
                       <div className="rounded-[24px] border border-slate-200 bg-slate-50 p-5">
                         <div className="grid gap-4 md:grid-cols-2">
@@ -552,11 +787,21 @@ export default function ClientManager({
                         <h3 className="text-xl font-heading font-bold text-slate-900">Client Accounts</h3>
                         <p className="mt-1 text-sm text-slate-500">Accounts linked to this client profile and product-ready account opening.</p>
                       </div>
-                      <button type="button" onClick={() => setShowAccountModal(true)} className="inline-flex items-center gap-2 rounded-full bg-brand-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-brand-700">
+                      <button
+                        type="button"
+                        onClick={() => setShowAccountModal(true)}
+                        disabled={!kycReadiness?.isReadyForAccountOpening}
+                        className="inline-flex items-center gap-2 rounded-full bg-brand-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-brand-700 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-600"
+                      >
                         <Plus size={16} />
                         Open account
                       </button>
                     </div>
+                    {!kycReadiness?.isReadyForAccountOpening && (
+                      <div className="rounded-[22px] border border-amber-200 bg-amber-50 px-5 py-4 text-sm text-amber-900">
+                        Complete and verify the client photo, signature, and identity evidence before opening a new account.
+                      </div>
+                    )}
                     <div className="grid gap-4 md:grid-cols-2">
                       {clientAccounts.map((account) => (
                         <div key={account.id} className="rounded-[24px] border border-slate-200 bg-white p-5">
@@ -565,7 +810,14 @@ export default function ClientManager({
                               <p className="text-sm font-semibold text-slate-900">{account.type}</p>
                               <p className="text-xs text-slate-500">{account.id}</p>
                             </div>
-                            <span className={`rounded-full border px-2.5 py-1 text-xs font-semibold ${badgeTone(account.status)}`}>{account.status}</span>
+                            <div className="flex flex-wrap justify-end gap-2">
+                              {account.isConfidential && (
+                                <span className="rounded-full border border-violet-200 bg-violet-50 px-2.5 py-1 text-xs font-semibold text-violet-700">
+                                  Confidential
+                                </span>
+                              )}
+                              <span className={`rounded-full border px-2.5 py-1 text-xs font-semibold ${badgeTone(account.status)}`}>{account.status}</span>
+                            </div>
                           </div>
                           <p className="mt-4 text-2xl font-bold text-slate-900">{money.format(account.balance)}</p>
                         </div>
@@ -637,13 +889,58 @@ export default function ClientManager({
                   <div className="space-y-4">
                     <div className="flex items-center justify-between gap-4">
                       <div>
-                        <h3 className="text-xl font-heading font-bold text-slate-900">Document Register</h3>
-                        <p className="mt-1 text-sm text-slate-500">Track document records and verification status for the client profile.</p>
+                        <h3 className="text-xl font-heading font-bold text-slate-900">Client Media & Document Register</h3>
+                        <p className="mt-1 text-sm text-slate-500">Capture profile photos, ID cards, signatures, and supporting document records for the client profile.</p>
                       </div>
                       <button type="button" onClick={() => setShowDocumentModal(true)} className="inline-flex items-center gap-2 rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50">
                         <Upload size={16} />
                         Add document
                       </button>
+                    </div>
+                    <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                      {[
+                        { title: 'Profile Photo', asset: selectedClient.profilePhoto, mediaType: 'PROFILE_PHOTO' as const },
+                        { title: 'Signature', asset: selectedClient.signature, mediaType: 'SIGNATURE' as const },
+                        { title: 'ID Card Front', asset: selectedClient.idCardFront, mediaType: 'ID_CARD' as const, mediaSide: 'FRONT' as const },
+                        { title: 'ID Card Back', asset: selectedClient.idCardBack, mediaType: 'ID_CARD' as const, mediaSide: 'BACK' as const },
+                      ].map((slot) => (
+                        <div key={slot.title} className="rounded-[24px] border border-slate-200 bg-white p-4">
+                          <p className="text-sm font-semibold text-slate-900">{slot.title}</p>
+                          <div className="mt-3 flex h-40 items-center justify-center overflow-hidden rounded-[18px] border border-dashed border-slate-200 bg-slate-50">
+                            {slot.asset?.previewUrl ? (
+                              <img src={slot.asset.previewUrl} alt={slot.title} className="h-full w-full object-cover" />
+                            ) : (
+                              <span className="px-4 text-center text-sm text-slate-400">No image uploaded yet</span>
+                            )}
+                          </div>
+                          <div className="mt-3 flex items-center justify-between gap-3">
+                            <span className={`rounded-full border px-2.5 py-1 text-xs font-semibold ${badgeTone(slot.asset?.status || 'PENDING')}`}>
+                              {slot.asset?.status || 'PENDING'}
+                            </span>
+                            <div className="flex gap-2">
+                              {slot.asset && (
+                                <>
+                                  <button type="button" onClick={() => updateMediaStatus(slot.asset!, 'VERIFIED')} className="rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[11px] font-semibold text-emerald-700">Verify</button>
+                                  <button type="button" onClick={() => updateMediaStatus(slot.asset!, 'REJECTED')} className="rounded-full border border-red-200 bg-red-50 px-2.5 py-1 text-[11px] font-semibold text-red-700">Reject</button>
+                                </>
+                              )}
+                              <label className="inline-flex cursor-pointer items-center gap-2 rounded-full bg-brand-600 px-3.5 py-2 text-xs font-semibold text-white transition hover:bg-brand-700">
+                                <Upload size={14} />
+                                {slot.asset ? 'Replace' : 'Upload'}
+                                <input
+                                  type="file"
+                                  accept="image/*"
+                                  className="hidden"
+                                  onChange={(event) => uploadMedia(event, slot.mediaType, slot.mediaSide)}
+                                />
+                              </label>
+                            </div>
+                          </div>
+                          <p className="mt-2 text-xs text-slate-500">
+                            {slot.asset?.uploadedAt ? `Last updated ${new Date(slot.asset.uploadedAt).toLocaleString()}` : 'PNG or JPG image only.'}
+                          </p>
+                        </div>
+                      ))}
                     </div>
                     <div className="overflow-hidden rounded-[24px] border border-slate-200">
                       <table className="min-w-full divide-y divide-slate-200 text-sm">

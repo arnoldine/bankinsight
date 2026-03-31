@@ -5,12 +5,17 @@
 @inject CoreBanker.State.AppState AppState
 
 <MudStack Spacing="3">
-    <MudPaper Class="pa-4">
+    <MudPaper Class="pa-4 corebanker-workspace-header" Elevation="0">
         <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
-            <div>
-                <MudText Typo="Typo.h4">Settings & Control Room</MudText>
-                <MudText Typo="Typo.body2" Class="mud-text-secondary">Manage platform policies, staff administration, branches, privilege leases, and ORASS readiness.</MudText>
-            </div>
+            <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center">
+                <div class="corebanker-page-icon corebanker-icon-rose">
+                    <MudIcon Icon="@Icons.Material.Filled.SettingsApplications" Size="Size.Large" />
+                </div>
+                <div>
+                    <MudText Typo="Typo.h4">Settings & Control Room</MudText>
+                    <MudText Typo="Typo.body2" Class="mud-text-secondary">Manage platform policies, staff administration, branches, privilege leases, and ORASS readiness.</MudText>
+                </div>
+            </MudStack>
             <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="LoadWorkspaceAsync">Refresh</MudButton>
         </MudStack>
     </MudPaper>
@@ -21,11 +26,28 @@
     }
 
     <MudGrid>
-        <MudItem xs="12" md="3"><MudPaper Class="pa-4"><MudText Typo="Typo.caption">Credit Bureau</MudText><MudText Typo="Typo.h5">@(_snapshot.LoanCreditBureauRequiredForApproval ? "Mandatory" : "Optional")</MudText></MudPaper></MudItem>
-        <MudItem xs="12" md="3"><MudPaper Class="pa-4"><MudText Typo="Typo.caption">Users</MudText><MudText Typo="Typo.h5">@_users.Count</MudText></MudPaper></MudItem>
-        <MudItem xs="12" md="3"><MudPaper Class="pa-4"><MudText Typo="Typo.caption">Branches</MudText><MudText Typo="Typo.h5">@_branches.Count</MudText></MudPaper></MudItem>
-        <MudItem xs="12" md="3"><MudPaper Class="pa-4"><MudText Typo="Typo.caption">ORASS Pending</MudText><MudText Typo="Typo.h5">@(_orassReadiness?.PendingReturns ?? 0)</MudText></MudPaper></MudItem>
+        <MudItem xs="12" md="3"><MudPaper Class="pa-4 corebanker-friendly-stat" Elevation="0"><MudText Typo="Typo.caption">Credit Bureau</MudText><MudText Typo="Typo.h5">@(_snapshot.LoanCreditBureauRequiredForApproval ? "Mandatory" : "Optional")</MudText></MudPaper></MudItem>
+        <MudItem xs="12" md="3"><MudPaper Class="pa-4 corebanker-friendly-stat" Elevation="0"><MudText Typo="Typo.caption">Users</MudText><MudText Typo="Typo.h5">@_users.Count</MudText></MudPaper></MudItem>
+        <MudItem xs="12" md="3"><MudPaper Class="pa-4 corebanker-friendly-stat" Elevation="0"><MudText Typo="Typo.caption">Branches</MudText><MudText Typo="Typo.h5">@_branches.Count</MudText></MudPaper></MudItem>
+        <MudItem xs="12" md="3"><MudPaper Class="pa-4 corebanker-friendly-stat" Elevation="0"><MudText Typo="Typo.caption">ORASS Pending</MudText><MudText Typo="Typo.h5">@(_orassReadiness?.PendingReturns ?? 0)</MudText></MudPaper></MudItem>
     </MudGrid>
+
+    <MudPaper Class="pa-4 corebanker-friendly-guide" Elevation="0">
+        <MudGrid>
+            <MudItem xs="12" md="4">
+                <MudText Typo="Typo.subtitle2">1. Configure policy</MudText>
+                <MudText Typo="Typo.body2" Class="mud-text-secondary">Set operational defaults like credit-bureau enforcement, transaction limits, and EOD scheduler timing.</MudText>
+            </MudItem>
+            <MudItem xs="12" md="4">
+                <MudText Typo="Typo.subtitle2">2. Maintain access</MudText>
+                <MudText Typo="Typo.body2" Class="mud-text-secondary">Create staff, align them to roles and branches, and use temporary leases when elevated access is time-boxed.</MudText>
+            </MudItem>
+            <MudItem xs="12" md="4">
+                <MudText Typo="Typo.subtitle2">3. Clear compliance queue</MudText>
+                <MudText Typo="Typo.body2" Class="mud-text-secondary">Monitor ORASS readiness, submission backlog, and evidence so regulatory operations stay current.</MudText>
+            </MudItem>
+        </MudGrid>
+    </MudPaper>
 
     <MudTabs Rounded="true" Elevation="0">
         <MudTabPanel Text="Configuration">
@@ -45,10 +67,20 @@
                 <MudItem xs="12" lg="7">
                     <MudPaper Class="pa-4">
                         <MudText Typo="Typo.h6">Raw Key/Value Store</MudText>
-                        <MudTable T="CoreBanker.Services.ConfigItemDto" Items="@_configItems" Dense="true" Hover="true" Class="mt-3">
-                            <HeaderContent><MudTh>Key</MudTh><MudTh>Value</MudTh></HeaderContent>
-                            <RowTemplate><MudTd DataLabel="Key">@context.Key</MudTd><MudTd DataLabel="Value">@context.Value</MudTd></RowTemplate>
-                        </MudTable>
+                        @if (_configItems.Count == 0)
+                        {
+                            <MudPaper Class="pa-6 mt-3 corebanker-empty-state" Elevation="0">
+                                <MudText Typo="Typo.h6">No configuration keys available</MudText>
+                                <MudText Typo="Typo.body2" Class="mud-text-secondary">This environment has not returned any raw configuration items yet.</MudText>
+                            </MudPaper>
+                        }
+                        else
+                        {
+                            <MudTable T="CoreBanker.Services.ConfigItemDto" Items="@_configItems" Dense="true" Hover="true" Class="mt-3">
+                                <HeaderContent><MudTh>Key</MudTh><MudTh>Value</MudTh></HeaderContent>
+                                <RowTemplate><MudTd DataLabel="Key">@context.Key</MudTd><MudTd DataLabel="Value">@context.Value</MudTd></RowTemplate>
+                            </MudTable>
+                        }
                     </MudPaper>
                 </MudItem>
             </MudGrid>
@@ -87,16 +119,26 @@
                             <MudText Typo="Typo.h6">User Directory</MudText>
                             <MudTextField @bind-Value="_userFilter" Label="Search" Variant="Variant.Outlined" Margin="Margin.Dense" />
                         </MudStack>
-                        <MudTable T="CoreBanker.Services.AdminUserDto" Items="@FilteredUsers" Dense="true" Hover="true" Class="mt-3">
-                            <HeaderContent><MudTh>Name</MudTh><MudTh>Email</MudTh><MudTh>Role</MudTh><MudTh>Status</MudTh><MudTh></MudTh></HeaderContent>
-                            <RowTemplate>
-                                <MudTd DataLabel="Name">@context.Name</MudTd>
-                                <MudTd DataLabel="Email">@context.Email</MudTd>
-                                <MudTd DataLabel="Role">@GetRoleName(context.RoleIds.FirstOrDefault())</MudTd>
-                                <MudTd DataLabel="Status">@context.Status</MudTd>
-                                <MudTd DataLabel="Actions"><MudButton Variant="Variant.Text" Color="Color.Primary" OnClick="@(() => EditUser(context))">Edit</MudButton><MudButton Variant="Variant.Text" Color="Color.Error" Disabled="@_isSavingUser" OnClick="@(() => DeleteUserAsync(context))">Delete</MudButton></MudTd>
-                            </RowTemplate>
-                        </MudTable>
+                        @if (!FilteredUsers.Any())
+                        {
+                            <MudPaper Class="pa-6 mt-3 corebanker-empty-state" Elevation="0">
+                                <MudText Typo="Typo.h6">No users match this view</MudText>
+                                <MudText Typo="Typo.body2" Class="mud-text-secondary">Clear the current search or create a new operator account from the form on the left.</MudText>
+                            </MudPaper>
+                        }
+                        else
+                        {
+                            <MudTable T="CoreBanker.Services.AdminUserDto" Items="@FilteredUsers" Dense="true" Hover="true" Class="mt-3">
+                                <HeaderContent><MudTh>Name</MudTh><MudTh>Email</MudTh><MudTh>Role</MudTh><MudTh>Status</MudTh><MudTh></MudTh></HeaderContent>
+                                <RowTemplate>
+                                    <MudTd DataLabel="Name">@context.Name</MudTd>
+                                    <MudTd DataLabel="Email">@context.Email</MudTd>
+                                    <MudTd DataLabel="Role">@GetRoleName(context.RoleIds.FirstOrDefault())</MudTd>
+                                    <MudTd DataLabel="Status"><MudChip T="string" Size="Size.Small" Variant="Variant.Text" Color="@GetStatusColor(context.Status)">@context.Status</MudChip></MudTd>
+                                    <MudTd DataLabel="Actions"><MudButton Variant="Variant.Text" Color="Color.Primary" OnClick="@(() => EditUser(context))">Edit</MudButton><MudButton Variant="Variant.Text" Color="Color.Error" Disabled="@_isSavingUser" OnClick="@(() => DeleteUserAsync(context))">Delete</MudButton></MudTd>
+                                </RowTemplate>
+                            </MudTable>
+                        }
                     </MudPaper>
                 </MudItem>
             </MudGrid>
@@ -119,15 +161,25 @@
                 <MudItem xs="12" lg="7">
                     <MudPaper Class="pa-4">
                         <MudText Typo="Typo.h6">Role Catalog</MudText>
-                        <MudTable T="CoreBanker.Services.RoleSummaryDto" Items="@_roles" Dense="true" Hover="true" Class="mt-3">
-                            <HeaderContent><MudTh>Role</MudTh><MudTh>Users</MudTh><MudTh>Permissions</MudTh><MudTh></MudTh></HeaderContent>
-                            <RowTemplate>
-                                <MudTd DataLabel="Role"><MudText Typo="Typo.body2">@context.Name</MudText><MudText Typo="Typo.caption" Class="mud-text-secondary">@context.Description</MudText></MudTd>
-                                <MudTd DataLabel="Users">@context.UserCount</MudTd>
-                                <MudTd DataLabel="Permissions">@string.Join(", ", context.Permissions.Take(4))@(context.Permissions.Count > 4 ? "..." : string.Empty)</MudTd>
-                                <MudTd DataLabel="Actions"><MudButton Variant="Variant.Text" Color="Color.Primary" OnClick="@(() => EditRole(context))">Edit</MudButton></MudTd>
-                            </RowTemplate>
-                        </MudTable>
+                        @if (_roles.Count == 0)
+                        {
+                            <MudPaper Class="pa-6 mt-3 corebanker-empty-state" Elevation="0">
+                                <MudText Typo="Typo.h6">No roles available</MudText>
+                                <MudText Typo="Typo.body2" Class="mud-text-secondary">Create a role definition to start assigning structured permissions to staff.</MudText>
+                            </MudPaper>
+                        }
+                        else
+                        {
+                            <MudTable T="CoreBanker.Services.RoleSummaryDto" Items="@_roles" Dense="true" Hover="true" Class="mt-3">
+                                <HeaderContent><MudTh>Role</MudTh><MudTh>Users</MudTh><MudTh>Permissions</MudTh><MudTh></MudTh></HeaderContent>
+                                <RowTemplate>
+                                    <MudTd DataLabel="Role"><MudText Typo="Typo.body2">@context.Name</MudText><MudText Typo="Typo.caption" Class="mud-text-secondary">@context.Description</MudText></MudTd>
+                                    <MudTd DataLabel="Users">@context.UserCount</MudTd>
+                                    <MudTd DataLabel="Permissions">@string.Join(", ", context.Permissions.Take(4))@(context.Permissions.Count > 4 ? "..." : string.Empty)</MudTd>
+                                    <MudTd DataLabel="Actions"><MudButton Variant="Variant.Text" Color="Color.Primary" OnClick="@(() => EditRole(context))">Edit</MudButton></MudTd>
+                                </RowTemplate>
+                            </MudTable>
+                        }
                     </MudPaper>
                 </MudItem>
             </MudGrid>
@@ -364,6 +416,13 @@
             ShowError(ex.Message);
         }
     }
+
+    private static Color GetStatusColor(string? status) =>
+        string.Equals(status, "ACTIVE", StringComparison.OrdinalIgnoreCase)
+            ? Color.Success
+            : string.Equals(status, "SUSPENDED", StringComparison.OrdinalIgnoreCase)
+                ? Color.Warning
+                : Color.Default;
 
     private async Task SaveConfigAsync()
     {
@@ -658,6 +717,12 @@
             return;
         }
 
+        if (_leaseStartDate.HasValue && _leaseExpiryDate.HasValue && _leaseExpiryDate.Value.Date < _leaseStartDate.Value.Date)
+        {
+            ShowError("The expiry date must be on or after the lease start date.");
+            return;
+        }
+
         if (!_leaseExpiryDate.HasValue)
         {
             ShowError("An expiry date is required.");
@@ -771,6 +836,12 @@
     {
         if (!_selectedReturnId.HasValue)
         {
+            return;
+        }
+
+        if (string.Equals(status, "REJECTED", StringComparison.OrdinalIgnoreCase) && string.IsNullOrWhiteSpace(_acknowledgementMessage))
+        {
+            ShowError("Provide an acknowledgement message before rejecting a return.");
             return;
         }
 

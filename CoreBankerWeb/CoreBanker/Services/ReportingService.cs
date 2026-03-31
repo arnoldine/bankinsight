@@ -2,7 +2,7 @@ namespace CoreBanker.Services
 {
     public class ReportingService : ApiClientBase
     {
-        public ReportingService(HttpClient httpClient) : base(httpClient) { }
+        public ReportingService(HttpClient httpClient, CoreBanker.State.AppState appState) : base(httpClient, appState) { }
 
         public async Task<List<ReportDefinitionDto>> GetReportCatalogAsync(string? reportType = null, CancellationToken cancellationToken = default)
         {

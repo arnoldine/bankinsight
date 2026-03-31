@@ -4,7 +4,7 @@ namespace CoreBanker.Services
 {
     public class GroupLendingService : ApiClientBase
     {
-        public GroupLendingService(HttpClient httpClient) : base(httpClient) { }
+        public GroupLendingService(HttpClient httpClient, CoreBanker.State.AppState appState) : base(httpClient, appState) { }
 
         public async Task<List<LendingGroupDto>> GetGroupsAsync(CancellationToken cancellationToken = default)
         {
