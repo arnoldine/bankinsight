@@ -49,5 +49,14 @@ services:
       - "3002:80"
     restart: unless-stopped
 
+  corebanker:
+    image: ghcr.io/${GHCR_OWNER}/bankinsight-corebanker:${IMAGE_TAG}
+    container_name: corebanker-frontend
+    depends_on:
+      - api
+    ports:
+      - "3003:80"
+    restart: unless-stopped
+
 volumes:
   postgres_data:

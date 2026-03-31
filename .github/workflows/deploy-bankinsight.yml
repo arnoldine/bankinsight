@@ -30,6 +30,10 @@ jobs:
           - service: migration
             dockerfile: migration/Dockerfile
             context: .
+          - service: corebanker
+            dockerfile: CoreBankerWeb/Dockerfile
+            context: CoreBankerWeb
+            build-args: API_BASE_URL=https://bankinsight.rproxyserv.net/
 
     steps:
       - name: Checkout
