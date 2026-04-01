@@ -170,9 +170,20 @@ public class BranchLimitService : IBranchLimitService
 
     private async Task<decimal> GetBranchTransactionTotalAsync(string branchId, string transactionType, string currency, DateTime startDate, DateTime endDate)
     {
-        // This would typically query the transactions table
-        // For now, return 0 as a placeholder
-        return await Task.FromResult(0m);
+        var normalizedType = transactionType.Trim().ToUpperInvariant();
+        var normalizedCurrency = currency.Trim().ToUpperInvariant();
+
+        return await _context.Transactions
+            .AsNoTracking()
+            .Where(transaction =>
+                transaction.Date >= startDate &&
+                transaction.Date < endDate &&
+                transaction.Type.ToUpper() == normalizedType &&
+                transaction.Account != null &&
+                transaction.Account.BranchId == branchId &&
+                transaction.Account.Currency.ToUpper() == normalizedCurrency &&
+                transaction.Status == "POSTED")
+            .SumAsync(transaction => (decimal?)transaction.Amount) ?? 0m;
     }
 
     private async Task<BranchLimitDto> GetLimitDtoAsync(int id)

@@ -265,25 +265,44 @@ namespace BankInsight.API.Services
                 Accounts = new List<TrialBalanceAccountDTO>()
             };
 
-            var glAccounts = await _context.GlAccounts.ToListAsync();
+            var glAccounts = await _context.GlAccounts
+                .AsNoTracking()
+                .ToListAsync();
+
+            // Aggregate in memory to avoid database SUM precision overflows on wide NUMERIC projections.
+            var journalLines = await _context.JournalLines
+                .AsNoTracking()
+                .Where(line => line.AccountCode != null)
+                .Select(line => new
+                {
+                    AccountCode = line.AccountCode!,
+                    line.Debit,
+                    line.Credit
+                })
+                .ToListAsync();
+
+            var balancesByAccount = journalLines
+                .GroupBy(line => line.AccountCode, StringComparer.OrdinalIgnoreCase)
+                .ToDictionary(
+                    group => group.Key,
+                    group => group.Sum(line => line.Debit - line.Credit),
+                    StringComparer.OrdinalIgnoreCase);
 
             foreach (var glAccount in glAccounts)
             {
-                var balance = await _context.JournalLines
-                    .Where(t => t.AccountCode == glAccount.Code)
-                    .SumAsync(t => t.Debit - t.Credit);
-
-                if (balance != 0)
+                if (!balancesByAccount.TryGetValue(glAccount.Code, out var balance) || balance == 0)
                 {
-                    trialBalance.Accounts.Add(new TrialBalanceAccountDTO
-                    {
-                        AccountNumber = glAccount.Code,
-                        AccountName = glAccount.Name,
-                        Balance = balance,
-                        DebitBalance = balance > 0 ? balance : 0,
-                        CreditBalance = balance < 0 ? Math.Abs(balance) : 0
-                    });
+                    continue;
                 }
+
+                trialBalance.Accounts.Add(new TrialBalanceAccountDTO
+                {
+                    AccountNumber = glAccount.Code,
+                    AccountName = glAccount.Name,
+                    Balance = balance,
+                    DebitBalance = balance > 0 ? balance : 0,
+                    CreditBalance = balance < 0 ? Math.Abs(balance) : 0
+                });
             }
 
             trialBalance.TotalDebits = trialBalance.Accounts.Sum(a => a.DebitBalance);

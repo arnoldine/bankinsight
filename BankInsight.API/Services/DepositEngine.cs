@@ -89,10 +89,95 @@ public class DepositEngine : IDepositEngine
     public async Task RunMonthlyCapitalizationJobAsync()
     {
         _logger.LogInformation("Starting Monthly Deposit Capitalization Job");
-        
-        // This job would sum up all un-capitalized InterestAccrued events for the month
-        // and issue an InterestPosted event to modify the underlying Customer Balance directly.
-        // Left as an architectural stub based on the requirements diagram.
-        await Task.CompletedTask;
+
+        var currentMonthStart = new DateTime(DateTime.UtcNow.Year, DateTime.UtcNow.Month, 1);
+        var targetMonthStart = currentMonthStart.AddMonths(-1);
+        var targetMonthEnd = currentMonthStart;
+
+        var accruals = await _context.FinancialEvents
+            .AsNoTracking()
+            .Where(e =>
+                e.EventType == EventTypes.InterestAccrued &&
+                e.EntityType == "Account" &&
+                e.CreatedAt >= targetMonthStart &&
+                e.CreatedAt < targetMonthEnd)
+            .GroupBy(e => new { e.EntityId, e.Currency, e.BranchId })
+            .Select(g => new
+            {
+                AccountId = g.Key.EntityId,
+                Currency = g.Key.Currency,
+                BranchId = g.Key.BranchId,
+                Amount = g.Sum(e => e.Amount)
+            })
+            .ToListAsync();
+
+        foreach (var accrual in accruals.Where(a => a.Amount > 0))
+        {
+            var capitalizationReference = $"CAPITALIZE-{targetMonthStart:yyyyMM}-{accrual.AccountId}";
+
+            var alreadyCapitalized = await _context.FinancialEvents
+                .AnyAsync(e =>
+                    e.EventType == EventTypes.InterestPosted &&
+                    e.EntityType == "Account" &&
+                    e.EntityId == accrual.AccountId &&
+                    e.Reference == capitalizationReference);
+
+            if (alreadyCapitalized)
+            {
+                continue;
+            }
+
+            var account = await _context.Accounts.FirstOrDefaultAsync(a => a.Id == accrual.AccountId);
+            if (account == null || account.Status != "ACTIVE")
+            {
+                continue;
+            }
+
+            using var transaction = await _context.Database.BeginTransactionAsync();
+            try
+            {
+                account.Balance += accrual.Amount;
+                account.LastTransDate = DateTime.UtcNow;
+
+                _context.Transactions.Add(new Transaction
+                {
+                    Id = $"TXN-CAP-{Guid.NewGuid().ToString("N")[..10].ToUpperInvariant()}",
+                    AccountId = account.Id,
+                    Type = "INTEREST_POSTED",
+                    Amount = accrual.Amount,
+                    Narration = $"Monthly interest capitalization for {targetMonthStart:MMMM yyyy}",
+                    Date = DateTime.UtcNow,
+                    Reference = capitalizationReference,
+                    Status = "POSTED"
+                });
+
+                _context.FinancialEvents.Add(new FinancialEvent
+                {
+                    EventType = EventTypes.InterestPosted,
+                    EntityType = "Account",
+                    EntityId = account.Id,
+                    Amount = accrual.Amount,
+                    Currency = account.Currency,
+                    BranchId = account.BranchId ?? accrual.BranchId,
+                    Reference = capitalizationReference,
+                    PayloadJson = JsonSerializer.Serialize(new
+                    {
+                        Month = targetMonthStart.ToString("yyyy-MM"),
+                        AccruedAmount = accrual.Amount
+                    }),
+                    CreatedBy = "SYSTEM"
+                });
+
+                await _context.SaveChangesAsync();
+                await transaction.CommitAsync();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to capitalize deposit interest for account {AccountId}", accrual.AccountId);
+                await transaction.RollbackAsync();
+            }
+        }
+
+        _logger.LogInformation("Finished Monthly Deposit Capitalization Job");
     }
 }

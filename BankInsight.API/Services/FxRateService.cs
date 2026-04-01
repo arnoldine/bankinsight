@@ -2,6 +2,8 @@ using BankInsight.API.Data;
 using BankInsight.API.DTOs;
 using BankInsight.API.Entities;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
+using System.Net.Http.Json;
 
 namespace BankInsight.API.Services;
 
@@ -24,15 +26,18 @@ public class FxRateService : IFxRateService
     private readonly ApplicationDbContext _context;
     private readonly ILogger<FxRateService> _logger;
     private readonly IHttpClientFactory? _httpClientFactory;
+    private readonly IConfiguration? _configuration;
 
     public FxRateService(
         ApplicationDbContext context, 
         ILogger<FxRateService> logger,
-        IHttpClientFactory? httpClientFactory = null)
+        IHttpClientFactory? httpClientFactory = null,
+        IConfiguration? configuration = null)
     {
         _context = context;
         _logger = logger;
         _httpClientFactory = httpClientFactory;
+        _configuration = configuration;
     }
 
     public async Task<FxRateDto> CreateRateAsync(CreateFxRateRequest request)
@@ -204,10 +209,6 @@ public class FxRateService : IFxRateService
 
         try
         {
-            // Bank of Ghana API integration
-            // Note: As of 2025, BoG doesn't have a public REST API for FX rates
-            // This is a placeholder for future integration or custom implementation
-            
             var bogRates = await FetchBogRatesAsync(rateDate);
 
             var createdRates = new List<FxRateDto>();
@@ -266,33 +267,43 @@ public class FxRateService : IFxRateService
 
     private async Task<List<BogFxRateResponse>> FetchBogRatesAsync(DateTime rateDate)
     {
-        // TODO: Implement actual Bank of Ghana API integration
-        // For now, return sample rates for common currencies
-        // In production, this would call: https://www.bog.gov.gh/treasury-and-the-markets/daily-fx-rates/
-        
-        _logger.LogWarning("Using sample FX rates - BoG API not yet integrated");
+        var configuredUrl = _configuration?["BankOfGhana:FxRatesUrl"]?.Trim();
 
-        // Sample rates (as of early 2025 approximate values)
-        return await Task.FromResult(new List<BogFxRateResponse>
+        if (!string.IsNullOrWhiteSpace(configuredUrl) && _httpClientFactory != null)
         {
-            new BogFxRateResponse("USD", 11.50m, rateDate),
-            new BogFxRateResponse("EUR", 13.00m, rateDate),
-            new BogFxRateResponse("GBP", 15.20m, rateDate),
-            new BogFxRateResponse("NGN", 0.014m, rateDate), // 100 NGN to GHS
-            new BogFxRateResponse("XOF", 0.019m, rateDate)  // 100 XOF to GHS
-        });
+            var client = _httpClientFactory.CreateClient();
+            var separator = configuredUrl.Contains('?') ? '&' : '?';
+            var requestUrl = $"{configuredUrl}{separator}date={rateDate:yyyy-MM-dd}";
 
-        /* Production implementation example:
-        if (_httpClientFactory == null)
-            throw new InvalidOperationException("HttpClientFactory not configured");
+            _logger.LogInformation("Fetching FX rates from configured Bank of Ghana source: {Url}", requestUrl);
 
-        var client = _httpClientFactory.CreateClient("BankOfGhana");
-        var response = await client.GetAsync($"/api/fx-rates?date={rateDate:yyyy-MM-dd}");
-        response.EnsureSuccessStatusCode();
-        
-        var rates = await response.Content.ReadFromJsonAsync<List<BogFxRateResponse>>();
-        return rates ?? new List<BogFxRateResponse>();
-        */
+            var response = await client.GetAsync(requestUrl);
+            response.EnsureSuccessStatusCode();
+
+            var rates = await response.Content.ReadFromJsonAsync<List<BogFxRateResponse>>();
+            if (rates != null && rates.Count > 0)
+            {
+                return rates;
+            }
+
+            throw new InvalidOperationException("Configured Bank of Ghana FX source returned no rates.");
+        }
+
+        if (!string.Equals(_configuration?["ASPNETCORE_ENVIRONMENT"], "Production", StringComparison.OrdinalIgnoreCase))
+        {
+            _logger.LogWarning("Using development fallback FX rates because no Bank of Ghana FX source is configured.");
+            return new List<BogFxRateResponse>
+            {
+                new BogFxRateResponse("USD", 11.50m, rateDate),
+                new BogFxRateResponse("EUR", 13.00m, rateDate),
+                new BogFxRateResponse("GBP", 15.20m, rateDate),
+                new BogFxRateResponse("NGN", 0.014m, rateDate),
+                new BogFxRateResponse("XOF", 0.019m, rateDate)
+            };
+        }
+
+        throw new InvalidOperationException(
+            "Bank of Ghana FX source is not configured. Set BankOfGhana:FxRatesUrl or run sync outside production.");
     }
 
     private static FxRateDto MapToDto(FxRate rate)

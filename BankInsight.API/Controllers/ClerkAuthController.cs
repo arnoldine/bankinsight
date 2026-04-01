@@ -1,6 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Security.Cryptography;
+using System.Text;
+using System.Text.Json;
 using System.Threading.Tasks;
 using BankInsight.API.Data;
 using BankInsight.API.DTOs;
@@ -8,6 +11,8 @@ using BankInsight.API.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Hosting;
 
 namespace BankInsight.API.Controllers;
 
@@ -17,13 +22,19 @@ public class ClerkAuthController : ControllerBase
 {
     private readonly IClerkUserSyncService _clerkUserSyncService;
     private readonly ApplicationDbContext _context;
+    private readonly IConfiguration _configuration;
+    private readonly IHostEnvironment _hostEnvironment;
 
     public ClerkAuthController(
         IClerkUserSyncService clerkUserSyncService,
-        ApplicationDbContext context)
+        ApplicationDbContext context,
+        IConfiguration configuration,
+        IHostEnvironment hostEnvironment)
     {
         _clerkUserSyncService = clerkUserSyncService;
         _context = context;
+        _configuration = configuration;
+        _hostEnvironment = hostEnvironment;
     }
 
     /// <summary>
@@ -102,19 +113,102 @@ public class ClerkAuthController : ControllerBase
     /// Webhook endpoint for Clerk user events (user.created, user.updated, user.deleted)
     /// </summary>
     [HttpPost("webhook")]
-    public async Task<IActionResult> HandleClerkWebhook([FromBody] Dictionary<string, object> payload)
+    public async Task<IActionResult> HandleClerkWebhook()
     {
-        // Verify webhook signature in production using Clerk's webhook secret
-        // For now, we'll process the event directly
+        using var reader = new StreamReader(Request.Body, Encoding.UTF8);
+        var body = await reader.ReadToEndAsync();
+
+        if (string.IsNullOrWhiteSpace(body))
+        {
+            return BadRequest(new { message = "Webhook payload is required" });
+        }
+
+        var secret = _configuration["Clerk:WebhookSecret"];
+        if (!string.IsNullOrWhiteSpace(secret))
+        {
+            if (!TryValidateSvixSignature(body, secret, Request.Headers["svix-id"], Request.Headers["svix-timestamp"], Request.Headers["svix-signature"]))
+            {
+                return Unauthorized(new { message = "Invalid Clerk webhook signature" });
+            }
+        }
+        else if (_hostEnvironment.IsProduction())
+        {
+            return StatusCode(500, new { message = "Clerk webhook secret is not configured" });
+        }
+
+        Dictionary<string, object>? payload;
+        try
+        {
+            payload = JsonSerializer.Deserialize<Dictionary<string, object>>(body);
+        }
+        catch (JsonException)
+        {
+            return BadRequest(new { message = "Invalid webhook payload" });
+        }
 
         if (payload == null || !payload.ContainsKey("data"))
         {
             return BadRequest(new { message = "Invalid webhook payload" });
         }
-
-        // TODO: Add signature verification using SVIX or Clerk's webhook secret
         
         return Ok(new { success = true });
+    }
+
+    private static bool TryValidateSvixSignature(string payload, string secret, string? messageId, string? timestamp, string? signaturesHeader)
+    {
+        if (string.IsNullOrWhiteSpace(messageId) ||
+            string.IsNullOrWhiteSpace(timestamp) ||
+            string.IsNullOrWhiteSpace(signaturesHeader))
+        {
+            return false;
+        }
+
+        if (!long.TryParse(timestamp, out var unixTimestamp))
+        {
+            return false;
+        }
+
+        var timestampUtc = DateTimeOffset.FromUnixTimeSeconds(unixTimestamp);
+        if (DateTimeOffset.UtcNow - timestampUtc > TimeSpan.FromMinutes(5))
+        {
+            return false;
+        }
+
+        var normalizedSecret = secret.StartsWith("whsec_", StringComparison.OrdinalIgnoreCase)
+            ? secret["whsec_".Length..]
+            : secret;
+
+        byte[] secretBytes;
+        try
+        {
+            secretBytes = Convert.FromBase64String(normalizedSecret);
+        }
+        catch (FormatException)
+        {
+            return false;
+        }
+
+        var signedPayload = $"{messageId}.{timestamp}.{payload}";
+        using var hmac = new HMACSHA256(secretBytes);
+        var computedSignature = Convert.ToBase64String(hmac.ComputeHash(Encoding.UTF8.GetBytes(signedPayload)));
+
+        var expectedBytes = Encoding.UTF8.GetBytes(computedSignature);
+        var signatures = signaturesHeader
+            .Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Where(entry => entry.StartsWith("v1,", StringComparison.OrdinalIgnoreCase))
+            .Select(entry => entry[3..]);
+
+        foreach (var signature in signatures)
+        {
+            var providedBytes = Encoding.UTF8.GetBytes(signature);
+            if (providedBytes.Length == expectedBytes.Length &&
+                CryptographicOperations.FixedTimeEquals(providedBytes, expectedBytes))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 }
 

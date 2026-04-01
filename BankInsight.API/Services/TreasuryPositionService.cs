@@ -184,15 +184,20 @@ public class TreasuryPositionService : ITreasuryPositionService
 
     public async Task<List<PositionSummaryDto>> GetPositionSummaryAsync()
     {
+        // EF/Npgsql can struggle translating "latest row per group" projections here.
+        // Materialize a lightweight ordered set, then derive the latest record per currency in memory.
         var latestPositions = await _context.TreasuryPositions
-            .GroupBy(p => p.Currency)
-            .Select(g => g.OrderByDescending(p => p.PositionDate).FirstOrDefault())
-            .Where(p => p != null)
+            .AsNoTracking()
+            .OrderByDescending(p => p.PositionDate)
+            .ThenByDescending(p => p.Id)
             .ToListAsync();
 
-        return latestPositions.Select(p =>
+        return latestPositions
+            .GroupBy(p => p.Currency, StringComparer.OrdinalIgnoreCase)
+            .Select(g => g.First())
+            .Select(p =>
         {
-            var utilizationPercent = p!.ExposureLimit.HasValue && p.ExposureLimit.Value > 0
+            var utilizationPercent = p.ExposureLimit.HasValue && p.ExposureLimit.Value > 0
                 ? (p.ClosingBalance / p.ExposureLimit.Value) * 100
                 : 0;
 
