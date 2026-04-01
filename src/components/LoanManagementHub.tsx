@@ -11,7 +11,7 @@ import {
   Wallet,
   X,
 } from 'lucide-react';
-import { Customer } from '../../types';
+import { Account, Customer } from '../../types';
 import { Can } from '../../components/Can';
 import { Permissions } from '../../lib/Permissions';
 import { useLoans } from '../hooks/useApi';
@@ -22,6 +22,7 @@ import { loanService, Loan, LoanProductDefinition, LoanScheduleDto } from '../se
 interface LoanManagementHubProps {
   loans?: Loan[];
   customers?: Customer[];
+  accounts?: Account[];
   onDisburseLoan?: (data: any) => void;
   onRepayLoan?: (loanId: string, data: any) => void;
   onDirtyChange?: (dirty: boolean) => void;
@@ -119,6 +120,7 @@ const bannerToneClass = (tone: BannerTone) =>
 export default function LoanManagementHub({
   loans: initialLoans = [],
   customers: initialCustomers = [],
+  accounts = [],
   onDisburseLoan,
   onRepayLoan,
   onDirtyChange,
@@ -1245,7 +1247,7 @@ export default function LoanManagementHub({
         </div>
       )}
 
-      {activeTab === 'operations' && <LoanOperationsSuite loans={loans} onReload={loadData} />}
+      {activeTab === 'operations' && <LoanOperationsSuite loans={loans} customers={customers} accounts={accounts} onReload={loadData} />}
     </div>
   );
 }

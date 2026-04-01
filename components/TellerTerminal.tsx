@@ -154,6 +154,16 @@ const TellerTerminal: React.FC<TellerTerminalProps> = ({
   });
   const [chequeBusy, setChequeBusy] = useState<'deposit' | 'withdrawal' | null>(null);
   const [chequeFeedback, setChequeFeedback] = useState<{ tone: 'success' | 'error'; message: string } | null>(null);
+  const accountOptions = useMemo(
+    () => [...accounts].sort((left, right) => left.id.localeCompare(right.id)),
+    [accounts],
+  );
+  const selectedAccountChequeOptions = useMemo(
+    () => chequeItems
+      .filter((item) => item.accountId === selectedAccount?.id && item.transactionType === 'WITHDRAWAL')
+      .map((item) => item.chequeNumber),
+    [chequeItems, selectedAccount],
+  );
 
   useEffect(() => {
     setTxType(initialTransactionType);
@@ -589,19 +599,26 @@ const TellerTerminal: React.FC<TellerTerminalProps> = ({
                   <div className="min-w-[220px] flex-1">
                     <label className="block text-xs font-bold uppercase tracking-[0.18em] text-slate-500">Account Number</label>
                     <div className="mt-2 flex">
-                      <input
-                        type="text"
-                        value={accountNum}
-                        onChange={(event) => setAccountNum(event.target.value)}
-                        onKeyDown={(event) => event.key === 'Enter' && findAccount()}
-                        className="flex-1 rounded-l-2xl border border-slate-300 bg-white px-4 py-3 font-mono text-lg text-slate-950 outline-none ring-0 transition focus:border-brand-500 dark:border-slate-600 dark:bg-slate-950 dark:text-white"
-                        placeholder="001100000148"
-                      />
-                      <button onClick={findAccount} className="inline-flex items-center gap-2 rounded-r-2xl border border-l-0 border-slate-300 bg-slate-950 px-4 py-3 text-sm font-semibold text-white hover:bg-slate-800 dark:border-slate-600 dark:bg-white dark:text-slate-950 dark:hover:bg-slate-200">
-                        <Search size={16} /> Lookup
-                      </button>
+                        <input
+                          type="text"
+                          value={accountNum}
+                          onChange={(event) => setAccountNum(event.target.value)}
+                          onKeyDown={(event) => event.key === 'Enter' && findAccount()}
+                          list="teller-account-options"
+                          className="flex-1 rounded-l-2xl border border-slate-300 bg-white px-4 py-3 font-mono text-lg text-slate-950 outline-none ring-0 transition focus:border-brand-500 dark:border-slate-600 dark:bg-slate-950 dark:text-white"
+                          placeholder="001100000148"
+                        />
+                        <datalist id="teller-account-options">
+                          {accountOptions.map((account) => (
+                            <option key={account.id} value={account.id}>{account.id} | {account.type} | {account.cif}</option>
+                          ))}
+                        </datalist>
+                        <button onClick={findAccount} className="inline-flex items-center gap-2 rounded-r-2xl border border-l-0 border-slate-300 bg-slate-950 px-4 py-3 text-sm font-semibold text-white hover:bg-slate-800 dark:border-slate-600 dark:bg-white dark:text-slate-950 dark:hover:bg-slate-200">
+                          <Search size={16} /> Lookup
+                        </button>
+                      </div>
+                      <div className="mt-2 text-xs text-slate-500 dark:text-slate-400">Choose from live account records or paste the exact account number.</div>
                     </div>
-                  </div>
                   <div className="min-w-[220px]">
                     <label className="block text-xs font-bold uppercase tracking-[0.18em] text-slate-500">Transaction Type</label>
                     <select value={txType} onChange={(event) => setTxType(event.target.value as 'DEPOSIT' | 'WITHDRAWAL' | 'TRANSFER')} className="mt-2 w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-900 dark:border-slate-600 dark:bg-slate-950 dark:text-white">
@@ -930,10 +947,15 @@ const TellerTerminal: React.FC<TellerTerminalProps> = ({
               <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Cash withdrawal instrument</div>
               <h4 className="mt-2 text-lg font-semibold text-slate-950 dark:text-white">Cheque withdrawal</h4>
               <div className="mt-4 space-y-3">
-                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
-                  Cheque number
-                  <input value={chequeWithdrawal.chequeNumber} onChange={(event) => setChequeWithdrawal((current) => ({ ...current, chequeNumber: event.target.value }))} className="mt-2 w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm dark:border-slate-600 dark:bg-slate-950 dark:text-white" placeholder="CHQ-WD-001" />
-                </label>
+                  <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                    Cheque number
+                    <input value={chequeWithdrawal.chequeNumber} onChange={(event) => setChequeWithdrawal((current) => ({ ...current, chequeNumber: event.target.value }))} list="teller-cheque-options" className="mt-2 w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm dark:border-slate-600 dark:bg-slate-950 dark:text-white" placeholder="Select an issued cheque leaf" />
+                    <datalist id="teller-cheque-options">
+                      {selectedAccountChequeOptions.map((chequeNumber) => (
+                        <option key={chequeNumber} value={chequeNumber} />
+                      ))}
+                    </datalist>
+                  </label>
                 <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
                   Amount
                   <input type="number" value={chequeWithdrawal.amount} onChange={(event) => setChequeWithdrawal((current) => ({ ...current, amount: event.target.value }))} className="mt-2 w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm dark:border-slate-600 dark:bg-slate-950 dark:text-white" placeholder="0.00" />

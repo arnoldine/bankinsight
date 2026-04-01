@@ -1319,8 +1319,9 @@ export default function EnhancedDashboardLayout({
         return (
           <ProtectedRoute requiredPermission={Permissions.Accounts.View} userPermissions={userPermissions}>
             <TransactionExplorer
-              transactions={transactions}
-              bulkBatches={bulkPaymentBatches}
+                transactions={transactions}
+                accounts={accounts}
+                bulkBatches={bulkPaymentBatches}
               chequeItems={chequeItems}
               chequeBooks={chequeBooks}
               onCreateBulkPaymentBatch={handleCreateBulkPaymentBatch}
@@ -1401,10 +1402,11 @@ export default function EnhancedDashboardLayout({
         return (
           <ProtectedRoute requiredPermission={Permissions.Loans.View} userPermissions={userPermissions}>
             <LoanManagementHub 
-              key={activeTab}
-              loans={loans}
-              customers={customers}
-              onDisburseLoan={handleDisburseLoan}
+                key={activeTab}
+                loans={loans}
+                customers={customers}
+                accounts={accounts}
+                onDisburseLoan={handleDisburseLoan}
               onRepayLoan={(id, data) => console.log('Repay loan:', id, data)}
               onDirtyChange={setHasUnsavedChanges}
               initialTab="portfolio"
@@ -1415,10 +1417,11 @@ export default function EnhancedDashboardLayout({
         return (
           <ProtectedRoute requiredPermission={Permissions.Loans.View} userPermissions={userPermissions}>
             <LoanManagementHub 
-              key={activeTab}
-              loans={loans}
-              customers={customers}
-              onDisburseLoan={handleDisburseLoan}
+                key={activeTab}
+                loans={loans}
+                customers={customers}
+                accounts={accounts}
+                onDisburseLoan={handleDisburseLoan}
               onRepayLoan={(id, data) => console.log('Repay loan:', id, data)}
               onDirtyChange={setHasUnsavedChanges}
               initialTab="origination"

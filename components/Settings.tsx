@@ -147,6 +147,23 @@ const defaultProcessDraft: ProcessDraft = {
     triggerEventType: '',
 };
 
+const PROCESS_MODULE_OPTIONS = ['Operations', 'Loans', 'Accounts', 'Treasury', 'Compliance', 'Group Lending', 'BankingOS'];
+const PROCESS_ENTITY_OPTIONS = ['Transaction', 'Loan', 'Account', 'Customer', 'GroupApplication', 'TreasuryPosition', 'WorkflowTask'];
+const PROCESS_EVENT_OPTIONS = [
+    'transaction.submitted',
+    'transaction.posted',
+    'loan.submitted',
+    'loan.appraised',
+    'loan.approved',
+    'loan.disbursed',
+    'account.opened',
+    'customer.created',
+    'group-lending.application.submitted',
+    'workflow.task.claimed',
+];
+const ORASS_REPORT_CODE_OPTIONS = ['REG-BOG-DBK-ORASS', 'REG-BOG-MFI-ORASS'];
+const ORASS_INSTITUTION_CODE_OPTIONS = ['BOG-DBK', 'BOG-MFI', 'BOG-SACCOS'];
+
 function mergeConfig(config: Partial<SystemConfig> | null | undefined): SystemConfig {
     if (!config) return defaultConfig;
     return {
@@ -1280,9 +1297,16 @@ export default function Settings({
                         <input
                             value={processDraft.code}
                             onChange={(e) => setProcessDraft((current) => ({ ...current, code: e.target.value.toUpperCase().replace(/\s+/g, '_') }))}
+                            list="process-code-patterns"
                             className="mt-1 w-full rounded border border-gray-300 bg-white p-2 dark:border-slate-600 dark:bg-slate-900"
                             placeholder="ACCOUNT_REVIEW"
                         />
+                        <datalist id="process-code-patterns">
+                            <option value="ACCOUNT_REVIEW" />
+                            <option value="LOAN_APPROVAL" />
+                            <option value="TELLER_OVERRIDE" />
+                            <option value="TREASURY_SETTLEMENT" />
+                        </datalist>
                     </label>
                     <label className="text-sm font-medium text-gray-700 dark:text-slate-300">
                         Process Name
@@ -1297,19 +1321,27 @@ export default function Settings({
                         Module
                         <input
                             value={processDraft.module}
+                            list="process-module-options"
                             onChange={(e) => setProcessDraft((current) => ({ ...current, module: e.target.value }))}
                             className="mt-1 w-full rounded border border-gray-300 bg-white p-2 dark:border-slate-600 dark:bg-slate-900"
                             placeholder="Operations"
                         />
+                        <datalist id="process-module-options">
+                            {PROCESS_MODULE_OPTIONS.map((option) => <option key={option} value={option} />)}
+                        </datalist>
                     </label>
                     <label className="text-sm font-medium text-gray-700 dark:text-slate-300">
                         Entity Type
                         <input
                             value={processDraft.entityType}
+                            list="process-entity-options"
                             onChange={(e) => setProcessDraft((current) => ({ ...current, entityType: e.target.value }))}
                             className="mt-1 w-full rounded border border-gray-300 bg-white p-2 dark:border-slate-600 dark:bg-slate-900"
                             placeholder="Transaction"
                         />
+                        <datalist id="process-entity-options">
+                            {PROCESS_ENTITY_OPTIONS.map((option) => <option key={option} value={option} />)}
+                        </datalist>
                     </label>
                     <label className="text-sm font-medium text-gray-700 dark:text-slate-300">
                         Trigger Type
@@ -1327,10 +1359,14 @@ export default function Settings({
                         Trigger Event
                         <input
                             value={processDraft.triggerEventType}
+                            list="process-event-options"
                             onChange={(e) => setProcessDraft((current) => ({ ...current, triggerEventType: e.target.value }))}
                             className="mt-1 w-full rounded border border-gray-300 bg-white p-2 dark:border-slate-600 dark:bg-slate-900"
                             placeholder="transaction.submitted"
                         />
+                        <datalist id="process-event-options">
+                            {PROCESS_EVENT_OPTIONS.map((option) => <option key={option} value={option} />)}
+                        </datalist>
                     </label>
                 </div>
 
@@ -1607,10 +1643,14 @@ const renderAuth = () => (
                         Institution Code
                         <input
                             value={localConfig.orass.institutionCode}
+                            list="orass-institution-code-options"
                             onChange={(e) => updateOrassConfig({ institutionCode: e.target.value.toUpperCase() })}
                             className="mt-1 w-full rounded border border-gray-300 bg-white p-2 dark:border-slate-600 dark:bg-slate-900"
                             placeholder="BOG institution code"
                         />
+                        <datalist id="orass-institution-code-options">
+                            {ORASS_INSTITUTION_CODE_OPTIONS.map((option) => <option key={option} value={option} />)}
+                        </datalist>
                     </label>
                     <label className="text-sm font-medium text-gray-700 dark:text-slate-300">
                         Submission Mode
@@ -1627,10 +1667,14 @@ const renderAuth = () => (
                         Source Report Code
                         <input
                             value={localConfig.orass.sourceReportCode}
+                            list="orass-report-code-options"
                             onChange={(e) => updateOrassConfig({ sourceReportCode: e.target.value.toUpperCase() })}
                             className="mt-1 w-full rounded border border-gray-300 bg-white p-2 dark:border-slate-600 dark:bg-slate-900"
                             placeholder="REG-BOG-DBK-ORASS"
                         />
+                        <datalist id="orass-report-code-options">
+                            {ORASS_REPORT_CODE_OPTIONS.map((option) => <option key={option} value={option} />)}
+                        </datalist>
                     </label>
                     <label className="text-sm font-medium text-gray-700 dark:text-slate-300 md:col-span-2 xl:col-span-3">
                         ORASS Endpoint URL

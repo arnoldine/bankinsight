@@ -3,13 +3,30 @@ import { useLoans } from '../../hooks/useApi';
 import { loanService, Loan, LoanClassificationResult, LoanPenaltyResult, LoanProductDefinition } from '../../services/loanService';
 import { authService } from '../../services/authService';
 import { Permissions } from '../../../lib/Permissions';
+import { Account, Customer } from '../../../types';
 
 interface Props {
   loans: Loan[];
+  customers?: Customer[];
+  accounts?: Account[];
   onReload: () => Promise<void>;
 }
 
-export default function LoanOperationsSuite({ loans, onReload }: Props) {
+const formatCurrency = (value?: number, currency = 'GHS') =>
+  new Intl.NumberFormat('en-GH', {
+    style: 'currency',
+    currency,
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(value || 0);
+
+const loanOptionLabel = (loan: Loan, customerName?: string) =>
+  `${loan.id} | ${customerName || loan.cif} | ${loan.productName || loan.productCode || 'Loan'} | ${loan.status}`;
+
+const accountOptionLabel = (account: Account) =>
+  `${account.id} | ${account.type} | ${formatCurrency(account.balance, account.currency)} | ${account.cif}`;
+
+export default function LoanOperationsSuite({ loans, customers = [], accounts = [], onReload }: Props) {
   const {
     loading,
     error,
@@ -31,7 +48,7 @@ export default function LoanOperationsSuite({ loans, onReload }: Props) {
     : ['workflow', 'servicing', 'credit', 'repayment', 'delinquency', 'postings', 'pnl', 'balancesheet']) as Array<'products' | 'workflow' | 'servicing' | 'credit' | 'repayment' | 'delinquency' | 'postings' | 'pnl' | 'balancesheet'>;
   const [active, setActive] = useState<'products' | 'workflow' | 'servicing' | 'credit' | 'repayment' | 'delinquency' | 'postings' | 'pnl' | 'balancesheet'>(canConfigureProducts ? 'products' : 'workflow');
   const [loanId, setLoanId] = useState('');
-  const [customerId, setCustomerId] = useState('CUST0001');
+  const [customerId, setCustomerId] = useState('');
   const [creditResult, setCreditResult] = useState<any>(null);
   const [delinquency, setDelinquency] = useState<any>(null);
   const [postings, setPostings] = useState<any[]>([]);
@@ -56,14 +73,14 @@ export default function LoanOperationsSuite({ loans, onReload }: Props) {
   });
 
   const [workflowForm, setWorkflowForm] = useState({
-    customerId: 'CUST0001',
+    customerId: '',
     loanProductId: 'LP_CONS_MONTHLY',
     principal: 900,
   });
 
   const [repaymentForm, setRepaymentForm] = useState({
     loanId: '',
-    accountId: 'ACC0001',
+    accountId: '',
     amount: 100,
   });
   const [servicingForm, setServicingForm] = useState({
@@ -77,13 +94,30 @@ export default function LoanOperationsSuite({ loans, onReload }: Props) {
 
   const activeLoanOptions = useMemo(() => loans.filter(l => l.status !== 'CLOSED'), [loans]);
   const approvedLoanOptions = useMemo(() => loans.filter(l => ['APPROVED', 'ACTIVE', 'DISBURSED'].includes(String(l.status || '').toUpperCase())), [loans]);
+  const customerNameById = useMemo(() => new Map(customers.map((customer) => [customer.id, customer.name])), [customers]);
   const selectedWorkflowProduct = useMemo(
     () => loanProducts.find(product => product.id === workflowForm.loanProductId) || null,
     [loanProducts, workflowForm.loanProductId],
   );
+  const selectedWorkflowCustomer = useMemo(
+    () => customers.find(customer => customer.id === workflowForm.customerId) || null,
+    [customers, workflowForm.customerId],
+  );
   const selectedServicingLoan = useMemo(
     () => loans.find(loan => loan.id === servicingForm.loanId) || null,
     [loans, servicingForm.loanId],
+  );
+  const selectedRepaymentLoan = useMemo(
+    () => loans.find(loan => loan.id === repaymentForm.loanId) || null,
+    [loans, repaymentForm.loanId],
+  );
+  const relatedAccounts = useMemo(
+    () => (selectedServicingLoan ? accounts.filter(account => account.cif === selectedServicingLoan.cif) : []),
+    [accounts, selectedServicingLoan],
+  );
+  const repaymentAccounts = useMemo(
+    () => (selectedRepaymentLoan ? accounts.filter(account => account.cif === selectedRepaymentLoan.cif) : []),
+    [accounts, selectedRepaymentLoan],
   );
 
   useEffect(() => {
@@ -108,6 +142,27 @@ export default function LoanOperationsSuite({ loans, onReload }: Props) {
       setActive('workflow');
     }
   }, [active, canConfigureProducts]);
+
+  useEffect(() => {
+    if (!workflowForm.customerId && customers.length > 0) {
+      setWorkflowForm(current => ({ ...current, customerId: customers[0].id }));
+    }
+    if (!customerId && customers.length > 0) {
+      setCustomerId(customers[0].id);
+    }
+  }, [customerId, customers, workflowForm.customerId]);
+
+  useEffect(() => {
+    if (repaymentAccounts.length > 0 && !repaymentAccounts.some(account => account.id === repaymentForm.accountId)) {
+      setRepaymentForm(current => ({ ...current, accountId: repaymentAccounts[0].id }));
+    }
+  }, [repaymentAccounts, repaymentForm.accountId]);
+
+  useEffect(() => {
+    if (relatedAccounts.length > 0 && !relatedAccounts.some(account => account.id === servicingForm.servicingAccountId)) {
+      setServicingForm(current => ({ ...current, servicingAccountId: relatedAccounts[0].id }));
+    }
+  }, [relatedAccounts, servicingForm.servicingAccountId]);
 
   const runProductConfig = async () => {
     await loanService.configureLoanProduct(productForm as any);
@@ -237,12 +292,16 @@ export default function LoanOperationsSuite({ loans, onReload }: Props) {
         <div className="bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-lg p-4 space-y-3">
           <h4 className="font-semibold">Application + Approval Workflow</h4>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-            <input className="px-3 py-2 rounded border" value={workflowForm.customerId} onChange={e => setWorkflowForm({ ...workflowForm, customerId: e.target.value })} placeholder="Customer ID" />
+            <select className="px-3 py-2 rounded border" value={workflowForm.customerId} onChange={e => setWorkflowForm({ ...workflowForm, customerId: e.target.value })}>
+              <option value="">Select customer</option>
+              {customers.map(customer => <option key={customer.id} value={customer.id}>{customer.name} | {customer.id}</option>)}
+            </select>
             <select className="px-3 py-2 rounded border" value={workflowForm.loanProductId} onChange={e => setWorkflowForm({ ...workflowForm, loanProductId: e.target.value })}>
               {loanProducts.map(product => <option key={product.id} value={product.id}>{product.name}</option>)}
             </select>
             <input className="px-3 py-2 rounded border" type="number" value={workflowForm.principal} onChange={e => setWorkflowForm({ ...workflowForm, principal: Number(e.target.value) })} placeholder="Principal" />
           </div>
+          {selectedWorkflowCustomer && <div className="rounded border p-3 text-sm text-slate-600 dark:text-slate-300">Borrower: <span className="font-semibold text-slate-900 dark:text-white">{selectedWorkflowCustomer.name}</span> | CIF {selectedWorkflowCustomer.id}</div>}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-3 text-sm">
             <div className="p-2 border rounded"><div className="text-gray-500">Annual Rate</div><div className="font-semibold">{selectedWorkflowProduct?.annualInterestRate ?? 0}%</div></div>
             <div className="p-2 border rounded"><div className="text-gray-500">Term</div><div className="font-semibold">{selectedWorkflowProduct?.termInPeriods ?? 0} periods</div></div>
@@ -250,7 +309,7 @@ export default function LoanOperationsSuite({ loans, onReload }: Props) {
             <div className="p-2 border rounded"><div className="text-gray-500">Interest Method</div><div className="font-semibold">{selectedWorkflowProduct?.interestMethod ?? 'N/A'}</div></div>
           </div>
           <div className="text-xs text-slate-500 dark:text-slate-400">Product parameters are read-only here and managed only from the Product Definition tab.</div>
-          <button disabled={loading || !workflowForm.loanProductId} onClick={runWorkflow} className="px-4 py-2 bg-blue-600 text-white rounded">Run Apply {'->'} Appraise {'->'} Approve {'->'} Disburse</button>
+          <button disabled={loading || !workflowForm.loanProductId || !workflowForm.customerId} onClick={runWorkflow} className="px-4 py-2 bg-blue-600 text-white rounded">Run Apply {'->'} Appraise {'->'} Approve {'->'} Disburse</button>
           {loanId && <div className="text-sm">Latest Loan ID: <span className="font-mono">{loanId}</span></div>}
         </div>
       )}
@@ -266,12 +325,18 @@ export default function LoanOperationsSuite({ loans, onReload }: Props) {
             <select className="px-3 py-2 rounded border" value={servicingForm.loanId} onChange={e => setServicingForm({ ...servicingForm, loanId: e.target.value })}>
               <option value="">Select Loan</option>
               {approvedLoanOptions.map(loan => (
-                <option key={loan.id} value={loan.id}>{loan.id} | {loan.productName || loan.productCode} | {loan.status}</option>
+                <option key={loan.id} value={loan.id}>{loanOptionLabel(loan, customerNameById.get(loan.cif))}</option>
               ))}
             </select>
             <input className="px-3 py-2 rounded border" value={servicingForm.clientReference} onChange={e => setServicingForm({ ...servicingForm, clientReference: e.target.value })} placeholder="Client reference" />
-            <input className="px-3 py-2 rounded border" value={servicingForm.servicingAccountId} onChange={e => setServicingForm({ ...servicingForm, servicingAccountId: e.target.value })} placeholder="Servicing account ID" />
-            <input className="px-3 py-2 rounded border" value={servicingForm.collateralAccountId} onChange={e => setServicingForm({ ...servicingForm, collateralAccountId: e.target.value })} placeholder="Collateral account ID" />
+            <select className="px-3 py-2 rounded border" value={servicingForm.servicingAccountId} onChange={e => setServicingForm({ ...servicingForm, servicingAccountId: e.target.value })}>
+              <option value="">Select servicing account</option>
+              {relatedAccounts.map(account => <option key={account.id} value={account.id}>{accountOptionLabel(account)}</option>)}
+            </select>
+            <select className="px-3 py-2 rounded border" value={servicingForm.collateralAccountId} onChange={e => setServicingForm({ ...servicingForm, collateralAccountId: e.target.value })}>
+              <option value="">Select collateral account</option>
+              {relatedAccounts.map(account => <option key={account.id} value={account.id}>{accountOptionLabel(account)}</option>)}
+            </select>
             <input className="px-3 py-2 rounded border" type="number" min="0" step="0.01" value={servicingForm.penaltyRate} onChange={e => setServicingForm({ ...servicingForm, penaltyRate: Number(e.target.value) })} placeholder="Penalty rate" />
             <input className="px-3 py-2 rounded border" value={servicingForm.reason} onChange={e => setServicingForm({ ...servicingForm, reason: e.target.value })} placeholder="Penalty reason" />
           </div>
@@ -326,8 +391,14 @@ export default function LoanOperationsSuite({ loans, onReload }: Props) {
         <div className="bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-lg p-4 space-y-3">
           <h4 className="font-semibold">Credit Bureau Inquiry</h4>
           <div className="flex gap-2">
-            <input className="px-3 py-2 rounded border" value={customerId} onChange={e => setCustomerId(e.target.value)} placeholder="Customer ID" />
-            <input className="px-3 py-2 rounded border" value={loanId} onChange={e => setLoanId(e.target.value)} placeholder="Loan ID (optional)" />
+            <select className="px-3 py-2 rounded border" value={customerId} onChange={e => setCustomerId(e.target.value)}>
+              <option value="">Select customer</option>
+              {customers.map(customer => <option key={customer.id} value={customer.id}>{customer.name} | {customer.id}</option>)}
+            </select>
+            <select className="px-3 py-2 rounded border" value={loanId} onChange={e => setLoanId(e.target.value)}>
+              <option value="">Select loan (optional)</option>
+              {activeLoanOptions.filter(loan => !customerId || loan.cif === customerId).map(loan => <option key={loan.id} value={loan.id}>{loanOptionLabel(loan, customerNameById.get(loan.cif))}</option>)}
+            </select>
             <button disabled={loading} onClick={runCredit} className="px-4 py-2 bg-blue-600 text-white rounded">Check Credit</button>
           </div>
           {creditResult && (
@@ -347,12 +418,15 @@ export default function LoanOperationsSuite({ loans, onReload }: Props) {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             <select className="px-3 py-2 rounded border" value={repaymentForm.loanId} onChange={e => setRepaymentForm({ ...repaymentForm, loanId: e.target.value })}>
               <option value="">Select Loan</option>
-              {activeLoanOptions.map(l => <option key={l.id} value={l.id}>{l.id}</option>)}
+              {activeLoanOptions.map(loan => <option key={loan.id} value={loan.id}>{loanOptionLabel(loan, customerNameById.get(loan.cif))}</option>)}
             </select>
-            <input className="px-3 py-2 rounded border" value={repaymentForm.accountId} onChange={e => setRepaymentForm({ ...repaymentForm, accountId: e.target.value })} placeholder="Account ID" />
+            <select className="px-3 py-2 rounded border" value={repaymentForm.accountId} onChange={e => setRepaymentForm({ ...repaymentForm, accountId: e.target.value })}>
+              <option value="">Select settlement account</option>
+              {repaymentAccounts.map(account => <option key={account.id} value={account.id}>{accountOptionLabel(account)}</option>)}
+            </select>
             <input className="px-3 py-2 rounded border" type="number" value={repaymentForm.amount} onChange={e => setRepaymentForm({ ...repaymentForm, amount: Number(e.target.value) })} placeholder="Amount" />
           </div>
-          <button disabled={loading || !repaymentForm.loanId} onClick={runRepayment} className="px-4 py-2 bg-blue-600 text-white rounded">Post Repayment</button>
+          <button disabled={loading || !repaymentForm.loanId || !repaymentForm.accountId} onClick={runRepayment} className="px-4 py-2 bg-blue-600 text-white rounded">Post Repayment</button>
         </div>
       )}
 
@@ -376,7 +450,10 @@ export default function LoanOperationsSuite({ loans, onReload }: Props) {
         <div className="bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-lg p-4 space-y-3">
           <h4 className="font-semibold">Loan Accounting Postings Viewer</h4>
           <div className="flex gap-2">
-            <input className="px-3 py-2 rounded border" value={loanId} onChange={e => setLoanId(e.target.value)} placeholder="Loan ID" />
+            <select className="px-3 py-2 rounded border" value={loanId} onChange={e => setLoanId(e.target.value)}>
+              <option value="">Select loan</option>
+              {activeLoanOptions.map(loan => <option key={loan.id} value={loan.id}>{loanOptionLabel(loan, customerNameById.get(loan.cif))}</option>)}
+            </select>
             <button disabled={loading || !loanId} onClick={loadPostings} className="px-4 py-2 bg-blue-600 text-white rounded">Load GL Postings</button>
           </div>
           <div className="space-y-2">

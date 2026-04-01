@@ -27,6 +27,19 @@ import {
   BankingOSTheme
 } from '../services/bankingOSService';
 
+const BANKING_OS_ACTOR_ROLE_OPTIONS = [
+  'Operations',
+  'Operations Supervisor',
+  'Branch Manager',
+  'Credit Officer',
+  'Credit Supervisor',
+  'Finance',
+  'Compliance',
+  'Risk',
+  'Treasury',
+  'Teller',
+];
+
 export default function BankingOSControlCenter() {
   const [processPack, setProcessPack] = useState<BankingOSProcessPack | null>(null);
   const [forms, setForms] = useState<BankingOSSeedForm[]>([]);
@@ -328,6 +341,10 @@ export default function BankingOSControlCenter() {
   const validationRules = taskContext?.validationRules || [];
   const taskActions = taskContext?.actions || [];
   const screenSections = taskContext?.screen?.sections || [];
+  const formCodeOptions = useMemo(
+    () => forms.map((form) => form.code).sort((left, right) => left.localeCompare(right)),
+    [forms]
+  );
 
   useEffect(() => {
     if (!selectedRuntimeForm) {
@@ -1306,14 +1323,20 @@ export default function BankingOSControlCenter() {
                               Stage name
                               <input value={stage.displayName} onChange={(event) => updateProcessStageField(index, 'displayName', event.target.value)} className="mt-2 w-full rounded-2xl border border-slate-300/90 bg-white px-3.5 py-3 text-sm dark:border-slate-600 dark:bg-slate-950/80" />
                             </label>
-                            <label className="text-sm font-medium text-slate-700 dark:text-slate-200">
-                              Actor role
-                              <input value={stage.actorRole} onChange={(event) => updateProcessStageField(index, 'actorRole', event.target.value)} className="mt-2 w-full rounded-2xl border border-slate-300/90 bg-white px-3.5 py-3 text-sm dark:border-slate-600 dark:bg-slate-950/80" />
-                            </label>
-                            <label className="text-sm font-medium text-slate-700 dark:text-slate-200">
-                              Form code
-                              <input value={stage.formCode || ''} onChange={(event) => updateProcessStageField(index, 'formCode', event.target.value)} className="mt-2 w-full rounded-2xl border border-slate-300/90 bg-white px-3.5 py-3 text-sm dark:border-slate-600 dark:bg-slate-950/80" />
-                            </label>
+                              <label className="text-sm font-medium text-slate-700 dark:text-slate-200">
+                                Actor role
+                                <input value={stage.actorRole} list={`bankingos-actor-role-options-${index}`} onChange={(event) => updateProcessStageField(index, 'actorRole', event.target.value)} className="mt-2 w-full rounded-2xl border border-slate-300/90 bg-white px-3.5 py-3 text-sm dark:border-slate-600 dark:bg-slate-950/80" />
+                                <datalist id={`bankingos-actor-role-options-${index}`}>
+                                  {BANKING_OS_ACTOR_ROLE_OPTIONS.map((role) => <option key={role} value={role} />)}
+                                </datalist>
+                              </label>
+                              <label className="text-sm font-medium text-slate-700 dark:text-slate-200">
+                                Form code
+                                <input value={stage.formCode || ''} list={`bankingos-form-code-options-${index}`} onChange={(event) => updateProcessStageField(index, 'formCode', event.target.value)} className="mt-2 w-full rounded-2xl border border-slate-300/90 bg-white px-3.5 py-3 text-sm dark:border-slate-600 dark:bg-slate-950/80" />
+                                <datalist id={`bankingos-form-code-options-${index}`}>
+                                  {formCodeOptions.map((code) => <option key={code} value={code} />)}
+                                </datalist>
+                              </label>
                             <label className="text-sm font-medium text-slate-700 dark:text-slate-200">
                               Actions
                               <input

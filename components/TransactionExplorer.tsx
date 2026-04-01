@@ -1,9 +1,10 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { BulkPaymentBatch, ChequeBookInventory, ChequeClearingItem, Transaction } from '../types';
+import { Account, BulkPaymentBatch, ChequeBookInventory, ChequeClearingItem, Transaction } from '../types';
 import { ArrowDown, ArrowUp, ArrowUpDown, BadgeAlert, CircleDollarSign, Clock3, Landmark, RefreshCw, Search, WalletCards, X } from 'lucide-react';
 
 interface TransactionExplorerProps {
   transactions: Transaction[];
+  accounts?: Account[];
   bulkBatches?: BulkPaymentBatch[];
   chequeItems?: ChequeClearingItem[];
   chequeBooks?: ChequeBookInventory[];
@@ -41,6 +42,9 @@ const emptyBulkItem = (): BulkDraftItem => ({ accountId: '', transactionType: 'D
 const formatMoney = (value: number, currency = 'GHS') =>
   new Intl.NumberFormat('en-GH', { style: 'currency', currency, minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value || 0);
 
+const accountOptionLabel = (account: Account) =>
+  `${account.id} | ${account.type} | ${formatMoney(account.balance, account.currency)} | ${account.cif}`;
+
 const statusTone = (status: string) => {
   const normalized = status.toUpperCase();
   if (['POSTED', 'COMPLETED', 'CLEARED', 'PAID'].includes(normalized)) return 'bg-emerald-50 text-emerald-700 border-emerald-200';
@@ -60,6 +64,7 @@ function Metric({ label, value }: { label: string; value: string }) {
 
 const TransactionExplorer: React.FC<TransactionExplorerProps> = ({
   transactions,
+  accounts = [],
   bulkBatches = [],
   chequeItems = [],
   chequeBooks = [],
@@ -87,6 +92,10 @@ const TransactionExplorer: React.FC<TransactionExplorerProps> = ({
   const [chequeBookDraft, setChequeBookDraft] = useState({ branchId: 'BR001', seriesPrefix: 'GH', startSerialNumber: '', leafCount: '25', remarks: '' });
   const [issueAccountByBook, setIssueAccountByBook] = useState<Record<string, string>>({});
   const [chequeBookBusy, setChequeBookBusy] = useState<string | null>(null);
+  const accountOptions = useMemo(
+    () => [...accounts].sort((left, right) => left.id.localeCompare(right.id)),
+    [accounts],
+  );
 
   useEffect(() => setLastUpdated(new Date()), [transactions, bulkBatches, chequeItems]);
 
@@ -327,7 +336,10 @@ const TransactionExplorer: React.FC<TransactionExplorerProps> = ({
                   <div key={`bulk-item-${index}`} className="rounded-xl border border-slate-200 bg-white p-4">
                     <div className="mb-3 flex items-center justify-between"><div className="text-sm font-semibold text-slate-800">Line {index + 1}</div><button onClick={() => removeBulkItem(index)} className="text-sm text-rose-600 hover:text-rose-700">Remove</button></div>
                     <div className="grid gap-3 md:grid-cols-2">
-                      <input value={item.accountId} onChange={(e) => updateBulkItem(index, { accountId: e.target.value })} placeholder="Account ID" className="rounded-lg border border-slate-300 px-3 py-2.5 text-sm" />
+                      <input value={item.accountId} onChange={(e) => updateBulkItem(index, { accountId: e.target.value })} list={`bulk-account-options-${index}`} placeholder="Select account" className="rounded-lg border border-slate-300 px-3 py-2.5 text-sm" />
+                      <datalist id={`bulk-account-options-${index}`}>
+                        {accountOptions.map((account) => <option key={account.id} value={account.id}>{accountOptionLabel(account)}</option>)}
+                      </datalist>
                       <select value={item.transactionType} onChange={(e) => updateBulkItem(index, { transactionType: e.target.value as Transaction['type'] })} className="rounded-lg border border-slate-300 px-3 py-2.5 text-sm"><option value="DEPOSIT">Deposit</option><option value="WITHDRAWAL">Withdrawal</option><option value="TRANSFER">Transfer</option><option value="LOAN_REPAYMENT">Loan Repayment</option></select>
                       <input value={item.amount} onChange={(e) => updateBulkItem(index, { amount: e.target.value })} placeholder="Amount" type="number" className="rounded-lg border border-slate-300 px-3 py-2.5 text-sm" />
                       <input value={item.tellerId} onChange={(e) => updateBulkItem(index, { tellerId: e.target.value })} placeholder="Teller or operator ID" className="rounded-lg border border-slate-300 px-3 py-2.5 text-sm" />
@@ -399,7 +411,10 @@ const TransactionExplorer: React.FC<TransactionExplorerProps> = ({
                       </div>
                       {book.status === 'IN_STOCK' && onIssueChequeBook && (
                         <div className="mt-3 flex gap-2">
-                          <input value={issueAccountByBook[book.id] || ''} onChange={(e) => setIssueAccountByBook((current) => ({ ...current, [book.id]: e.target.value }))} placeholder="Issue to account ID" className="flex-1 rounded-lg border border-slate-300 px-3 py-2.5 text-sm" />
+                          <input value={issueAccountByBook[book.id] || ''} onChange={(e) => setIssueAccountByBook((current) => ({ ...current, [book.id]: e.target.value }))} list={`issue-account-options-${book.id}`} placeholder="Select account for issuance" className="flex-1 rounded-lg border border-slate-300 px-3 py-2.5 text-sm" />
+                          <datalist id={`issue-account-options-${book.id}`}>
+                            {accountOptions.map((account) => <option key={account.id} value={account.id}>{accountOptionLabel(account)}</option>)}
+                          </datalist>
                           <button onClick={() => void submitChequeBookIssue(book)} disabled={chequeBookBusy === book.id} className="rounded-lg bg-brand-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-50">
                             {chequeBookBusy === book.id ? 'Issuing...' : 'Issue'}
                           </button>
