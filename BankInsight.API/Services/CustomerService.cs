@@ -92,19 +92,22 @@ public class CustomerService
         var prefix = $"CIF-{yearMonth}";
         var seq = await _sequenceService.GetNextSequenceAsync(prefix);
         var id = $"{prefix}-{seq:D5}";
+        var resolvedName = ResolveCustomerName(request);
 
         var customer = new Customer
         {
             Id = id,
             Type = request.Type,
-            Name = request.Name,
-            GhanaCard = request.GhanaCard,
-            DigitalAddress = request.DigitalAddress,
+            Name = resolvedName,
+            GhanaCard = string.IsNullOrWhiteSpace(request.GhanaCard) ? request.IdNumber : request.GhanaCard,
+            DigitalAddress = string.IsNullOrWhiteSpace(request.DigitalAddress) ? request.Address : request.DigitalAddress,
             KycLevel = request.KycLevel ?? "Tier 1",
             Phone = request.Phone,
             Email = request.Email,
             RiskRating = request.RiskRating ?? "Low",
-            BranchId = !string.IsNullOrEmpty(_currentUser.BranchId) ? _currentUser.BranchId : "BR001",
+            BranchId = !string.IsNullOrEmpty(request.BranchId) ? request.BranchId : (!string.IsNullOrEmpty(_currentUser.BranchId) ? _currentUser.BranchId : "BR001"),
+            DateOfBirth = request.DateOfBirth,
+            Gender = request.Gender,
             CreatedAt = DateTime.UtcNow
         };
 
@@ -321,6 +324,20 @@ public class CustomerService
             IdCardBack = SelectLatest(mappedMedia, "ID_CARD", "BACK"),
             KycReadiness = readiness
         };
+    }
+
+    private static string ResolveCustomerName(CreateCustomerRequest request)
+    {
+        if (!string.IsNullOrWhiteSpace(request.Name))
+        {
+            return request.Name.Trim();
+        }
+
+        var combined = string.Join(" ", new[] { request.FirstName, request.OtherName, request.LastName }
+            .Where(value => !string.IsNullOrWhiteSpace(value))
+            .Select(value => value!.Trim()));
+
+        return combined;
     }
 
     private static CustomerMediaDto MapMedia(CustomerMediaAsset asset)

@@ -23,7 +23,7 @@ public class ProductController : ControllerBase
     [RequirePermission("VIEW_PRODUCTS")]
     public async Task<IActionResult> GetProducts()
     {
-        var products = await _productService.GetProductsAsync();
+        var products = await _productService.GetProductListItemsAsync();
         return Ok(products);
     }
 

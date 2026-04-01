@@ -68,3 +68,21 @@ public class ProductChargeDefinitionDto
     public string? IncomeGlCode { get; set; }
     public string Status { get; set; } = "ACTIVE";
 }
+
+public class ProductListItemDto
+{
+    public string Id { get; set; } = string.Empty;
+    public string ProductCode { get; set; } = string.Empty;
+    public string Code { get; set; } = string.Empty;
+    public string Name { get; set; } = string.Empty;
+    public string? Description { get; set; }
+    public string Type { get; set; } = string.Empty;
+    public string Category { get; set; } = string.Empty;
+    public string Currency { get; set; } = "GHS";
+    public decimal? InterestRate { get; set; }
+    public string? InterestMethod { get; set; }
+    public decimal? MinAmount { get; set; }
+    public decimal? MaxAmount { get; set; }
+    public int? DefaultTerm { get; set; }
+    public string Status { get; set; } = "ACTIVE";
+}

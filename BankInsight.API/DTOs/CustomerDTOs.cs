@@ -1,12 +1,21 @@
 using System.ComponentModel.DataAnnotations;
+using System.Linq;
 
 namespace BankInsight.API.DTOs;
 
-public class CreateCustomerRequest
+public class CreateCustomerRequest : IValidatableObject
 {
-    [Required(ErrorMessage = "Name is required")]
+    [StringLength(100, ErrorMessage = "FirstName must not exceed 100 characters")]
+    public string? FirstName { get; set; }
+
+    [StringLength(100, ErrorMessage = "LastName must not exceed 100 characters")]
+    public string? LastName { get; set; }
+
+    [StringLength(100, ErrorMessage = "OtherName must not exceed 100 characters")]
+    public string? OtherName { get; set; }
+
     [StringLength(255, MinimumLength = 2, ErrorMessage = "Name must be between 2 and 255 characters")]
-    public string Name { get; set; } = string.Empty;
+    public string? Name { get; set; }
 
     [Required(ErrorMessage = "Type is required")]
     [StringLength(50, ErrorMessage = "Type must not exceed 50 characters")]
@@ -15,8 +24,25 @@ public class CreateCustomerRequest
     [RegularExpression(@"^[A-Z0-9-]{6,30}$", ErrorMessage = "Invalid Ghana Card format")]
     public string? GhanaCard { get; set; }
 
+    [StringLength(50, ErrorMessage = "IdType must not exceed 50 characters")]
+    public string? IdType { get; set; }
+
+    [StringLength(100, ErrorMessage = "IdNumber must not exceed 100 characters")]
+    public string? IdNumber { get; set; }
+
     [StringLength(50, ErrorMessage = "DigitalAddress must not exceed 50 characters")]
     public string? DigitalAddress { get; set; }
+
+    [StringLength(255, ErrorMessage = "Address must not exceed 255 characters")]
+    public string? Address { get; set; }
+
+    [StringLength(50, ErrorMessage = "BranchId must not exceed 50 characters")]
+    public string? BranchId { get; set; }
+
+    public DateOnly? DateOfBirth { get; set; }
+
+    [StringLength(30, ErrorMessage = "Gender must not exceed 30 characters")]
+    public string? Gender { get; set; }
 
     [StringLength(20, ErrorMessage = "KycLevel must not exceed 20 characters")]
     public string? KycLevel { get; set; }
@@ -29,6 +55,22 @@ public class CreateCustomerRequest
 
     [StringLength(50, ErrorMessage = "RiskRating must not exceed 50 characters")]
     public string? RiskRating { get; set; }
+
+    public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
+    {
+        var resolvedName = string.IsNullOrWhiteSpace(Name)
+            ? string.Join(" ", new[] { FirstName, OtherName, LastName }.Where(value => !string.IsNullOrWhiteSpace(value)))
+            : Name;
+
+        if (string.IsNullOrWhiteSpace(resolvedName))
+        {
+            yield return new ValidationResult("Name is required", new[] { nameof(Name), nameof(FirstName), nameof(LastName) });
+        }
+        else if (resolvedName.Trim().Length < 2 || resolvedName.Trim().Length > 255)
+        {
+            yield return new ValidationResult("Name must be between 2 and 255 characters", new[] { nameof(Name) });
+        }
+    }
 }
 
 public class UpdateCustomerRequest

@@ -29,6 +29,31 @@ public class ProductService
             .ToListAsync();
     }
 
+    public async Task<List<ProductListItemDto>> GetProductListItemsAsync()
+    {
+        return await _context.Products
+            .AsNoTracking()
+            .OrderBy(p => p.Name)
+            .Select(p => new ProductListItemDto
+            {
+                Id = p.Id,
+                ProductCode = p.Id,
+                Code = p.Id,
+                Name = p.Name,
+                Description = p.Description,
+                Type = p.Type,
+                Category = p.Type,
+                Currency = p.Currency,
+                InterestRate = p.InterestRate,
+                InterestMethod = p.InterestMethod,
+                MinAmount = p.MinAmount,
+                MaxAmount = p.MaxAmount,
+                DefaultTerm = p.DefaultTerm,
+                Status = p.Status
+            })
+            .ToListAsync();
+    }
+
     public async Task<Product> CreateProductAsync(CreateProductRequest request)
     {
         var product = new Product
