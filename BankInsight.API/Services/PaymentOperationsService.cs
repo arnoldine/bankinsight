@@ -319,6 +319,65 @@ public class PaymentOperationsService
             : MapChequeBookDto(leaf.Book);
     }
 
+    public async Task<ChequeBookInventoryDto> MarkChequeLeafUsedHistoricallyAsync(MarkChequeLeafUsedRequest request, string? userId)
+    {
+        var chequeNumber = request.ChequeNumber.Trim();
+        var accountId = request.AccountId.Trim();
+
+        var leaf = await _context.ChequeBookLeaves
+            .Include(l => l.Book)
+            .FirstOrDefaultAsync(l =>
+                l.ChequeNumber == chequeNumber &&
+                l.AccountId == accountId &&
+                l.Status == "ISSUED")
+            ?? throw new InvalidOperationException("Cheque leaf not found in issued inventory for the supplied account.");
+
+        if (leaf.Book == null)
+        {
+            throw new InvalidOperationException("Cheque book inventory record not found for the supplied leaf.");
+        }
+
+        var usedAt = request.UsedAt ?? DateTime.UtcNow;
+        var historicalTransactionId = string.IsNullOrWhiteSpace(request.HistoricalTransactionId)
+            ? $"LEGACY-{chequeNumber}"
+            : request.HistoricalTransactionId.Trim();
+
+        leaf.Status = "USED";
+        leaf.UsedAt = usedAt;
+        leaf.UsedTransactionId = historicalTransactionId;
+
+        leaf.Book.UsedLeafCount += 1;
+        leaf.Book.AvailableLeafCount = Math.Max(0, leaf.Book.AvailableLeafCount - 1);
+        leaf.Book.Status = leaf.Book.AvailableLeafCount == 0 ? "EXHAUSTED" : "ACTIVE";
+
+        if (!string.IsNullOrWhiteSpace(request.Remarks))
+        {
+            leaf.Book.Remarks = string.IsNullOrWhiteSpace(leaf.Book.Remarks)
+                ? request.Remarks.Trim()
+                : $"{leaf.Book.Remarks}; {request.Remarks.Trim()}";
+        }
+
+        await _context.SaveChangesAsync();
+
+        await _auditLoggingService.LogActionAsync(
+            "CHEQUE_LEAF_MARKED_USED_HISTORY",
+            "CHEQUE_BOOK_LEAF",
+            leaf.Id,
+            userId,
+            $"Cheque leaf {leaf.ChequeNumber} marked as historically used.",
+            status: "SUCCESS",
+            newValues: new
+            {
+                leaf.ChequeNumber,
+                AccountId = accountId,
+                leaf.UsedTransactionId,
+                leaf.UsedAt,
+                request.Remarks
+            });
+
+        return MapChequeBookDto(leaf.Book);
+    }
+
     public async Task<ChequeClearingItemDto> LodgeChequeDepositAsync(LodgeChequeDepositRequest request)
     {
         var account = await _context.Accounts.FirstOrDefaultAsync(a => a.Id == request.AccountId)

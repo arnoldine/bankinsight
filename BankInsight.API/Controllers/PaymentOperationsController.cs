@@ -170,4 +170,19 @@ public class PaymentOperationsController : ControllerBase
             return BadRequest(new { message = ex.Message });
         }
     }
+
+    [HttpPost("cheque-books/leaves/use-history")]
+    [HasPermission(AppPermissions.Transactions.Post)]
+    public async Task<IActionResult> MarkChequeLeafUsed([FromBody] MarkChequeLeafUsedRequest request)
+    {
+        try
+        {
+            var book = await _paymentOperationsService.MarkChequeLeafUsedHistoricallyAsync(request, User?.Identity?.Name);
+            return Ok(book);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+    }
 }

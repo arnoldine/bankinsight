@@ -228,6 +228,25 @@ public class CancelChequeLeafRequest
     public string Reason { get; set; } = string.Empty;
 }
 
+public class MarkChequeLeafUsedRequest
+{
+    [Required]
+    [StringLength(50)]
+    public string AccountId { get; set; } = string.Empty;
+
+    [Required]
+    [StringLength(50)]
+    public string ChequeNumber { get; set; } = string.Empty;
+
+    [StringLength(50)]
+    public string? HistoricalTransactionId { get; set; }
+
+    public DateTime? UsedAt { get; set; }
+
+    [StringLength(500)]
+    public string? Remarks { get; set; }
+}
+
 public class ChequeBookLeafDto
 {
     public string Id { get; set; } = string.Empty;

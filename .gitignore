@@ -13,6 +13,7 @@ dist-ssr
 *.local
 .dotnet/
 .dotnet-home/
+.appdata/
 .env
 server/.env
 BankingOS/web/.env
@@ -37,3 +38,12 @@ payload.json
 !CoreBankerWeb/CoreBankerWeb.sln
 BankInsight.API.zip
 *.sw?
+migration_work/source_bog/
+migration_work/source_re/
+migration_work/**/bin/
+migration_work/**/obj/
+migration_work/prepared/import-results-summary.json
+migration_work/prepared/post-import-verification.csv
+migration_work/prepared/cheque-inventory-import-results.csv
+migration_work/prepared/cheque-inventory-used-leaves-imported.csv
+migration_work/prepared/cheque-inventory-used-leaves-review.csv
