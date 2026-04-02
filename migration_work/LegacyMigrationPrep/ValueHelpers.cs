@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.RegularExpressions;
 
 namespace LegacyMigrationPrep;
 
@@ -39,17 +40,53 @@ internal static class ValueHelpers
 
     public static string DistinctSecondaryPhone(string? primary, string? secondary)
     {
-        if (string.IsNullOrWhiteSpace(secondary))
+        var normalizedPrimary = NormalizePhone(primary);
+        var normalizedSecondary = NormalizePhone(secondary);
+
+        if (string.IsNullOrWhiteSpace(normalizedSecondary))
         {
             return string.Empty;
         }
 
-        if (string.Equals(primary?.Trim(), secondary.Trim(), StringComparison.OrdinalIgnoreCase))
+        if (string.Equals(normalizedPrimary, normalizedSecondary, StringComparison.OrdinalIgnoreCase))
         {
             return string.Empty;
         }
 
-        return secondary.Trim();
+        return normalizedSecondary;
+    }
+
+    public static string NormalizePhone(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return string.Empty;
+        }
+
+        foreach (Match match in Regex.Matches(value, @"(?<!\d)(?:\+?\d[\d\s/-]{6,}\d)(?!\d)"))
+        {
+            var digitsOnly = Regex.Replace(match.Value, @"[^\d+]", string.Empty);
+            if (string.IsNullOrWhiteSpace(digitsOnly))
+            {
+                continue;
+            }
+
+            if (digitsOnly.StartsWith("+", StringComparison.Ordinal))
+            {
+                digitsOnly = "+" + Regex.Replace(digitsOnly[1..], @"\D", string.Empty);
+            }
+            else
+            {
+                digitsOnly = Regex.Replace(digitsOnly, @"\D", string.Empty);
+            }
+
+            if (digitsOnly.Length is >= 8 and <= 20)
+            {
+                return digitsOnly;
+            }
+        }
+
+        return string.Empty;
     }
 
     public static string NormalizeCustomerType(string value)
@@ -60,7 +97,7 @@ internal static class ValueHelpers
             "INDIVIDUAL" => "Individual",
             "CORPORATE" => "Corporate",
             "BUSINESS" => "Corporate",
-            _ => string.IsNullOrWhiteSpace(value) ? "Individual" : value.Trim()
+            _ => string.IsNullOrWhiteSpace(value) ? "Individual" : SafeTruncate(value.Trim(), 20)
         };
     }
 
@@ -154,7 +191,13 @@ internal static class ValueHelpers
     public static string NormalizeRiskLevel(string? value)
     {
         var normalized = value?.Trim().ToUpperInvariant();
-        return normalized switch { "HIGH" => "High", "MEDIUM" => "Medium", "LOW" => "Low", _ => "Low" };
+        return normalized switch
+        {
+            "HIGH" => "High",
+            "MEDIUM" => "Medium",
+            "LOW" => "Low",
+            _ => SafeTruncate(value?.Trim() ?? "Low", 20)
+        };
     }
 
     public static bool IsGhanaCard(string? idType)
@@ -163,7 +206,14 @@ internal static class ValueHelpers
     public static string NormalizeGender(string? value)
     {
         var normalized = value?.Trim().ToUpperInvariant();
-        return normalized switch { "M" => "Male", "F" => "Female", "MALE" => "Male", "FEMALE" => "Female", _ => value?.Trim() ?? string.Empty };
+        return normalized switch
+        {
+            "M" => "Male",
+            "F" => "Female",
+            "MALE" => "Male",
+            "FEMALE" => "Female",
+            _ => SafeTruncate(value?.Trim() ?? string.Empty, 10)
+        };
     }
 
     public static string NormalizeYesNo(string? value)

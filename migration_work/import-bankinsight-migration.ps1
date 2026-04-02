@@ -4,10 +4,12 @@ param(
     [string]$Email = "",
     [string]$Password = "",
     [string]$Token = "",
+    [int]$TimeoutMinutes = 30,
     [switch]$SkipGlAccounts
 )
 
 $ErrorActionPreference = "Stop"
+Add-Type -AssemblyName System.Net.Http
 
 function Invoke-JsonPost {
     param(
@@ -59,7 +61,8 @@ function Invoke-MigrationImport {
         [string]$ApiBaseUrl,
         [hashtable]$Headers,
         [string]$Dataset,
-        [string]$FilePath
+        [string]$FilePath,
+        [int]$TimeoutMinutes
     )
 
     if (-not (Test-Path $FilePath)) {
@@ -68,11 +71,33 @@ function Invoke-MigrationImport {
 
     Write-Host "Importing dataset '$Dataset' from '$FilePath'..." -ForegroundColor Cyan
 
-    $form = @{
-        file = Get-Item $FilePath
-    }
+    $client = New-Object System.Net.Http.HttpClient
+    $client.Timeout = [TimeSpan]::FromMinutes($TimeoutMinutes)
+    try {
+        foreach ($key in $Headers.Keys) {
+            $client.DefaultRequestHeaders.Remove($key) | Out-Null
+            $client.DefaultRequestHeaders.Add($key, [string]$Headers[$key])
+        }
 
-    $response = Invoke-RestMethod -Uri "$ApiBaseUrl/api/migration/import/$Dataset" -Method Post -Headers $Headers -Form $form
+        $content = New-Object System.Net.Http.MultipartFormDataContent
+        $bytes = [System.IO.File]::ReadAllBytes($FilePath)
+        $fileContent = New-Object System.Net.Http.ByteArrayContent(,$bytes)
+        $fileContent.Headers.ContentType = [System.Net.Http.Headers.MediaTypeHeaderValue]::Parse("text/csv")
+        $content.Add($fileContent, "file", [System.IO.Path]::GetFileName($FilePath))
+
+        $httpResponse = $client.PostAsync("$ApiBaseUrl/api/migration/import/$Dataset", $content).GetAwaiter().GetResult()
+        $body = $httpResponse.Content.ReadAsStringAsync().GetAwaiter().GetResult()
+
+        if (-not $httpResponse.IsSuccessStatusCode) {
+            throw "Import failed for dataset '$Dataset': $body"
+        }
+
+        $response = $body | ConvertFrom-Json
+    }
+    finally {
+        if ($content) { $content.Dispose() }
+        $client.Dispose()
+    }
 
     Write-Host ("  Imported: {0}, Updated: {1}, Failed: {2}" -f $response.imported, $response.updated, $response.failed) -ForegroundColor Green
 
@@ -98,7 +123,7 @@ if (-not $SkipGlAccounts) {
 }
 
 $results = foreach ($dataset in $datasets) {
-    Invoke-MigrationImport -ApiBaseUrl $ApiBaseUrl -Headers $headers -Dataset $dataset.Name -FilePath $dataset.File
+    Invoke-MigrationImport -ApiBaseUrl $ApiBaseUrl -Headers $headers -Dataset $dataset.Name -FilePath $dataset.File -TimeoutMinutes $TimeoutMinutes
 }
 
 $summaryPath = Join-Path $PreparedDir "import-results-summary.json"

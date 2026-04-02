@@ -23,13 +23,40 @@ Ancillary files that are not directly imported by the current migration API:
 ## Confirmed Data Handling
 
 - Two malformed legacy account rows were excluded because the source account number resolved to `.00` instead of a valid account identifier.
+- Customer phone values were normalized to valid phone tokens only, because some legacy phone columns contained multiple numbers or free-text address fragments.
 - Product identifiers were generated deterministically from legacy product names to preserve consistent references across repeated prep runs.
 - Legacy branch references were normalized to the currently seeded BankInsight branches:
   - `01`, `Makola`, `Avenor`, `Head Office` -> `BR001`
   - `02`, `Kumasi` -> `BR002`
   - unknown values defaulted to `BR001`
 
+## Dry-Run Outcome
+
+- A full dry migration was executed successfully against the local BankInsight API using the prepared pack.
+- Imported or updated successfully:
+  - `customers`: `78,645`
+  - `products`: `58`
+  - `accounts`: `139,263`
+  - `loans`: `62,364`
+- Historical cheque-book seeding and used-leaf marking also completed through the follow-up cheque inventory import utility.
+- The generated runtime outputs are:
+  - `import-results-summary.json`
+  - `post-import-verification.csv`
+  - `cheque-inventory-import-results.csv`
+  - `cheque-inventory-used-leaves-imported.csv`
+  - `cheque-inventory-used-leaves-review.csv`
+
 ## Items Requiring Manual Review
+
+### Missing Loan Customers
+
+- Two loan rows could not be imported because their referenced legacy customers were not present in the provided customer extract:
+  - Loan `23008173` -> Customer `23982795`
+  - Loan `23008175` -> Customer `23982797`
+- These appear to be legacy referential gaps rather than migration-tooling defects.
+- Recommended action:
+  - confirm whether those customers exist in another source export and append them before final production import, or
+  - consciously exclude the two loans if they are no longer in scope.
 
 ### GL Accounts
 

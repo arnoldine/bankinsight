@@ -120,39 +120,43 @@ internal static class MigrationBuilder
             var pep = group.Any(row => NormalizeYesNo(Get(row, "Politically Exposed Person")) == "YES");
             var risk = pep ? "High" : NormalizeRiskLevel(FirstNonEmpty(kycMatches.Select(row => Get(row, "RISK LEVEL"))));
             var createdAt = FirstNonEmpty(depositMatches.Select(row => NormalizeDateTime(Get(row, "OPEN DATE")))) ?? "2026-03-31T00:00:00Z";
+            var primaryPhone = NormalizePhone(
+                FirstNonEmpty(group.Select(row => Get(row, "Mobile Phone Number"))) ??
+                FirstNonEmpty(group.Select(row => Get(row, "Main Phone Number"))) ??
+                FirstNonEmpty(group.Select(row => Get(row, "Mobile Money Number"))));
+            var secondaryPhone = DistinctSecondaryPhone(
+                primaryPhone,
+                FirstNonEmpty(group.Select(row => Get(row, "Main Phone Number"))) ??
+                FirstNonEmpty(group.Select(row => Get(row, "Mobile Money Number"))));
 
             results.Add(NewRecord(
-                ("id", group.Key),
-                ("type", customerType),
+                ("id", SafeTruncate(group.Key, 50)),
+                ("type", SafeTruncate(customerType, 20)),
                 ("name", string.IsNullOrWhiteSpace(name) ? group.Key : name),
                 ("email", FirstNonEmpty(group.Select(row => Get(row, "Email"))) ?? string.Empty),
-                ("phone", FirstNonEmpty(group.Select(row => Get(row, "Mobile Phone Number"))) ??
-                          FirstNonEmpty(group.Select(row => Get(row, "Main Phone Number"))) ??
-                          FirstNonEmpty(group.Select(row => Get(row, "Mobile Money Number"))) ?? string.Empty),
-                ("secondary_phone", DistinctSecondaryPhone(
-                    FirstNonEmpty(group.Select(row => Get(row, "Mobile Phone Number"))),
-                    FirstNonEmpty(group.Select(row => Get(row, "Main Phone Number"))))),
+                ("phone", SafeTruncate(primaryPhone, 20)),
+                ("secondary_phone", SafeTruncate(secondaryPhone, 20)),
                 ("digital_address", FirstNonEmpty(depositMatches.Select(row => Get(row, "DIGITAL ADDRESS"))) ?? string.Empty),
                 ("postal_address", CombineAddress(
                     FirstNonEmpty(group.Select(row => Get(row, "Home Address"))),
                     FirstNonEmpty(group.Select(row => Get(row, "Postal Address"))))),
-                ("kyc_level", string.IsNullOrWhiteSpace(FirstNonEmpty(group.Select(row => Get(row, "ID Number")))) ? "Tier 1" : "Tier 2"),
-                ("risk_rating", risk),
-                ("gender", NormalizeGender(FirstNonEmpty(group.Select(row => Get(row, "Gender"))))),
+                ("kyc_level", SafeTruncate(string.IsNullOrWhiteSpace(FirstNonEmpty(group.Select(row => Get(row, "ID Number")))) ? "Tier 1" : "Tier 2", 20)),
+                ("risk_rating", SafeTruncate(risk, 20)),
+                ("gender", SafeTruncate(NormalizeGender(FirstNonEmpty(group.Select(row => Get(row, "Gender")))), 10)),
                 ("date_of_birth", NormalizeDateOnly(FirstNonEmpty(group.Select(row => Get(row, "DOB"))) ?? FirstNonEmpty(group.Select(row => Get(row, "Date of Birth"))))),
-                ("ghana_card", IsGhanaCard(FirstNonEmpty(group.Select(row => Get(row, "ID Type")))) ? FirstNonEmpty(group.Select(row => Get(row, "ID Number"))) ?? string.Empty : string.Empty),
-                ("nationality", FirstNonEmpty(group.Select(row => Get(row, "Country"))) ?? "Ghana"),
-                ("marital_status", FirstNonEmpty(depositMatches.Select(row => Get(row, "MARITAL STATUS"))) ?? string.Empty),
+                ("ghana_card", SafeTruncate(IsGhanaCard(FirstNonEmpty(group.Select(row => Get(row, "ID Type")))) ? FirstNonEmpty(group.Select(row => Get(row, "ID Number"))) ?? string.Empty : string.Empty, 50)),
+                ("nationality", SafeTruncate(FirstNonEmpty(group.Select(row => Get(row, "Country"))) ?? "Ghana", 50)),
+                ("marital_status", SafeTruncate(FirstNonEmpty(depositMatches.Select(row => Get(row, "MARITAL STATUS"))) ?? string.Empty, 20)),
                 ("spouse_name", string.Empty),
                 ("employer", string.Empty),
                 ("job_title", FirstNonEmpty(depositMatches.Select(row => Get(row, "OCCUPATION"))) ?? string.Empty),
                 ("ssnit_no", string.Empty),
-                ("business_reg_no", customerType == "Corporate" ? FirstNonEmpty(group.Select(row => Get(row, "Company Number (If Any)"))) ?? string.Empty : string.Empty),
+                ("business_reg_no", SafeTruncate(customerType == "Corporate" ? FirstNonEmpty(group.Select(row => Get(row, "Company Number (If Any)"))) ?? string.Empty : string.Empty, 50)),
                 ("registration_date", string.Empty),
-                ("tin", FirstNonEmpty(group.Select(row => Get(row, "TIN Number"))) ?? string.Empty),
-                ("sector", FirstNonEmpty(depositMatches.Select(row => Get(row, "SECTOR"))) ?? FirstNonEmpty(group.Select(row => Get(row, "Economic Sector"))) ?? string.Empty),
-                ("legal_form", customerType == "Corporate" ? FirstNonEmpty(group.Select(row => Get(row, "Institution Type"))) ?? string.Empty : string.Empty),
-                ("branch_id", NormalizeBranch(FirstNonEmpty(group.Select(row => Get(row, "Account Branch"))) ?? FirstNonEmpty(group.Select(row => Get(row, "Branch Number/Code"))) ?? FirstNonEmpty(group.Select(row => Get(row, "Branch Name"))))),
+                ("tin", SafeTruncate(FirstNonEmpty(group.Select(row => Get(row, "TIN Number"))) ?? string.Empty, 50)),
+                ("sector", SafeTruncate(FirstNonEmpty(depositMatches.Select(row => Get(row, "SECTOR"))) ?? FirstNonEmpty(group.Select(row => Get(row, "Economic Sector"))) ?? string.Empty, 50)),
+                ("legal_form", SafeTruncate(customerType == "Corporate" ? FirstNonEmpty(group.Select(row => Get(row, "Institution Type"))) ?? string.Empty : string.Empty, 50)),
+                ("branch_id", SafeTruncate(NormalizeBranch(FirstNonEmpty(group.Select(row => Get(row, "Account Branch"))) ?? FirstNonEmpty(group.Select(row => Get(row, "Branch Number/Code"))) ?? FirstNonEmpty(group.Select(row => Get(row, "Branch Name")))), 50)),
                 ("created_at", createdAt)));
         }
 

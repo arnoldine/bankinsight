@@ -4,6 +4,7 @@ param(
     [string]$Email = "",
     [string]$Password = "",
     [string]$Token = "",
+    [int]$TimeoutMinutes = 30,
     [switch]$SkipGlAccounts,
     [switch]$SkipChequeInventory
 )
@@ -24,6 +25,7 @@ Write-Host "Starting full BankInsight migration run..." -ForegroundColor Cyan
 $common = @{
     ApiBaseUrl = $ApiBaseUrl
     PreparedDir = $PreparedDir
+    TimeoutMinutes = $TimeoutMinutes
 }
 
 if (-not [string]::IsNullOrWhiteSpace($Token)) {
