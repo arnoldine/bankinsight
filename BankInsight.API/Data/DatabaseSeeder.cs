@@ -14,24 +14,34 @@ public static class DatabaseSeeder
 {
     public static async Task SeedAsync(ApplicationDbContext context)
     {
+        var seedDemoData = string.Equals(
+            Environment.GetEnvironmentVariable("SEED_DEMO_DATA"),
+            "true",
+            StringComparison.OrdinalIgnoreCase);
+
         await EnsureBranchesAsync(context);
         await EnsureBranchVaultsAsync(context);
         await EnsurePermissionsAsync(context);
         await EnsureRolesAsync(context);
         await EnsureAdminUserAsync(context);
         await EnsureSystemConfigAsync(context);
-        await EnsureProductsAsync(context);
-        await EnsureLoanProductsAsync(context);
-        await EnsureGroupLendingSeedDataAsync(context);
-        await EnsureGlAccountsAsync(context);
-        await EnsureLoanAccountingProfilesAsync(context);
-        await EnsureCashControlOpeningBalanceAsync(context);
         await EnsureWorkflowAsync(context);
         await EnsureBankingOSProcessDefinitionsAsync(context);
         await EnsureBankingOSFormConfigurationsAsync(context);
         await EnsureBankingOSThemeConfigurationsAsync(context);
         await EnsureBankingOSPublishBundleConfigurationsAsync(context);
         await EnsureReportDefinitionsAsync(context);
+
+        if (seedDemoData)
+        {
+            await EnsureProductsAsync(context);
+            await EnsureLoanProductsAsync(context);
+            await EnsureGroupLendingSeedDataAsync(context);
+            await EnsureGlAccountsAsync(context);
+            await EnsureLoanAccountingProfilesAsync(context);
+            await EnsureCashControlOpeningBalanceAsync(context);
+        }
+
         await BackfillLegacyLoanMetadataAsync(context);
     }
 
