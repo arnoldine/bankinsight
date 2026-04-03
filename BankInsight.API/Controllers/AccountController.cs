@@ -27,6 +27,14 @@ public class AccountController : ControllerBase
         return Ok(accounts);
     }
 
+    [HttpGet("paged")]
+    [RequirePermission("VIEW_ACCOUNTS")]
+    public async Task<IActionResult> GetAccountsPage([FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 50, [FromQuery] string? search = null, [FromQuery] string? type = null)
+    {
+        var accounts = await _accountService.GetAccountsPageAsync(pageNumber, pageSize, search, type);
+        return Ok(accounts);
+    }
+
     [HttpGet("{id}")]
     [RequirePermission("VIEW_ACCOUNTS")]
     public async Task<IActionResult> GetAccountById(string id)

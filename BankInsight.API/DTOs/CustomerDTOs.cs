@@ -141,6 +141,21 @@ public class CustomerProfileResponse
     public CustomerKycReadinessDto KycReadiness { get; set; } = new();
 }
 
+public class CustomerListItemDto
+{
+    public string Id { get; set; } = string.Empty;
+    public string Type { get; set; } = "INDIVIDUAL";
+    public string Name { get; set; } = string.Empty;
+    public string? Email { get; set; }
+    public string? Phone { get; set; }
+    public string? DigitalAddress { get; set; }
+    public string? KycLevel { get; set; }
+    public string? RiskRating { get; set; }
+    public string? GhanaCard { get; set; }
+    public string Status { get; set; } = "ACTIVE";
+    public string? CreatedAt { get; set; }
+}
+
 public class CreateCustomerNoteRequest
 {
     [Required(ErrorMessage = "Note text is required")]

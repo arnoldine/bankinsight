@@ -26,3 +26,19 @@ public class CreateAccountRequest
     [StringLength(50, ErrorMessage = "OwnerStaffId must not exceed 50 characters")]
     public string? OwnerStaffId { get; set; }
 }
+
+public class AccountListItemDto
+{
+    public string Id { get; set; } = string.Empty;
+    public string CustomerId { get; set; } = string.Empty;
+    public string CustomerName { get; set; } = string.Empty;
+    public string BranchId { get; set; } = "BR001";
+    public string Type { get; set; } = "SAVINGS";
+    public string Currency { get; set; } = "GHS";
+    public decimal Balance { get; set; }
+    public decimal LienAmount { get; set; }
+    public string Status { get; set; } = "ACTIVE";
+    public string? ProductCode { get; set; }
+    public string? LastTransDate { get; set; }
+    public string? CreatedAt { get; set; }
+}

@@ -28,8 +28,67 @@ public class AccountService
     public async Task<List<Account>> GetAccountsAsync()
     {
         return await ApplyVisibilityScope(_context.Accounts.AsQueryable())
+            .AsNoTracking()
             .OrderBy(a => a.Id)
             .ToListAsync();
+    }
+
+    public async Task<PagedResultDto<AccountListItemDto>> GetAccountsPageAsync(int pageNumber, int pageSize, string? search, string? type)
+    {
+        var normalizedPageNumber = Math.Max(1, pageNumber);
+        var normalizedPageSize = Math.Clamp(pageSize, 1, 200);
+
+        var query = ApplyVisibilityScope(_context.Accounts.AsQueryable())
+            .AsNoTracking()
+            .Include(a => a.Customer)
+            .AsQueryable();
+
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var term = search.Trim();
+            query = query.Where(a =>
+                a.Id.Contains(term) ||
+                (a.CustomerId != null && a.CustomerId.Contains(term)) ||
+                (a.BranchId != null && a.BranchId.Contains(term)) ||
+                (a.ProductCode != null && a.ProductCode.Contains(term)) ||
+                (a.Customer != null && a.Customer.Name.Contains(term)));
+        }
+
+        if (!string.IsNullOrWhiteSpace(type))
+        {
+            var normalizedType = type.Trim().ToUpperInvariant();
+            query = query.Where(a => a.Type.ToUpper() == normalizedType);
+        }
+
+        var totalCount = await query.CountAsync();
+        var items = await query
+            .OrderBy(a => a.Id)
+            .Skip((normalizedPageNumber - 1) * normalizedPageSize)
+            .Take(normalizedPageSize)
+            .Select(a => new AccountListItemDto
+            {
+                Id = a.Id,
+                CustomerId = a.CustomerId ?? string.Empty,
+                CustomerName = a.Customer != null ? a.Customer.Name : (a.CustomerId ?? string.Empty),
+                BranchId = a.BranchId ?? "BR001",
+                Type = a.Type,
+                Currency = a.Currency,
+                Balance = a.Balance,
+                LienAmount = a.LienAmount,
+                Status = a.Status,
+                ProductCode = a.ProductCode,
+                LastTransDate = a.LastTransDate.HasValue ? a.LastTransDate.Value.ToString("O") : null,
+                CreatedAt = a.CreatedAt.ToString("O")
+            })
+            .ToListAsync();
+
+        return new PagedResultDto<AccountListItemDto>
+        {
+            Items = items,
+            TotalCount = totalCount,
+            PageNumber = normalizedPageNumber,
+            PageSize = normalizedPageSize
+        };
     }
 
     public async Task<Account?> GetAccountByIdAsync(string id)

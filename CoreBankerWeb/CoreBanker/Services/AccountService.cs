@@ -6,6 +6,20 @@ namespace CoreBanker.Services
     {
         public AccountService(HttpClient httpClient, CoreBanker.State.AppState appState) : base(httpClient, appState) { }
 
+        public async Task<PagedResult<AccountListItemDto>> GetAccountPageAsync(int pageNumber = 1, int pageSize = 50, string? search = null, string? type = null, CancellationToken cancellationToken = default)
+        {
+            var query = BuildPagedQuery("/api/accounts/paged", pageNumber, pageSize, search, type);
+            var result = await GetAsync<PagedResultApiModel<AccountListItemApiModel>>(query, cancellationToken);
+
+            return new PagedResult<AccountListItemDto>
+            {
+                Items = (result?.Items ?? new List<AccountListItemApiModel>()).ConvertAll(MapAccountListItem),
+                TotalCount = result?.TotalCount ?? 0,
+                PageNumber = result?.PageNumber ?? pageNumber,
+                PageSize = result?.PageSize ?? pageSize
+            };
+        }
+
         public async Task<List<AccountDto>> GetAccountsAsync(CancellationToken cancellationToken = default)
         {
             var result = await GetAsync<List<AccountApiModel>>("/api/accounts", cancellationToken);
@@ -45,6 +59,26 @@ namespace CoreBanker.Services
             {
                 Id = account.Id ?? string.Empty,
                 CustomerId = account.CustomerId ?? string.Empty,
+                BranchId = NormalizeBranchId(account.BranchId),
+                Type = NormalizeAccountType(account.Type),
+                Currency = NormalizeCurrency(account.Currency),
+                ProductCode = account.ProductCode ?? string.Empty,
+                Balance = account.Balance ?? 0m,
+                LienAmount = account.LienAmount ?? 0m,
+                AvailableBalance = Math.Max(0m, (account.Balance ?? 0m) - (account.LienAmount ?? 0m)),
+                Status = NormalizeAccountStatus(account.Status),
+                LastTransDate = ParseDate(account.LastTransDate),
+                CreatedAt = ParseDate(account.CreatedAt)
+            };
+        }
+
+        private static AccountListItemDto MapAccountListItem(AccountListItemApiModel account)
+        {
+            return new AccountListItemDto
+            {
+                Id = account.Id ?? string.Empty,
+                CustomerId = account.CustomerId ?? string.Empty,
+                CustomerName = account.CustomerName ?? account.CustomerId ?? string.Empty,
                 BranchId = NormalizeBranchId(account.BranchId),
                 Type = NormalizeAccountType(account.Type),
                 Currency = NormalizeCurrency(account.Currency),
@@ -125,10 +159,55 @@ namespace CoreBanker.Services
                 : null;
         }
 
+        private static string BuildPagedQuery(string basePath, int pageNumber, int pageSize, string? search, string? type)
+        {
+            var parameters = new List<string>
+            {
+                $"pageNumber={Math.Max(1, pageNumber)}",
+                $"pageSize={Math.Clamp(pageSize, 1, 200)}"
+            };
+
+            if (!string.IsNullOrWhiteSpace(search))
+            {
+                parameters.Add($"search={Uri.EscapeDataString(search.Trim())}");
+            }
+
+            if (!string.IsNullOrWhiteSpace(type))
+            {
+                parameters.Add($"type={Uri.EscapeDataString(type.Trim())}");
+            }
+
+            return $"{basePath}?{string.Join("&", parameters)}";
+        }
+
+        private sealed class PagedResultApiModel<T>
+        {
+            public List<T> Items { get; set; } = new();
+            public int TotalCount { get; set; }
+            public int PageNumber { get; set; }
+            public int PageSize { get; set; }
+        }
+
         private sealed class AccountApiModel
         {
             public string? Id { get; set; }
             public string? CustomerId { get; set; }
+            public string? BranchId { get; set; }
+            public string? Type { get; set; }
+            public string? Currency { get; set; }
+            public decimal? Balance { get; set; }
+            public decimal? LienAmount { get; set; }
+            public string? Status { get; set; }
+            public string? ProductCode { get; set; }
+            public string? LastTransDate { get; set; }
+            public string? CreatedAt { get; set; }
+        }
+
+        private sealed class AccountListItemApiModel
+        {
+            public string? Id { get; set; }
+            public string? CustomerId { get; set; }
+            public string? CustomerName { get; set; }
             public string? BranchId { get; set; }
             public string? Type { get; set; }
             public string? Currency { get; set; }
@@ -155,6 +234,11 @@ namespace CoreBanker.Services
         public string Status { get; set; } = "ACTIVE";
         public DateTime? LastTransDate { get; set; }
         public DateTime? CreatedAt { get; set; }
+    }
+
+    public class AccountListItemDto : AccountDto
+    {
+        public string CustomerName { get; set; } = string.Empty;
     }
 
     public class CreateAccountRequest

@@ -27,9 +27,9 @@
             <MudGrid>
                 <MudItem xs="12" sm="4">
                     <MudPaper Class="pa-4 corebanker-friendly-stat" Elevation="0">
-                        <MudText Typo="Typo.caption">Visible Clients</MudText>
-                        <MudText Typo="Typo.h5">@FilteredClients.Count()</MudText>
-                        <MudText Typo="Typo.body2" Class="mud-text-secondary">@($"{_clients.Count(client => string.Equals(client.Status, "Active", StringComparison.OrdinalIgnoreCase))} active")</MudText>
+                        <MudText Typo="Typo.caption">Matched Clients</MudText>
+                        <MudText Typo="Typo.h5">@_clientTotalCount</MudText>
+                        <MudText Typo="Typo.body2" Class="mud-text-secondary">@($"{_clients.Count} loaded on this page")</MudText>
                     </MudPaper>
                 </MudItem>
                 <MudItem xs="12" sm="4">
@@ -51,14 +51,12 @@
             <MudPaper Class="pa-4">
                 <MudGrid>
                     <MudItem xs="12" md="8">
-                        <MudTextField @bind-Value="_searchTerm" Label="Search by customer, email, phone, or CIF" Variant="Variant.Outlined" Immediate="true" />
+                        <MudTextField Value="@_searchTerm" ValueChanged="@(async (string value) => await OnSearchChanged(value))" Label="Search by customer, email, phone, or CIF" Variant="Variant.Outlined" Immediate="true" />
                     </MudItem>
                     <MudItem xs="12" md="4">
-                        <MudSelect @bind-Value="_statusFilter" Label="Status" Variant="Variant.Outlined">
-                            <MudSelectItem Value="@string.Empty">All</MudSelectItem>
-                            <MudSelectItem Value="@("Active")">Active</MudSelectItem>
-                            <MudSelectItem Value="@("Inactive")">Inactive</MudSelectItem>
-                        </MudSelect>
+                        <MudPaper Class="pa-3" Elevation="0" Style="height:100%;display:flex;align-items:center;">
+                            <MudText Typo="Typo.body2" Class="mud-text-secondary">Server-side paging is active for faster customer search and loading.</MudText>
+                        </MudPaper>
                     </MudItem>
                 </MudGrid>
             </MudPaper>
@@ -68,7 +66,7 @@
                 <MudAlert Severity="Severity.Error">@_loadError</MudAlert>
             }
 
-            @if (!_isLoadingClients && !FilteredClients.Any())
+            @if (!_isLoadingClients && _clientTotalCount == 0)
             {
                 <MudPaper Class="pa-6 corebanker-empty-state" Elevation="0">
                     <MudText Typo="Typo.h6">No clients match this filter</MudText>
@@ -77,7 +75,7 @@
             }
             else
             {
-                <MudTable Items="@FilteredClients" Hover="true" Dense="true" Loading="@_isLoadingClients">
+                <MudTable T="CoreBanker.Services.ClientDto" @ref="_clientsTable" ServerData="LoadClientsTableData" Hover="true" Dense="true" Loading="@_isLoadingClients" RowsPerPage="25">
                     <HeaderContent>
                         <MudTh>CIF</MudTh>
                         <MudTh>Name</MudTh>
@@ -361,11 +359,11 @@
 @code {
     private const long MaxMediaBytes = 3 * 1024 * 1024;
     private List<CoreBanker.Services.ClientDto> _clients = new();
+    private MudTable<CoreBanker.Services.ClientDto>? _clientsTable;
     private CoreBanker.Services.ClientProfileDto? _selectedProfile;
     private CoreBanker.Services.ClientKycStatusDto? _selectedKyc;
     private string _selectedClientId = string.Empty;
     private string _searchTerm = string.Empty;
-    private string _statusFilter = string.Empty;
     private string _loadError = string.Empty;
     private string _workspaceMessage = string.Empty;
     private bool _workspaceSuccess;
@@ -373,6 +371,7 @@
     private bool _isLoadingProfile;
     private bool _isAddingNote;
     private bool _isAddingDocument;
+    private int _clientTotalCount;
     private string _newNoteText = string.Empty;
     private string _newNoteCategory = "GENERAL";
     private string _newDocumentType = string.Empty;
@@ -380,29 +379,64 @@
 
     protected override async Task OnInitializedAsync()
     {
-        await LoadClientsAsync();
+        await LoadInitialClientsAsync();
     }
 
-    private async Task LoadClientsAsync()
+    private async Task LoadInitialClientsAsync()
+    {
+        var firstPage = await ClientService.GetClientPageAsync(1, 25);
+        _clients = firstPage.Items;
+        _clientTotalCount = firstPage.TotalCount;
+
+        if (_clients.Count > 0 && string.IsNullOrWhiteSpace(_selectedClientId))
+        {
+            await LoadClientWorkspaceAsync(_clients[0].Id);
+        }
+    }
+
+    private async Task<TableData<CoreBanker.Services.ClientDto>> LoadClientsTableData(TableState state, CancellationToken cancellationToken)
     {
         _isLoadingClients = true;
         _loadError = string.Empty;
 
         try
         {
-            _clients = await ClientService.GetClientsAsync();
+            var page = await ClientService.GetClientPageAsync(state.Page + 1, state.PageSize, _searchTerm, cancellationToken);
+            _clients = page.Items;
+            _clientTotalCount = page.TotalCount;
+
             if (_clients.Count > 0 && string.IsNullOrWhiteSpace(_selectedClientId))
             {
                 await LoadClientWorkspaceAsync(_clients[0].Id);
             }
+
+            return new TableData<CoreBanker.Services.ClientDto>
+            {
+                Items = _clients,
+                TotalItems = _clientTotalCount
+            };
         }
         catch (CoreBanker.Services.ApiClientException ex)
         {
             _loadError = ex.Message;
+            return new TableData<CoreBanker.Services.ClientDto>
+            {
+                Items = Array.Empty<CoreBanker.Services.ClientDto>(),
+                TotalItems = 0
+            };
         }
         finally
         {
             _isLoadingClients = false;
+        }
+    }
+
+    private async Task OnSearchChanged(string value)
+    {
+        _searchTerm = value;
+        if (_clientsTable is not null)
+        {
+            await _clientsTable.ReloadServerData();
         }
     }
 
@@ -585,15 +619,6 @@
             _workspaceMessage = ex.Message;
         }
     }
-
-    private IEnumerable<CoreBanker.Services.ClientDto> FilteredClients =>
-        _clients.Where(client =>
-            (string.IsNullOrWhiteSpace(_searchTerm)
-             || client.Id.Contains(_searchTerm, StringComparison.OrdinalIgnoreCase)
-             || client.Name.Contains(_searchTerm, StringComparison.OrdinalIgnoreCase)
-             || client.Email.Contains(_searchTerm, StringComparison.OrdinalIgnoreCase)
-             || client.Phone.Contains(_searchTerm, StringComparison.OrdinalIgnoreCase))
-            && (string.IsNullOrWhiteSpace(_statusFilter) || string.Equals(client.Status, _statusFilter, StringComparison.OrdinalIgnoreCase)));
 
     private static string DisplayValue(string? value)
     {

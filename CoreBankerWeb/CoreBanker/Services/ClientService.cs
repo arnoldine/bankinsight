@@ -7,6 +7,26 @@ namespace CoreBanker.Services
     {
         public ClientService(HttpClient httpClient, CoreBanker.State.AppState appState) : base(httpClient, appState) { }
 
+        public async Task<PagedResult<ClientDto>> GetClientPageAsync(int pageNumber = 1, int pageSize = 50, string? search = null, CancellationToken cancellationToken = default)
+        {
+            var query = BuildPagedQuery("/api/customers/paged", pageNumber, pageSize, search);
+            var result = await GetAsync<PagedResultApiModel<ClientApiModel>>(query, cancellationToken);
+
+            return new PagedResult<ClientDto>
+            {
+                Items = (result?.Items ?? new List<ClientApiModel>()).ConvertAll(MapClient),
+                TotalCount = result?.TotalCount ?? 0,
+                PageNumber = result?.PageNumber ?? pageNumber,
+                PageSize = result?.PageSize ?? pageSize
+            };
+        }
+
+        public async Task<List<ClientDto>> SearchClientsAsync(string? search, int limit = 20, CancellationToken cancellationToken = default)
+        {
+            var page = await GetClientPageAsync(1, limit, search, cancellationToken);
+            return page.Items;
+        }
+
         public async Task<List<ClientDto>> GetClientsAsync(CancellationToken cancellationToken = default)
         {
             var result = await GetAsync<List<ClientApiModel>>("/api/customers", cancellationToken);
@@ -236,6 +256,30 @@ namespace CoreBanker.Services
                 : null;
         }
 
+        private static string BuildPagedQuery(string basePath, int pageNumber, int pageSize, string? search)
+        {
+            var parameters = new List<string>
+            {
+                $"pageNumber={Math.Max(1, pageNumber)}",
+                $"pageSize={Math.Clamp(pageSize, 1, 200)}"
+            };
+
+            if (!string.IsNullOrWhiteSpace(search))
+            {
+                parameters.Add($"search={Uri.EscapeDataString(search.Trim())}");
+            }
+
+            return $"{basePath}?{string.Join("&", parameters)}";
+        }
+
+        private sealed class PagedResultApiModel<T>
+        {
+            public List<T> Items { get; set; } = new();
+            public int TotalCount { get; set; }
+            public int PageNumber { get; set; }
+            public int PageSize { get; set; }
+        }
+
         private class ClientApiModel
         {
             public string? Id { get; set; }
@@ -346,6 +390,14 @@ namespace CoreBanker.Services
         public string GhanaCard { get; set; } = string.Empty;
         public string DigitalAddress { get; set; } = string.Empty;
         public DateTime? CreatedAt { get; set; }
+    }
+
+    public class PagedResult<T>
+    {
+        public List<T> Items { get; set; } = new();
+        public int TotalCount { get; set; }
+        public int PageNumber { get; set; }
+        public int PageSize { get; set; }
     }
 
     public class ClientProfileDto : ClientDto

@@ -8,6 +8,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.OpenApi.Models;
+using Microsoft.AspNetCore.ResponseCompression;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -163,6 +164,14 @@ builder.Services.AddScoped<IAuthorizationHandler, PermissionAuthorizationHandler
 
 builder.Services.AddAuthorization();
 builder.Services.AddControllers();
+builder.Services.AddResponseCompression(options =>
+{
+    options.EnableForHttps = true;
+    options.MimeTypes = ResponseCompressionDefaults.MimeTypes.Concat(new[]
+    {
+        "application/json"
+    });
+});
 
 // CORS configuration for development
 builder.Services.AddCors(options =>
@@ -239,6 +248,7 @@ app.UsePerformanceMonitoring(); // Performance monitoring
 app.UseRateLimiting();          // Rate limiting before authentication
 app.UseIpWhitelist();           // IP-based access control
 app.UseJintScriptingSandbox();  // Custom Jint Script Interceptors before Auth
+app.UseResponseCompression();
 app.UseCors("AllowLocalhost");
 app.UseHttpsRedirection();
 app.UseAuthentication();

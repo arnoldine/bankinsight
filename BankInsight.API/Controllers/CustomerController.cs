@@ -35,6 +35,14 @@ public class CustomerController : ControllerBase
         return Ok(customers);
     }
 
+    [HttpGet("paged")]
+    [HasPermission(AppPermissions.Customers.View)]
+    public async Task<IActionResult> GetCustomersPage([FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 50, [FromQuery] string? search = null)
+    {
+        var customers = await _customerService.GetCustomersPageAsync(pageNumber, pageSize, search);
+        return Ok(customers);
+    }
+
     [HttpGet("{id}")]
     [HasPermission(AppPermissions.Customers.View)]
     public async Task<IActionResult> GetCustomerById(string id)

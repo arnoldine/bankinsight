@@ -15,16 +15,16 @@
             <MudGrid>
                 <MudItem xs="12" sm="4">
                     <MudPaper Class="pa-4 corebanker-friendly-stat" Elevation="0">
-                        <MudText Typo="Typo.caption">Visible Accounts</MudText>
-                        <MudText Typo="Typo.h5">@FilteredAccounts.Count()</MudText>
-                        <MudText Typo="Typo.body2" Class="mud-text-secondary">@($"{_accounts.Count(account => string.Equals(account.Status, "ACTIVE", StringComparison.OrdinalIgnoreCase))} active")</MudText>
+                        <MudText Typo="Typo.caption">Matched Accounts</MudText>
+                        <MudText Typo="Typo.h5">@_accountTotalCount</MudText>
+                        <MudText Typo="Typo.body2" Class="mud-text-secondary">@($"{_accounts.Count} loaded on this page")</MudText>
                     </MudPaper>
                 </MudItem>
                 <MudItem xs="12" sm="4">
                     <MudPaper Class="pa-4 corebanker-friendly-stat" Elevation="0">
                         <MudText Typo="Typo.caption">Portfolio Value</MudText>
                         <MudText Typo="Typo.h5">@FormatAmount(_accounts.Sum(account => account.AvailableBalance), "GHS")</MudText>
-                        <MudText Typo="Typo.body2" Class="mud-text-secondary">Available balances across the visible set.</MudText>
+                        <MudText Typo="Typo.body2" Class="mud-text-secondary">Available balances across the loaded page.</MudText>
                     </MudPaper>
                 </MudItem>
                 <MudItem xs="12" sm="4">
@@ -39,10 +39,10 @@
             <MudPaper Class="pa-4">
                 <MudGrid>
                     <MudItem xs="12" md="8">
-                        <MudTextField @bind-Value="_searchTerm" Label="Search by account, customer, branch, or product" Variant="Variant.Outlined" Immediate="true" />
+                        <MudTextField Value="@_searchTerm" ValueChanged="@(async (string value) => await OnAccountSearchChanged(value))" Label="Search by account, customer, branch, or product" Variant="Variant.Outlined" Immediate="true" />
                     </MudItem>
                     <MudItem xs="12" md="4">
-                        <MudSelect @bind-Value="_typeFilter" Label="Account type" Variant="Variant.Outlined">
+                        <MudSelect Value="@_typeFilter" ValueChanged="@(async (string value) => await OnTypeFilterChanged(value))" Label="Account type" Variant="Variant.Outlined">
                             <MudSelectItem Value="@string.Empty">All</MudSelectItem>
                             <MudSelectItem Value="@("SAVINGS")">Savings</MudSelectItem>
                             <MudSelectItem Value="@("CURRENT")">Current</MudSelectItem>
@@ -57,7 +57,7 @@
                 <MudAlert Severity="Severity.Error">@_loadError</MudAlert>
             }
 
-            @if (!_isLoadingAccounts && !FilteredAccounts.Any())
+            @if (!_isLoadingAccounts && _accountTotalCount == 0)
             {
                 <MudPaper Class="pa-6 corebanker-empty-state" Elevation="0">
                     <MudText Typo="Typo.h6">No accounts match this filter</MudText>
@@ -66,7 +66,7 @@
             }
             else
             {
-                <MudTable Items="@FilteredAccounts" Hover="true" Dense="true" Loading="@_isLoadingAccounts">
+                <MudTable T="CoreBanker.Services.AccountListItemDto" @ref="_accountsTable" ServerData="LoadAccountsTableData" Hover="true" Dense="true" Loading="@_isLoadingAccounts" RowsPerPage="25">
                     <HeaderContent>
                         <MudTh>Account</MudTh>
                         <MudTh>Customer</MudTh>
@@ -81,7 +81,7 @@
                             <MudText Typo="Typo.caption" Class="mud-text-secondary">@context.BranchId</MudText>
                         </MudTd>
                         <MudTd DataLabel="Customer">
-                            <MudText Typo="Typo.body2">@GetCustomerName(context.CustomerId)</MudText>
+                            <MudText Typo="Typo.body2">@context.CustomerName</MudText>
                             <MudText Typo="Typo.caption" Class="mud-text-secondary">@context.CustomerId</MudText>
                         </MudTd>
                         <MudTd DataLabel="Type">
@@ -122,12 +122,17 @@
                 }
 
                 <MudForm @ref="_form" OnValidSubmit="CreateAccountAsync" Class="mt-4">
-                    <MudSelect @bind-Value="_request.CustomerId" @bind-Value:after="RefreshSelectedCustomerAccountsAsync" Label="Customer" Required="true" Variant="Variant.Outlined">
-                        @foreach (var client in _clients.OrderBy(client => client.Name))
-                        {
-                            <MudSelectItem Value="@client.Id">@($"{client.Name} ({client.Id})")</MudSelectItem>
-                        }
-                    </MudSelect>
+                    <MudAutocomplete T="CoreBanker.Services.ClientDto"
+                                     Label="Customer"
+                                     Variant="Variant.Outlined"
+                                     Required="true"
+                                     Value="@_selectedClient"
+                                     ValueChanged="OnSelectedClientChanged"
+                                     SearchFunc="SearchClientsAsync"
+                                     ToStringFunc="@(client => client is null ? string.Empty : $"{client.Name} ({client.Id})")"
+                                     ResetValueOnEmptyText="false"
+                                     CoerceText="false"
+                                     Dense="true" />
                     <MudTextField @bind-Value="_request.BranchId" Label="Branch ID" Variant="Variant.Outlined" Class="mt-3" />
                     <MudSelect @bind-Value="_request.Type" Label="Account type" Required="true" Variant="Variant.Outlined" Class="mt-3">
                         <MudSelectItem Value="@("SAVINGS")">Savings</MudSelectItem>
@@ -173,10 +178,11 @@
 </MudGrid>
 
 @code {
-    private List<CoreBanker.Services.AccountDto> _accounts = new();
-    private List<CoreBanker.Services.ClientDto> _clients = new();
+    private List<CoreBanker.Services.AccountListItemDto> _accounts = new();
+    private MudTable<CoreBanker.Services.AccountListItemDto>? _accountsTable;
     private List<CoreBanker.Services.AccountDto> _selectedCustomerAccounts = new();
     private CoreBanker.Services.ClientProfileDto? _selectedCustomerProfile;
+    private CoreBanker.Services.ClientDto? _selectedClient;
     private CoreBanker.Services.CreateAccountRequest _request = new()
     {
         BranchId = "BR001",
@@ -191,31 +197,69 @@
     private bool _isSuccess;
     private bool _isCreating;
     private bool _isLoadingAccounts;
+    private int _accountTotalCount;
     private bool CanCreateAccount => _selectedCustomerProfile?.KycReadiness?.IsReadyForAccountOpening ?? false;
 
     protected override async Task OnInitializedAsync()
     {
-        await LoadDataAsync();
+        await LoadInitialDataAsync();
     }
 
-    private async Task LoadDataAsync()
+    private async Task LoadInitialDataAsync()
+    {
+        var firstPage = await AccountService.GetAccountPageAsync(1, 25);
+        _accounts = firstPage.Items;
+        _accountTotalCount = firstPage.TotalCount;
+        await RefreshSelectedCustomerAccountsAsync();
+    }
+
+    private async Task<TableData<CoreBanker.Services.AccountListItemDto>> LoadAccountsTableData(TableState state, CancellationToken cancellationToken)
     {
         _isLoadingAccounts = true;
         _loadError = string.Empty;
 
         try
         {
-            _clients = await ClientService.GetClientsAsync();
-            _accounts = await AccountService.GetAccountsAsync();
-            await RefreshSelectedCustomerAccountsAsync();
+            var page = await AccountService.GetAccountPageAsync(state.Page + 1, state.PageSize, _searchTerm, _typeFilter, cancellationToken);
+            _accounts = page.Items;
+            _accountTotalCount = page.TotalCount;
+
+            return new TableData<CoreBanker.Services.AccountListItemDto>
+            {
+                Items = _accounts,
+                TotalItems = _accountTotalCount
+            };
         }
         catch (CoreBanker.Services.ApiClientException ex)
         {
             _loadError = ex.Message;
+            return new TableData<CoreBanker.Services.AccountListItemDto>
+            {
+                Items = Array.Empty<CoreBanker.Services.AccountListItemDto>(),
+                TotalItems = 0
+            };
         }
         finally
         {
             _isLoadingAccounts = false;
+        }
+    }
+
+    private async Task OnAccountSearchChanged(string value)
+    {
+        _searchTerm = value;
+        if (_accountsTable is not null)
+        {
+            await _accountsTable.ReloadServerData();
+        }
+    }
+
+    private async Task OnTypeFilterChanged(string value)
+    {
+        _typeFilter = value;
+        if (_accountsTable is not null)
+        {
+            await _accountsTable.ReloadServerData();
         }
     }
 
@@ -251,7 +295,11 @@
                 Currency = "GHS"
             };
 
-            _accounts = await AccountService.GetAccountsAsync();
+            _selectedClient = null;
+            if (_accountsTable is not null)
+            {
+                await _accountsTable.ReloadServerData();
+            }
             await RefreshSelectedCustomerAccountsAsync();
         }
         catch (CoreBanker.Services.ApiClientException ex)
@@ -278,19 +326,23 @@
         _selectedCustomerProfile = await ClientService.GetClientProfileAsync(_request.CustomerId);
     }
 
-    private IEnumerable<CoreBanker.Services.AccountDto> FilteredAccounts =>
-        _accounts.Where(account =>
-            (string.IsNullOrWhiteSpace(_searchTerm)
-             || account.Id.Contains(_searchTerm, StringComparison.OrdinalIgnoreCase)
-             || account.CustomerId.Contains(_searchTerm, StringComparison.OrdinalIgnoreCase)
-             || GetCustomerName(account.CustomerId).Contains(_searchTerm, StringComparison.OrdinalIgnoreCase)
-             || account.ProductCode.Contains(_searchTerm, StringComparison.OrdinalIgnoreCase)
-             || account.BranchId.Contains(_searchTerm, StringComparison.OrdinalIgnoreCase))
-            && (string.IsNullOrWhiteSpace(_typeFilter) || string.Equals(account.Type, _typeFilter, StringComparison.OrdinalIgnoreCase)));
-
     private string GetCustomerName(string customerId)
     {
-        return _clients.FirstOrDefault(client => client.Id == customerId)?.Name ?? customerId;
+        return string.Equals(_selectedClient?.Id, customerId, StringComparison.OrdinalIgnoreCase)
+            ? (_selectedClient?.Name ?? customerId)
+            : _selectedCustomerProfile?.Name ?? customerId;
+    }
+
+    private async Task<IEnumerable<CoreBanker.Services.ClientDto>> SearchClientsAsync(string value, CancellationToken cancellationToken)
+    {
+        return await ClientService.SearchClientsAsync(value, 20, cancellationToken);
+    }
+
+    private async Task OnSelectedClientChanged(CoreBanker.Services.ClientDto? client)
+    {
+        _selectedClient = client;
+        _request.CustomerId = client?.Id ?? string.Empty;
+        await RefreshSelectedCustomerAccountsAsync();
     }
 
     private static string FormatAmount(decimal amount, string currency)

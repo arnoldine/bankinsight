@@ -27,7 +27,56 @@ public class CustomerService
 
     public async Task<List<Customer>> GetCustomersAsync()
     {
-        return await ScopedCustomers().ToListAsync();
+        return await ScopedCustomers().AsNoTracking().ToListAsync();
+    }
+
+    public async Task<PagedResultDto<CustomerListItemDto>> GetCustomersPageAsync(int pageNumber, int pageSize, string? search)
+    {
+        var normalizedPageNumber = Math.Max(1, pageNumber);
+        var normalizedPageSize = Math.Clamp(pageSize, 1, 200);
+
+        var query = ScopedCustomers().AsNoTracking();
+
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var term = search.Trim();
+            query = query.Where(c =>
+                c.Id.Contains(term) ||
+                c.Name.Contains(term) ||
+                (c.Email != null && c.Email.Contains(term)) ||
+                (c.Phone != null && c.Phone.Contains(term)) ||
+                (c.GhanaCard != null && c.GhanaCard.Contains(term)));
+        }
+
+        var totalCount = await query.CountAsync();
+        var items = await query
+            .OrderBy(c => c.Name)
+            .ThenBy(c => c.Id)
+            .Skip((normalizedPageNumber - 1) * normalizedPageSize)
+            .Take(normalizedPageSize)
+            .Select(c => new CustomerListItemDto
+            {
+                Id = c.Id,
+                Type = c.Type,
+                Name = c.Name,
+                Email = c.Email,
+                Phone = c.Phone,
+                DigitalAddress = c.DigitalAddress,
+                KycLevel = c.KycLevel,
+                RiskRating = c.RiskRating,
+                GhanaCard = c.GhanaCard,
+                Status = "ACTIVE",
+                CreatedAt = c.CreatedAt.ToString("O")
+            })
+            .ToListAsync();
+
+        return new PagedResultDto<CustomerListItemDto>
+        {
+            Items = items,
+            TotalCount = totalCount,
+            PageNumber = normalizedPageNumber,
+            PageSize = normalizedPageSize
+        };
     }
 
     public async Task<Customer?> GetCustomerByIdAsync(string id)
