@@ -107,6 +107,32 @@ function getTransactionLabel(type: 'DEPOSIT' | 'WITHDRAWAL' | 'TRANSFER') {
   return type === 'DEPOSIT' ? 'Cash Deposit' : type === 'WITHDRAWAL' ? 'Cash Withdrawal' : 'Transfer';
 }
 
+const cashActionCards: Array<{
+  type: 'DEPOSIT' | 'WITHDRAWAL' | 'TRANSFER';
+  label: string;
+  helper: string;
+  accent: string;
+}> = [
+  {
+    type: 'DEPOSIT',
+    label: 'Cash deposit',
+    helper: 'Receive cash, confirm the account, and post immediately after ID checks.',
+    accent: 'emerald',
+  },
+  {
+    type: 'WITHDRAWAL',
+    label: 'Cash withdrawal',
+    helper: 'Verify the presenter, confirm limits, and post a supervised payout.',
+    accent: 'amber',
+  },
+  {
+    type: 'TRANSFER',
+    label: 'Transfer',
+    helper: 'Use the same teller workflow when a transfer needs branch-side initiation.',
+    accent: 'slate',
+  },
+];
+
 const TellerTerminal: React.FC<TellerTerminalProps> = ({
   accounts,
   customers,
@@ -233,6 +259,7 @@ const TellerTerminal: React.FC<TellerTerminalProps> = ({
     amountWithinDailyLimit,
   );
   const transactionLabel = getTransactionLabel(txType);
+  const submitLabel = txType === 'DEPOSIT' ? 'Post cash deposit' : txType === 'WITHDRAWAL' ? 'Post cash withdrawal' : 'Post transfer';
   const tillStatusTone = !tillSummary
     ? 'text-slate-600 dark:text-slate-300'
     : (tillSummary.variance || 0) === 0
@@ -619,12 +646,31 @@ const TellerTerminal: React.FC<TellerTerminalProps> = ({
                       </div>
                       <div className="mt-2 text-xs text-slate-500 dark:text-slate-400">Choose from live account records or paste the exact account number.</div>
                     </div>
-                  <div className="min-w-[220px]">
-                    <label className="block text-xs font-bold uppercase tracking-[0.18em] text-slate-500">Transaction Type</label>
-                    <select value={txType} onChange={(event) => setTxType(event.target.value as 'DEPOSIT' | 'WITHDRAWAL' | 'TRANSFER')} className="mt-2 w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-900 dark:border-slate-600 dark:bg-slate-950 dark:text-white">
-                      <option value="DEPOSIT">Cash Deposit</option>
-                      <option value="WITHDRAWAL">Cash Withdrawal</option>
-                    </select>
+                  <div className="min-w-[320px]">
+                    <div className="block text-xs font-bold uppercase tracking-[0.18em] text-slate-500">Cash Action</div>
+                    <div className="mt-3 grid gap-3 sm:grid-cols-3">
+                      {cashActionCards.map((action) => {
+                        const isActive = txType === action.type;
+                        const activeClass = action.accent === 'emerald'
+                          ? 'border-emerald-300 bg-emerald-50 text-emerald-900 shadow-sm dark:border-emerald-500/40 dark:bg-emerald-500/10 dark:text-emerald-100'
+                          : action.accent === 'amber'
+                            ? 'border-amber-300 bg-amber-50 text-amber-900 shadow-sm dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-100'
+                            : 'border-slate-400 bg-slate-100 text-slate-900 shadow-sm dark:border-slate-500 dark:bg-slate-800 dark:text-white';
+                        const inactiveClass = 'border-slate-300 bg-white text-slate-700 hover:border-slate-400 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-950 dark:text-slate-200 dark:hover:bg-slate-900';
+
+                        return (
+                          <button
+                            key={action.type}
+                            type="button"
+                            onClick={() => setTxType(action.type)}
+                            className={`rounded-[20px] border px-4 py-4 text-left transition ${isActive ? activeClass : inactiveClass}`}
+                          >
+                            <div className="text-sm font-semibold">{action.label}</div>
+                            <div className="mt-1 text-xs leading-5 opacity-80">{action.helper}</div>
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -857,7 +903,7 @@ const TellerTerminal: React.FC<TellerTerminalProps> = ({
                     Clear
                   </button>
                   <button onClick={handleSubmit} disabled={!canCommit} className="flex-1 rounded-2xl bg-brand-600 px-4 py-3 text-sm font-semibold text-white hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-50">
-                    Post Transaction
+                    {submitLabel}
                   </button>
                 </div>
               </div>

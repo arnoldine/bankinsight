@@ -66,34 +66,58 @@
             }
             else
             {
-                <MudTable T="CoreBanker.Services.AccountListItemDto" @ref="_accountsTable" ServerData="LoadAccountsTableData" Hover="true" Dense="true" Loading="@_isLoadingAccounts" RowsPerPage="25">
-                    <HeaderContent>
-                        <MudTh>Account</MudTh>
-                        <MudTh>Customer</MudTh>
-                        <MudTh>Type</MudTh>
-                        <MudTh>Product</MudTh>
-                        <MudTh>Available</MudTh>
-                        <MudTh>Status</MudTh>
-                    </HeaderContent>
-                    <RowTemplate>
-                        <MudTd DataLabel="Account">
-                            <MudText Typo="Typo.body2">@context.Id</MudText>
-                            <MudText Typo="Typo.caption" Class="mud-text-secondary">@context.BranchId</MudText>
-                        </MudTd>
-                        <MudTd DataLabel="Customer">
-                            <MudText Typo="Typo.body2">@context.CustomerName</MudText>
-                            <MudText Typo="Typo.caption" Class="mud-text-secondary">@context.CustomerId</MudText>
-                        </MudTd>
-                        <MudTd DataLabel="Type">
-                            <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Color="Color.Primary">@context.Type</MudChip>
-                        </MudTd>
-                        <MudTd DataLabel="Product">@context.ProductCode</MudTd>
-                        <MudTd DataLabel="Available">@FormatAmount(context.AvailableBalance, context.Currency)</MudTd>
-                        <MudTd DataLabel="Status">
-                            <MudChip T="string" Size="Size.Small" Variant="Variant.Text" Color="@(string.Equals(context.Status, "ACTIVE", StringComparison.OrdinalIgnoreCase) ? Color.Success : Color.Default)">@context.Status</MudChip>
-                        </MudTd>
-                    </RowTemplate>
-                </MudTable>
+                <MudPaper Class="pa-2">
+                    <SfGrid TValue="CoreBanker.Services.AccountListItemDto" DataSource="@_accounts" AllowSorting="true" AllowResizing="true" AllowTextWrap="true" GridLines="GridLine.Both" Height="520">
+                        <GridColumns>
+                            <GridColumn HeaderText="Account" Width="180">
+                                <Template Context="accountContext">
+                                    @{
+                                        var accountRow = (CoreBanker.Services.AccountListItemDto)accountContext;
+                                    }
+                                    <div class="syncfusion-account-cell">
+                                        <div class="syncfusion-account-primary">@accountRow.Id</div>
+                                        <div class="syncfusion-account-secondary">@accountRow.BranchId</div>
+                                    </div>
+                                </Template>
+                            </GridColumn>
+                            <GridColumn HeaderText="Customer" Width="220">
+                                <Template Context="accountContext">
+                                    @{
+                                        var accountRow = (CoreBanker.Services.AccountListItemDto)accountContext;
+                                    }
+                                    <div class="syncfusion-account-cell">
+                                        <div class="syncfusion-account-primary">@accountRow.CustomerName</div>
+                                        <div class="syncfusion-account-secondary">@accountRow.CustomerId</div>
+                                    </div>
+                                </Template>
+                            </GridColumn>
+                            <GridColumn Field=@nameof(CoreBanker.Services.AccountListItemDto.Type) HeaderText="Type" Width="140"></GridColumn>
+                            <GridColumn Field=@nameof(CoreBanker.Services.AccountListItemDto.ProductCode) HeaderText="Product" Width="140"></GridColumn>
+                            <GridColumn HeaderText="Available" Width="160">
+                                <Template Context="accountContext">
+                                    @{
+                                        var accountRow = (CoreBanker.Services.AccountListItemDto)accountContext;
+                                    }
+                                    <span>@FormatAmount(accountRow.AvailableBalance, accountRow.Currency)</span>
+                                </Template>
+                            </GridColumn>
+                            <GridColumn Field=@nameof(CoreBanker.Services.AccountListItemDto.Status) HeaderText="Status" Width="140"></GridColumn>
+                        </GridColumns>
+                    </SfGrid>
+                </MudPaper>
+
+                <MudPaper Class="pa-4 mt-3 syncfusion-pager-card" Elevation="0">
+                    <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+                        <div>
+                            <MudText Typo="Typo.subtitle2">Page @(_currentAccountPage) of @AccountTotalPages</MudText>
+                            <MudText Typo="Typo.body2" Class="mud-text-secondary">@($"Showing {_accounts.Count} account(s) from {_accountTotalCount} matched records.")</MudText>
+                        </div>
+                        <MudStack Row="true" Spacing="1">
+                            <MudButton Variant="Variant.Outlined" Disabled="@(_isLoadingAccounts || _currentAccountPage <= 1)" OnClick="PreviousAccountsPageAsync">Previous</MudButton>
+                            <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="@(_isLoadingAccounts || _currentAccountPage >= AccountTotalPages)" OnClick="NextAccountsPageAsync">Next</MudButton>
+                        </MudStack>
+                    </MudStack>
+                </MudPaper>
             }
         </MudStack>
     </MudItem>
@@ -178,8 +202,8 @@
 </MudGrid>
 
 @code {
+    private const int AccountPageSize = 25;
     private List<CoreBanker.Services.AccountListItemDto> _accounts = new();
-    private MudTable<CoreBanker.Services.AccountListItemDto>? _accountsTable;
     private List<CoreBanker.Services.AccountDto> _selectedCustomerAccounts = new();
     private CoreBanker.Services.ClientProfileDto? _selectedCustomerProfile;
     private CoreBanker.Services.ClientDto? _selectedClient;
@@ -198,6 +222,8 @@
     private bool _isCreating;
     private bool _isLoadingAccounts;
     private int _accountTotalCount;
+    private int _currentAccountPage = 1;
+    private int AccountTotalPages => Math.Max(1, (int)Math.Ceiling(_accountTotalCount / (double)AccountPageSize));
     private bool CanCreateAccount => _selectedCustomerProfile?.KycReadiness?.IsReadyForAccountOpening ?? false;
 
     protected override async Task OnInitializedAsync()
@@ -207,37 +233,28 @@
 
     private async Task LoadInitialDataAsync()
     {
-        var firstPage = await AccountService.GetAccountPageAsync(1, 25);
-        _accounts = firstPage.Items;
-        _accountTotalCount = firstPage.TotalCount;
+        await LoadAccountsPageAsync(1);
         await RefreshSelectedCustomerAccountsAsync();
     }
 
-    private async Task<TableData<CoreBanker.Services.AccountListItemDto>> LoadAccountsTableData(TableState state, CancellationToken cancellationToken)
+    private async Task LoadAccountsPageAsync(int pageNumber, CancellationToken cancellationToken = default)
     {
         _isLoadingAccounts = true;
         _loadError = string.Empty;
 
         try
         {
-            var page = await AccountService.GetAccountPageAsync(state.Page + 1, state.PageSize, _searchTerm, _typeFilter, cancellationToken);
+            var page = await AccountService.GetAccountPageAsync(pageNumber, AccountPageSize, _searchTerm, _typeFilter, cancellationToken);
             _accounts = page.Items;
             _accountTotalCount = page.TotalCount;
-
-            return new TableData<CoreBanker.Services.AccountListItemDto>
-            {
-                Items = _accounts,
-                TotalItems = _accountTotalCount
-            };
+            _currentAccountPage = page.PageNumber;
         }
         catch (CoreBanker.Services.ApiClientException ex)
         {
             _loadError = ex.Message;
-            return new TableData<CoreBanker.Services.AccountListItemDto>
-            {
-                Items = Array.Empty<CoreBanker.Services.AccountListItemDto>(),
-                TotalItems = 0
-            };
+            _accounts.Clear();
+            _accountTotalCount = 0;
+            _currentAccountPage = 1;
         }
         finally
         {
@@ -248,19 +265,13 @@
     private async Task OnAccountSearchChanged(string value)
     {
         _searchTerm = value;
-        if (_accountsTable is not null)
-        {
-            await _accountsTable.ReloadServerData();
-        }
+        await LoadAccountsPageAsync(1);
     }
 
     private async Task OnTypeFilterChanged(string value)
     {
         _typeFilter = value;
-        if (_accountsTable is not null)
-        {
-            await _accountsTable.ReloadServerData();
-        }
+        await LoadAccountsPageAsync(1);
     }
 
     private async Task CreateAccountAsync()
@@ -296,10 +307,7 @@
             };
 
             _selectedClient = null;
-            if (_accountsTable is not null)
-            {
-                await _accountsTable.ReloadServerData();
-            }
+            await LoadAccountsPageAsync(_currentAccountPage);
             await RefreshSelectedCustomerAccountsAsync();
         }
         catch (CoreBanker.Services.ApiClientException ex)
@@ -343,6 +351,22 @@
         _selectedClient = client;
         _request.CustomerId = client?.Id ?? string.Empty;
         await RefreshSelectedCustomerAccountsAsync();
+    }
+
+    private async Task PreviousAccountsPageAsync()
+    {
+        if (_currentAccountPage > 1)
+        {
+            await LoadAccountsPageAsync(_currentAccountPage - 1);
+        }
+    }
+
+    private async Task NextAccountsPageAsync()
+    {
+        if (_currentAccountPage < AccountTotalPages)
+        {
+            await LoadAccountsPageAsync(_currentAccountPage + 1);
+        }
     }
 
     private static string FormatAmount(decimal amount, string currency)

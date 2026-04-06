@@ -158,12 +158,16 @@
                     <MudPaper Class="pa-4">
                         <MudGrid>
                             <MudItem xs="12" md="6">
-                                <MudSelect T="string" @bind-Value="_originationCustomerId" @bind-Value:after="OnOriginationCustomerChangedAsync" Label="Customer" Variant="Variant.Outlined">
-                                    @foreach (var client in _clients.OrderBy(client => client.Name))
-                                    {
-                                        <MudSelectItem T="string" Value="@client.Id">@($"{client.Name} ({client.Id})")</MudSelectItem>
-                                    }
-                                </MudSelect>
+                                <MudAutocomplete T="CoreBanker.Services.ClientDto"
+                                                 Label="Customer"
+                                                 Variant="Variant.Outlined"
+                                                 Value="@_selectedOriginationClient"
+                                                 ValueChanged="OnSelectedOriginationClientChanged"
+                                                 SearchFunc="SearchOriginationClientsAsync"
+                                                 ToStringFunc="FormatClientOption"
+                                                 ResetValueOnEmptyText="true"
+                                                 CoerceText="false"
+                                                 Dense="true" />
                             </MudItem>
                             <MudItem xs="12" md="6">
                                 <MudSelect T="string" @bind-Value="_originationProductId" Label="Loan Product" Variant="Variant.Outlined">
@@ -323,12 +327,17 @@
                                 <MudSelectItem T="string" Value="@loan.Id">@($"{loan.Id} | {GetCustomerLabel(loan.Cif)}")</MudSelectItem>
                             }
                         </MudSelect>
-                        <MudSelect T="string" @bind-Value="_repaymentAccountId" Label="Settlement Account" Variant="Variant.Outlined" Class="mt-3">
-                            @foreach (var account in RepaymentAccounts)
-                            {
-                                <MudSelectItem T="string" Value="@account.Id">@($"{account.Id} | {FormatCurrency(account.AvailableBalance)}")</MudSelectItem>
-                            }
-                        </MudSelect>
+                        <MudAutocomplete T="CoreBanker.Services.AccountDto"
+                                         Label="Settlement Account"
+                                         Variant="Variant.Outlined"
+                                         Class="mt-3"
+                                         Value="@_selectedRepaymentAccount"
+                                         ValueChanged="OnSelectedRepaymentAccountChanged"
+                                         SearchFunc="SearchRepaymentAccountsAsync"
+                                         ToStringFunc="FormatLoanAccountOption"
+                                         ResetValueOnEmptyText="true"
+                                         CoerceText="false"
+                                         Dense="true" />
                         <MudGrid Class="mt-1">
                             <MudItem xs="12" md="6"><MudNumericField T="decimal" @bind-Value="_repaymentAmount" Label="Amount" Variant="Variant.Outlined" Min="0.01m" /></MudItem>
                             <MudItem xs="12" md="6"><MudTextField @bind-Value="_repaymentReference" Label="Reference" Variant="Variant.Outlined" /></MudItem>
@@ -445,22 +454,28 @@
                             {
                                 <MudGrid Class="mt-1">
                                     <MudItem xs="12" md="6">
-                                        <MudSelect T="string" @bind-Value="_operationsServicingAccountId" Label="Servicing Account" Variant="Variant.Outlined">
-                                            <MudSelectItem T="string" Value="@string.Empty">Auto-select active account</MudSelectItem>
-                                            @foreach (var account in OperationsAccounts)
-                                            {
-                                                <MudSelectItem T="string" Value="@account.Id">@($"{account.Id} | {FormatCurrency(account.AvailableBalance)}")</MudSelectItem>
-                                            }
-                                        </MudSelect>
+                                        <MudAutocomplete T="CoreBanker.Services.AccountDto"
+                                                         Label="Servicing Account"
+                                                         Variant="Variant.Outlined"
+                                                         Value="@_selectedOperationsServicingAccount"
+                                                         ValueChanged="OnSelectedOperationsServicingAccountChanged"
+                                                         SearchFunc="SearchOperationsAccountsAsync"
+                                                         ToStringFunc="FormatLoanAccountOption"
+                                                         ResetValueOnEmptyText="true"
+                                                         CoerceText="false"
+                                                         Dense="true" />
                                     </MudItem>
                                     <MudItem xs="12" md="6">
-                                        <MudSelect T="string" @bind-Value="_operationsCollateralAccountId" Label="Collateral Account" Variant="Variant.Outlined">
-                                            <MudSelectItem T="string" Value="@string.Empty">None</MudSelectItem>
-                                            @foreach (var account in OperationsAccounts)
-                                            {
-                                                <MudSelectItem T="string" Value="@account.Id">@($"{account.Id} | {FormatCurrency(account.AvailableBalance)}")</MudSelectItem>
-                                            }
-                                        </MudSelect>
+                                        <MudAutocomplete T="CoreBanker.Services.AccountDto"
+                                                         Label="Collateral Account"
+                                                         Variant="Variant.Outlined"
+                                                         Value="@_selectedOperationsCollateralAccount"
+                                                         ValueChanged="OnSelectedOperationsCollateralAccountChanged"
+                                                         SearchFunc="SearchOperationsAccountsAsync"
+                                                         ToStringFunc="FormatLoanAccountOption"
+                                                         ResetValueOnEmptyText="true"
+                                                         CoerceText="false"
+                                                         Dense="true" />
                                     </MudItem>
                                     <MudItem xs="12">
                                         <MudTextField @bind-Value="_operationsClientReference" Label="Client Reference" Variant="Variant.Outlined" />
@@ -524,11 +539,11 @@
     private const int OperationsTabIndex = 5;
 
     private List<CoreBanker.Services.LoanDto> _loans = new();
-    private List<CoreBanker.Services.ClientDto> _clients = new();
-    private List<CoreBanker.Services.AccountDto> _accounts = new();
     private List<CoreBanker.Services.LoanProductDefinitionDto> _loanProducts = new();
     private List<CoreBanker.Services.CreditProviderDto> _creditProviders = new();
     private List<CoreBanker.Services.LoanScheduleDto> _selectedSchedule = new();
+    private readonly Dictionary<string, CoreBanker.Services.ClientDto> _clientSnapshots = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, List<CoreBanker.Services.AccountDto>> _customerAccountsCache = new(StringComparer.OrdinalIgnoreCase);
     private CoreBanker.Services.LoanScheduleGenerationResultDto? _schedulePreview;
     private CoreBanker.Services.CreditCheckDto? _creditResult;
     private CoreBanker.Services.LoanPenaltyDto? _penaltyResult;
@@ -538,6 +553,10 @@
     private CoreBanker.Services.LoanDto? _selectedScheduleLoan;
     private CoreBanker.Services.LoanDto? _operationsLoan;
     private CoreBanker.Services.ClientProfileDto? _originationCustomerProfile;
+    private CoreBanker.Services.ClientDto? _selectedOriginationClient;
+    private CoreBanker.Services.AccountDto? _selectedRepaymentAccount;
+    private CoreBanker.Services.AccountDto? _selectedOperationsServicingAccount;
+    private CoreBanker.Services.AccountDto? _selectedOperationsCollateralAccount;
     private string _searchTerm = string.Empty;
     private string _statusFilter = string.Empty;
     private string _originationCustomerId = string.Empty;
@@ -577,8 +596,6 @@
     private List<CoreBanker.Services.LoanDto> OperationsLoans => _loans.Where(loan => NormalizeStatus(loan.Status) is "APPROVED" or "ACTIVE" or "DISBURSED").OrderByDescending(loan => loan.DisbursementDate).ToList();
     private List<CoreBanker.Services.LoanDto> ArrearsLoans => _loans.Where(loan => !string.IsNullOrWhiteSpace(loan.ParBucket) && loan.ParBucket.Trim() != "0" && loan.ParBucket.Trim() != "PAR_0").ToList();
     private decimal TotalOutstanding => ActiveLoans.Sum(loan => loan.OutstandingBalance ?? loan.Principal);
-    private IEnumerable<CoreBanker.Services.AccountDto> RepaymentAccounts => _accounts.Where(account => account.CustomerId == SelectedRepaymentCustomerId && NormalizeStatus(account.Status) == "ACTIVE");
-    private IEnumerable<CoreBanker.Services.AccountDto> OperationsAccounts => _accounts.Where(account => account.CustomerId == SelectedOperationsCustomerId && NormalizeStatus(account.Status) == "ACTIVE");
     private IEnumerable<CoreBanker.Services.LoanScheduleDto> SchedulePreviewRows => _selectedSchedule.Take(8);
     private string SelectedRepaymentCustomerId => _loans.FirstOrDefault(loan => loan.Id == _repaymentLoanId)?.Cif ?? string.Empty;
     private string SelectedOperationsCustomerId => _operationsLoan?.Cif ?? string.Empty;
@@ -616,15 +633,11 @@
         try
         {
             var loansTask = LoanService.GetLoansAsync();
-            var clientsTask = ClientService.GetClientsAsync();
-            var accountsTask = AccountService.GetAccountsAsync();
             var productsTask = LoanService.GetLoanProductsAsync();
             var providersTask = LoanService.GetCreditProvidersAsync();
-            await Task.WhenAll(loansTask, clientsTask, accountsTask, productsTask, providersTask);
+            await Task.WhenAll(loansTask, productsTask, providersTask);
 
             _loans = loansTask.Result;
-            _clients = clientsTask.Result;
-            _accounts = accountsTask.Result;
             _loanProducts = productsTask.Result;
             _creditProviders = providersTask.Result;
             _originationProductId = string.IsNullOrWhiteSpace(_originationProductId) ? _loanProducts.FirstOrDefault(product => product.IsActive)?.Id ?? string.Empty : _originationProductId;
@@ -632,6 +645,7 @@
             _reviewLoan = _reviewLoan is null ? ReviewLoans.FirstOrDefault() : ReviewLoans.FirstOrDefault(loan => loan.Id == _reviewLoan.Id) ?? _reviewLoan;
             _operationsLoan = _operationsLoan is null ? OperationsLoans.FirstOrDefault() : OperationsLoans.FirstOrDefault(loan => loan.Id == _operationsLoan.Id) ?? _operationsLoan;
             _selectedScheduleLoan = _selectedScheduleLoan is null ? _selectedLoan : _loans.FirstOrDefault(loan => loan.Id == _selectedScheduleLoan.Id) ?? _selectedScheduleLoan;
+            await EnsureLoanCustomerSnapshotsAsync();
             await OnOriginationCustomerChangedAsync();
         }
         catch (CoreBanker.Services.ApiClientException ex)
@@ -653,12 +667,30 @@
         if (string.IsNullOrWhiteSpace(_originationCustomerId))
         {
             _originationCustomerProfile = null;
+            _selectedOriginationClient = null;
             return;
         }
 
         try
         {
             _originationCustomerProfile = await ClientService.GetClientProfileAsync(_originationCustomerId);
+            if (_originationCustomerProfile is not null)
+            {
+                RememberClient(new CoreBanker.Services.ClientDto
+                {
+                    Id = _originationCustomerProfile.Id,
+                    Name = _originationCustomerProfile.Name,
+                    Email = _originationCustomerProfile.Email,
+                    Phone = _originationCustomerProfile.Phone,
+                    Type = _originationCustomerProfile.Type,
+                    KycLevel = _originationCustomerProfile.KycLevel,
+                    RiskRating = _originationCustomerProfile.RiskRating,
+                    Status = _originationCustomerProfile.Status,
+                    GhanaCard = _originationCustomerProfile.GhanaCard,
+                    DigitalAddress = _originationCustomerProfile.DigitalAddress,
+                    CreatedAt = _originationCustomerProfile.CreatedAt
+                });
+            }
         }
         catch (CoreBanker.Services.ApiClientException ex)
         {
@@ -747,6 +779,7 @@
             _isSuccess = true;
             _message = loan is null ? "Loan application submitted." : $"Loan {loan.Id} created successfully.";
             _originationCustomerId = string.Empty;
+            _selectedOriginationClient = null;
             _originationPrincipal = 0m;
             _originationClientReference = string.Empty;
             _schedulePreview = null;
@@ -845,6 +878,7 @@
         _selectedLoan = loan;
         _repaymentLoanId = loan.Id;
         _repaymentAccountId = string.Empty;
+        _selectedRepaymentAccount = null;
         _repaymentAmount = loan.OutstandingBalance ?? loan.Principal;
         _activeTabIndex = RepaymentTabIndex;
         _ = OpenScheduleAsync(loan.Id, false);
@@ -921,6 +955,8 @@
         _operationsLoanId = loan.Id;
         _operationsServicingAccountId = string.Empty;
         _operationsCollateralAccountId = string.Empty;
+        _selectedOperationsServicingAccount = null;
+        _selectedOperationsCollateralAccount = null;
         _operationsClientReference = string.Empty;
         _penaltyResult = null;
         _classificationResult = null;
@@ -1040,8 +1076,121 @@
             return "Unknown customer";
         }
 
-        var client = _clients.FirstOrDefault(item => item.Id == customerId);
+        var client = _clientSnapshots.TryGetValue(customerId, out var cachedClient) ? cachedClient : null;
         return client is null ? customerId : $"{client.Name} ({client.Id})";
+    }
+
+    private async Task<IEnumerable<CoreBanker.Services.ClientDto>> SearchOriginationClientsAsync(string value, CancellationToken cancellationToken)
+    {
+        var clients = await ClientService.SearchClientsAsync(value, 20, cancellationToken);
+        foreach (var client in clients)
+        {
+            RememberClient(client);
+        }
+
+        return clients;
+    }
+
+    private async Task OnSelectedOriginationClientChanged(CoreBanker.Services.ClientDto? client)
+    {
+        _selectedOriginationClient = client;
+        _originationCustomerId = client?.Id ?? string.Empty;
+        RememberClient(client);
+        await OnOriginationCustomerChangedAsync();
+    }
+
+    private async Task<IEnumerable<CoreBanker.Services.AccountDto>> SearchRepaymentAccountsAsync(string value, CancellationToken cancellationToken)
+    {
+        return await SearchAccountsForCustomerAsync(SelectedRepaymentCustomerId, value, cancellationToken);
+    }
+
+    private async Task<IEnumerable<CoreBanker.Services.AccountDto>> SearchOperationsAccountsAsync(string value, CancellationToken cancellationToken)
+    {
+        return await SearchAccountsForCustomerAsync(SelectedOperationsCustomerId, value, cancellationToken);
+    }
+
+    private Task OnSelectedRepaymentAccountChanged(CoreBanker.Services.AccountDto? account)
+    {
+        _selectedRepaymentAccount = account;
+        _repaymentAccountId = account?.Id ?? string.Empty;
+        return Task.CompletedTask;
+    }
+
+    private Task OnSelectedOperationsServicingAccountChanged(CoreBanker.Services.AccountDto? account)
+    {
+        _selectedOperationsServicingAccount = account;
+        _operationsServicingAccountId = account?.Id ?? string.Empty;
+        return Task.CompletedTask;
+    }
+
+    private Task OnSelectedOperationsCollateralAccountChanged(CoreBanker.Services.AccountDto? account)
+    {
+        _selectedOperationsCollateralAccount = account;
+        _operationsCollateralAccountId = account?.Id ?? string.Empty;
+        return Task.CompletedTask;
+    }
+
+    private async Task<IEnumerable<CoreBanker.Services.AccountDto>> SearchAccountsForCustomerAsync(string customerId, string value, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(customerId))
+        {
+            return Enumerable.Empty<CoreBanker.Services.AccountDto>();
+        }
+
+        if (!_customerAccountsCache.TryGetValue(customerId, out var accounts))
+        {
+            accounts = await AccountService.GetAccountsByCustomerIdAsync(customerId, cancellationToken);
+            _customerAccountsCache[customerId] = accounts;
+        }
+
+        return accounts
+            .Where(account => NormalizeStatus(account.Status) == "ACTIVE")
+            .Where(account =>
+                string.IsNullOrWhiteSpace(value)
+                || account.Id.Contains(value, StringComparison.OrdinalIgnoreCase)
+                || account.ProductCode.Contains(value, StringComparison.OrdinalIgnoreCase)
+                || account.Currency.Contains(value, StringComparison.OrdinalIgnoreCase))
+            .OrderBy(account => account.Id)
+            .Take(20)
+            .ToList();
+    }
+
+    private async Task EnsureLoanCustomerSnapshotsAsync()
+    {
+        var customerIds = _loans
+            .Select(loan => loan.Cif)
+            .Where(customerId => !string.IsNullOrWhiteSpace(customerId))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Where(customerId => !_clientSnapshots.ContainsKey(customerId))
+            .Take(40)
+            .ToList();
+
+        foreach (var customerId in customerIds)
+        {
+            var matches = await ClientService.SearchClientsAsync(customerId, 5);
+            var exactMatch = matches.FirstOrDefault(client => string.Equals(client.Id, customerId, StringComparison.OrdinalIgnoreCase));
+            RememberClient(exactMatch ?? matches.FirstOrDefault());
+        }
+    }
+
+    private void RememberClient(CoreBanker.Services.ClientDto? client)
+    {
+        if (client is null || string.IsNullOrWhiteSpace(client.Id))
+        {
+            return;
+        }
+
+        _clientSnapshots[client.Id] = client;
+    }
+
+    private static string FormatClientOption(CoreBanker.Services.ClientDto? client)
+    {
+        return client is null ? string.Empty : $"{client.Name} ({client.Id})";
+    }
+
+    private static string FormatLoanAccountOption(CoreBanker.Services.AccountDto? account)
+    {
+        return account is null ? string.Empty : $"{account.Id} | {FormatCurrency(account.AvailableBalance)}";
     }
 
     private static string DisplayLoanProduct(CoreBanker.Services.LoanDto loan)

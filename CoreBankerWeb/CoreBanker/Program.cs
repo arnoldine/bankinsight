@@ -3,6 +3,8 @@ using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
 using CoreBanker;
 using MudBlazor.Services;
 using CoreBanker.Auth;
+using Syncfusion.Blazor;
+using Syncfusion.Licensing;
 
 var builder = WebAssemblyHostBuilder.CreateDefault(args);
 builder.RootComponents.Add<App>("#app");
@@ -17,6 +19,14 @@ var resolvedApiBaseAddress = string.IsNullOrWhiteSpace(apiBaseUrlSetting)
 
 builder.Services.AddScoped(sp => new HttpClient { BaseAddress = resolvedApiBaseAddress });
 builder.Services.AddMudServices();
+builder.Services.AddSyncfusionBlazor();
+
+var syncfusionLicenseKey = builder.Configuration["SyncfusionLicenseKey"] ?? builder.Configuration["Syncfusion:LicenseKey"];
+if (!string.IsNullOrWhiteSpace(syncfusionLicenseKey))
+{
+    SyncfusionLicenseProvider.RegisterLicense(syncfusionLicenseKey);
+}
+
 builder.Services.AddScoped<CoreBanker.State.AppState>();
 builder.Services.AddScoped<AuthService>();
 builder.Services.AddScoped<IAuthStateProvider, AuthStateProvider>();

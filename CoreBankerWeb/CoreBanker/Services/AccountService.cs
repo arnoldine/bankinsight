@@ -20,6 +20,12 @@ namespace CoreBanker.Services
             };
         }
 
+        public async Task<List<AccountListItemDto>> SearchAccountsAsync(string? search, int limit = 20, string? type = null, CancellationToken cancellationToken = default)
+        {
+            var page = await GetAccountPageAsync(1, limit, search, type, cancellationToken);
+            return page.Items;
+        }
+
         public async Task<List<AccountDto>> GetAccountsAsync(CancellationToken cancellationToken = default)
         {
             var result = await GetAsync<List<AccountApiModel>>("/api/accounts", cancellationToken);
@@ -51,6 +57,12 @@ namespace CoreBanker.Services
         {
             var account = await GetAsync<AccountApiModel>($"/api/accounts/{id}", cancellationToken);
             return account is null ? null : MapAccount(account);
+        }
+
+        public async Task<AccountListItemDto?> GetAccountListItemByIdAsync(string id, CancellationToken cancellationToken = default)
+        {
+            var account = await GetAccountByIdAsync(id, cancellationToken);
+            return account is null ? null : MapAccountListItem(account);
         }
 
         private static AccountDto MapAccount(AccountApiModel account)
@@ -89,6 +101,26 @@ namespace CoreBanker.Services
                 Status = NormalizeAccountStatus(account.Status),
                 LastTransDate = ParseDate(account.LastTransDate),
                 CreatedAt = ParseDate(account.CreatedAt)
+            };
+        }
+
+        private static AccountListItemDto MapAccountListItem(AccountDto account)
+        {
+            return new AccountListItemDto
+            {
+                Id = account.Id,
+                CustomerId = account.CustomerId,
+                CustomerName = account.CustomerId,
+                BranchId = account.BranchId,
+                Type = account.Type,
+                Currency = account.Currency,
+                ProductCode = account.ProductCode,
+                Balance = account.Balance,
+                LienAmount = account.LienAmount,
+                AvailableBalance = account.AvailableBalance,
+                Status = account.Status,
+                LastTransDate = account.LastTransDate,
+                CreatedAt = account.CreatedAt
             };
         }
 

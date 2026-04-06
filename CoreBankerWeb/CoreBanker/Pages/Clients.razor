@@ -75,36 +75,58 @@
             }
             else
             {
-                <MudTable T="CoreBanker.Services.ClientDto" @ref="_clientsTable" ServerData="LoadClientsTableData" Hover="true" Dense="true" Loading="@_isLoadingClients" RowsPerPage="25">
-                    <HeaderContent>
-                        <MudTh>CIF</MudTh>
-                        <MudTh>Name</MudTh>
-                        <MudTh>Contact</MudTh>
-                        <MudTh>KYC</MudTh>
-                        <MudTh>Status</MudTh>
-                        <MudTh></MudTh>
-                    </HeaderContent>
-                    <RowTemplate>
-                        <MudTd DataLabel="CIF">@context.Id</MudTd>
-                        <MudTd DataLabel="Name">
-                            <MudText Typo="Typo.body2">@context.Name</MudText>
-                            <MudText Typo="Typo.caption" Class="mud-text-secondary">@context.Type</MudText>
-                        </MudTd>
-                        <MudTd DataLabel="Contact">
-                            <MudText Typo="Typo.body2">@(string.IsNullOrWhiteSpace(context.Phone) ? context.Email : context.Phone)</MudText>
-                            <MudText Typo="Typo.caption" Class="mud-text-secondary">@context.Email</MudText>
-                        </MudTd>
-                        <MudTd DataLabel="KYC">
-                            <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Color="@(string.Equals(context.KycLevel, "Tier 3", StringComparison.OrdinalIgnoreCase) ? Color.Success : Color.Warning)">@context.KycLevel</MudChip>
-                        </MudTd>
-                        <MudTd DataLabel="Status">
-                            <MudChip T="string" Size="Size.Small" Variant="Variant.Text" Color="@(string.Equals(context.Status, "Active", StringComparison.OrdinalIgnoreCase) ? Color.Success : Color.Default)">@context.Status</MudChip>
-                        </MudTd>
-                        <MudTd DataLabel="Actions">
-                            <MudButton Variant="Variant.Text" Color="Color.Primary" OnClick="@(() => LoadClientWorkspaceAsync(context.Id))">View</MudButton>
-                        </MudTd>
-                    </RowTemplate>
-                </MudTable>
+                <MudPaper Class="pa-2">
+                    <SfGrid TValue="CoreBanker.Services.ClientDto" DataSource="@_clients" AllowSorting="true" AllowResizing="true" AllowTextWrap="true" GridLines="GridLine.Both" Height="520">
+                        <GridColumns>
+                            <GridColumn Field=@nameof(CoreBanker.Services.ClientDto.Id) HeaderText="CIF" Width="150"></GridColumn>
+                            <GridColumn HeaderText="Client" Width="220">
+                                <Template Context="clientContext">
+                                    @{
+                                        var clientRow = (CoreBanker.Services.ClientDto)clientContext;
+                                    }
+                                    <div class="syncfusion-account-cell">
+                                        <div class="syncfusion-account-primary">@clientRow.Name</div>
+                                        <div class="syncfusion-account-secondary">@clientRow.Type</div>
+                                    </div>
+                                </Template>
+                            </GridColumn>
+                            <GridColumn HeaderText="Contact" Width="220">
+                                <Template Context="clientContext">
+                                    @{
+                                        var clientRow = (CoreBanker.Services.ClientDto)clientContext;
+                                    }
+                                    <div class="syncfusion-account-cell">
+                                        <div class="syncfusion-account-primary">@(string.IsNullOrWhiteSpace(clientRow.Phone) ? DisplayValue(clientRow.Email) : clientRow.Phone)</div>
+                                        <div class="syncfusion-account-secondary">@DisplayValue(clientRow.Email)</div>
+                                    </div>
+                                </Template>
+                            </GridColumn>
+                            <GridColumn Field=@nameof(CoreBanker.Services.ClientDto.KycLevel) HeaderText="KYC" Width="120"></GridColumn>
+                            <GridColumn Field=@nameof(CoreBanker.Services.ClientDto.Status) HeaderText="Status" Width="120"></GridColumn>
+                            <GridColumn HeaderText="Action" Width="120">
+                                <Template Context="clientContext">
+                                    @{
+                                        var clientRow = (CoreBanker.Services.ClientDto)clientContext;
+                                    }
+                                    <MudButton Variant="Variant.Text" Color="Color.Primary" OnClick="@(() => LoadClientWorkspaceAsync(clientRow.Id))">View</MudButton>
+                                </Template>
+                            </GridColumn>
+                        </GridColumns>
+                    </SfGrid>
+                </MudPaper>
+
+                <MudPaper Class="pa-4 mt-3 syncfusion-pager-card" Elevation="0">
+                    <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+                        <div>
+                            <MudText Typo="Typo.subtitle2">Page @(_currentClientPage) of @ClientTotalPages</MudText>
+                            <MudText Typo="Typo.body2" Class="mud-text-secondary">@($"Showing {_clients.Count} client(s) from {_clientTotalCount} matched records.")</MudText>
+                        </div>
+                        <MudStack Row="true" Spacing="1">
+                            <MudButton Variant="Variant.Outlined" Disabled="@(_isLoadingClients || _currentClientPage <= 1)" OnClick="PreviousClientsPageAsync">Previous</MudButton>
+                            <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="@(_isLoadingClients || _currentClientPage >= ClientTotalPages)" OnClick="NextClientsPageAsync">Next</MudButton>
+                        </MudStack>
+                    </MudStack>
+                </MudPaper>
             }
         </MudStack>
     </MudItem>
@@ -358,8 +380,8 @@
 
 @code {
     private const long MaxMediaBytes = 3 * 1024 * 1024;
+    private const int ClientPageSize = 25;
     private List<CoreBanker.Services.ClientDto> _clients = new();
-    private MudTable<CoreBanker.Services.ClientDto>? _clientsTable;
     private CoreBanker.Services.ClientProfileDto? _selectedProfile;
     private CoreBanker.Services.ClientKycStatusDto? _selectedKyc;
     private string _selectedClientId = string.Empty;
@@ -372,6 +394,8 @@
     private bool _isAddingNote;
     private bool _isAddingDocument;
     private int _clientTotalCount;
+    private int _currentClientPage = 1;
+    private int ClientTotalPages => Math.Max(1, (int)Math.Ceiling(_clientTotalCount / (double)ClientPageSize));
     private string _newNoteText = string.Empty;
     private string _newNoteCategory = "GENERAL";
     private string _newDocumentType = string.Empty;
@@ -384,46 +408,32 @@
 
     private async Task LoadInitialClientsAsync()
     {
-        var firstPage = await ClientService.GetClientPageAsync(1, 25);
-        _clients = firstPage.Items;
-        _clientTotalCount = firstPage.TotalCount;
-
-        if (_clients.Count > 0 && string.IsNullOrWhiteSpace(_selectedClientId))
-        {
-            await LoadClientWorkspaceAsync(_clients[0].Id);
-        }
+        await LoadClientsPageAsync(1);
     }
 
-    private async Task<TableData<CoreBanker.Services.ClientDto>> LoadClientsTableData(TableState state, CancellationToken cancellationToken)
+    private async Task LoadClientsPageAsync(int pageNumber, CancellationToken cancellationToken = default)
     {
         _isLoadingClients = true;
         _loadError = string.Empty;
 
         try
         {
-            var page = await ClientService.GetClientPageAsync(state.Page + 1, state.PageSize, _searchTerm, cancellationToken);
+            var page = await ClientService.GetClientPageAsync(pageNumber, ClientPageSize, _searchTerm, cancellationToken);
             _clients = page.Items;
             _clientTotalCount = page.TotalCount;
+            _currentClientPage = page.PageNumber;
 
             if (_clients.Count > 0 && string.IsNullOrWhiteSpace(_selectedClientId))
             {
                 await LoadClientWorkspaceAsync(_clients[0].Id);
             }
-
-            return new TableData<CoreBanker.Services.ClientDto>
-            {
-                Items = _clients,
-                TotalItems = _clientTotalCount
-            };
         }
         catch (CoreBanker.Services.ApiClientException ex)
         {
             _loadError = ex.Message;
-            return new TableData<CoreBanker.Services.ClientDto>
-            {
-                Items = Array.Empty<CoreBanker.Services.ClientDto>(),
-                TotalItems = 0
-            };
+            _clients.Clear();
+            _clientTotalCount = 0;
+            _currentClientPage = 1;
         }
         finally
         {
@@ -434,9 +444,22 @@
     private async Task OnSearchChanged(string value)
     {
         _searchTerm = value;
-        if (_clientsTable is not null)
+        await LoadClientsPageAsync(1);
+    }
+
+    private async Task PreviousClientsPageAsync()
+    {
+        if (_currentClientPage > 1)
         {
-            await _clientsTable.ReloadServerData();
+            await LoadClientsPageAsync(_currentClientPage - 1);
+        }
+    }
+
+    private async Task NextClientsPageAsync()
+    {
+        if (_currentClientPage < ClientTotalPages)
+        {
+            await LoadClientsPageAsync(_currentClientPage + 1);
         }
     }
 
