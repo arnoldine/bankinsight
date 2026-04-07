@@ -50,5 +50,6 @@ builder.Services.AddScoped<CoreBanker.Services.GroupLendingService>();
 builder.Services.AddScoped<CoreBanker.Services.TreasuryService>();
 builder.Services.AddScoped<CoreBanker.Services.VaultService>();
 builder.Services.AddScoped<CoreBanker.Services.RiskService>();
+builder.Services.AddScoped<CoreBanker.Services.FintechWorkspaceService>();
 
 await builder.Build().RunAsync();
