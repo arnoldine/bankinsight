@@ -119,7 +119,12 @@ $datasets = @(
 )
 
 if (-not $SkipGlAccounts) {
-    $datasets += @{ Name = "gl_accounts"; File = (Join-Path $PreparedDir "gl_accounts_template.csv") }
+    $glAccountsFile = Join-Path $PreparedDir "gl_accounts.csv"
+    if (-not (Test-Path $glAccountsFile)) {
+        $glAccountsFile = Join-Path $PreparedDir "gl_accounts_template.csv"
+    }
+
+    $datasets += @{ Name = "gl_accounts"; File = $glAccountsFile }
 }
 
 $results = foreach ($dataset in $datasets) {

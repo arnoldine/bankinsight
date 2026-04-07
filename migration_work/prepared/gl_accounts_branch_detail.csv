@@ -1,0 +1,898 @@
+code,branch_code,name,category,currency,balance,is_header
+110.100.01,-01,Int. Received Bus. Loans,INCOME,GHS,-6514.75,false
+110.100.01,-02,Int. Received Bus. Loans,INCOME,GHS,-23071.14,false
+110.100.01,-03,Int. Received Bus. Loans,INCOME,GHS,-14806.02,false
+110.100.01,-04,Int. Received Bus. Loans,INCOME,GHS,-8957.14,false
+110.100.01,-05,Int. Received Bus. Loans,INCOME,GHS,0,false
+110.100.01,-07,Int. Received Bus. Loans,INCOME,GHS,0,false
+110.100.01,-09,Int. Received Bus. Loans,INCOME,GHS,-23336.639999999999,false
+110.100.01,-10,Int. Received Bus. Loans,INCOME,GHS,-4014.7,false
+110.100.01,-23,Int. Received Nkosuo Loans (Interest income - Customer's loans),INCOME,GHS,-29306.19,false
+114.100.01,-00,Int. Agric loan,INCOME,GHS,0,false
+114.100.01,-01,Int. Agric loan,INCOME,GHS,0,false
+116.100.01,-01,Int. Rec'd  Payroll Loans,INCOME,GHS,-43682.58,false
+116.100.01,-02,Int. Rec'd  Payroll Loans,INCOME,GHS,-100.97,false
+116.100.01,-03,Int. Rec'd  Payroll Loans,INCOME,GHS,0,false
+116.100.01,-04,Int. Rec'd  Payroll Loans,INCOME,GHS,-3043.33,false
+116.100.01,-05,Int. Rec'd  Payroll Loans,INCOME,GHS,-1477.05,false
+116.100.01,-07,Int. Rec'd  Payroll Loans,INCOME,GHS,-620.49,false
+116.100.01,-10,Int. Rec'd  Payroll Loans,INCOME,GHS,-1529.7,false
+116.100.01,-23,Int. Rec'd  Payroll Loans (Interest income - Customer's loans),INCOME,GHS,-1972.48,false
+117.100.01,-00,Int. Rec'd Staff Loans,INCOME,GHS,-30606.86,false
+118.100.01,-00,Int./Discount Rec'd on Investments,INCOME,GHS,-2862153.91,false
+118.100.02,-00,Int./Rec'd on Banks account,INCOME,GHS,-422078.24,false
+119.100.01,-01,Amortised processing fees - Bus. Loans,INCOME,GHS,-704.95,false
+119.100.01,-02,Amortised processing fees - Bus. Loans,INCOME,GHS,-1973.17,false
+119.100.01,-03,Amortised processing fees - Bus. Loans,INCOME,GHS,-1805.18,false
+119.100.01,-04,Amortised processing fees - Bus. Loans,INCOME,GHS,-904.94,false
+119.100.01,-05,Amortised processing fees - Bus. Loans,INCOME,GHS,0,false
+119.100.01,-07,Amortised processing fees - Bus. Loans,INCOME,GHS,0,false
+119.100.01,-09,Amortised processing fees - Bus. Loans,INCOME,GHS,-1996.32,false
+119.100.01,-10,Amortised processing fees - Bus. Loans,INCOME,GHS,-599.39,false
+119.100.01,-23,Amortised processing fees - Bus. Loans (Disbursement Fees - Customers),INCOME,GHS,-3666.68,false
+119.100.08,-00,Amortised processing fees - Agric loan,INCOME,GHS,0,false
+119.100.08,-01,Amortised processing fees - Agric loan,INCOME,GHS,0,false
+119.100.10,-00,Amortised processing fees - Payroll Loans,INCOME,GHS,0,false
+119.100.10,-01,Amortised processing fees - Payroll Loans,INCOME,GHS,-891.91,false
+119.100.10,-02,Amortised processing fees - Payroll Loans,INCOME,GHS,-21.11,false
+119.100.10,-03,Amortised processing fees - Payroll Loans,INCOME,GHS,0,false
+119.100.10,-04,Amortised processing fees - Payroll Loans,INCOME,GHS,-69.17,false
+119.100.10,-05,Amortised processing fees - Payroll Loans,INCOME,GHS,-11.17,false
+119.100.10,-07,Amortised processing fees - Payroll Loans,INCOME,GHS,-28.7,false
+119.100.10,-10,Amortised processing fees - Payroll Loans,INCOME,GHS,-11.42,false
+119.100.10,-23,Amortised processing fees - Payroll Loans (Disbursement Fees - Customers),INCOME,GHS,-233.49,false
+119.100.14,-00,Administrative Fees Income,INCOME,GHS,-570,false
+119.100.14,-00,Salary Loan Insurance,INCOME,GHS,-5894,false
+119.100.14,-00,Insurance Premium - other products,INCOME,GHS,281284.33,false
+119.100.14,-00,Administrative Fees,INCOME,GHS,-251048.53,false
+119.100.14,-01,mortised processing fees - Nkosuo Loan 3 (Disbursement Fees - Customers),INCOME,GHS,-50,false
+119.100.14,-01,Salary Loan Insurance,INCOME,GHS,-20963,false
+119.100.14,-01,Insurance Premium - other products,INCOME,GHS,7854.8,false
+119.100.14,-02,mortised processing fees - Nkosuo Loan 3 (Disbursement Fees - Customers),INCOME,GHS,-275,false
+119.100.14,-02,Salary Loan Insurance,INCOME,GHS,-1119,false
+119.100.14,-02,Insurance Premium - other products,INCOME,GHS,1063.28,false
+119.100.14,-02,Deferred Income for Loans(Processing fees),INCOME,GHS,40,false
+119.100.14,-03,mortised processing fees - Nkosuo Loan 3 (Disbursement Fees - Customers),INCOME,GHS,-320,false
+119.100.14,-03,Salary Loan Insurance,INCOME,GHS,-690,false
+119.100.14,-03,Insurance Premium - other products,INCOME,GHS,-6413.43,false
+119.100.14,-04,mortised processing fees - Nkosuo Loan 3 (Disbursement Fees - Customers),INCOME,GHS,-355,false
+119.100.14,-04,Salary Loan Insurance,INCOME,GHS,-1598,false
+119.100.14,-04,Insurance Premium - other products,INCOME,GHS,13921.6,false
+119.100.14,-05,Salary Loan Insurance,INCOME,GHS,-1755,false
+119.100.14,-05,Insurance Premium - other products,INCOME,GHS,9466.98,false
+119.100.14,-05,Deferred Income for Loans(Processing fees),INCOME,GHS,180,false
+119.100.14,-07,Salary Loan Insurance,INCOME,GHS,-1766,false
+119.100.14,-07,Insurance Premium - other products,INCOME,GHS,-6282.34,false
+119.100.14,-09,mortised processing fees - Nkosuo Loan 3 (Disbursement Fees - Customers),INCOME,GHS,-490,false
+119.100.14,-09,Salary Loan Insurance,INCOME,GHS,-165,false
+119.100.14,-09,Insurance Premium - other products,INCOME,GHS,-3703.05,false
+119.100.14,-09,Deferred Income for Loans(Processing fees),INCOME,GHS,50,false
+119.100.14,-10,mortised processing fees - Nkosuo Loan 3 (Disbursement Fees - Customers),INCOME,GHS,-50,false
+119.100.14,-10,Salary Loan Insurance,INCOME,GHS,-745,false
+119.100.14,-10,Insurance Premium - other products,INCOME,GHS,4373.59,false
+119.100.14,-23,mortised processing fees - Nkosuo Loan 3 (Disbursement Fees - Customers),INCOME,GHS,-700,false
+119.100.14,-23,"Salary Loan Insurance (Insurances, payable)",INCOME,GHS,-2040,false
+119.100.14,-23,"Insurance Premium - other products (Insurances, payable)",INCOME,GHS,5852.98,false
+119.100.14,-23,Deferred Income for Loans(Processing fees) (Deferred Commission - Loans),INCOME,GHS,50,false
+119.200.01,-00,MiSika Facility Fees (Disbursement Fees - Customers),INCOME,GHS,-548754.32999999996,false
+120.100.04,-01,Comm. A/c - Cheque Books,INCOME,GHS,0,false
+120.100.04,-02,Comm. A/c - Cheque Books,INCOME,GHS,-36,false
+120.100.04,-03,Comm. A/c - Cheque Books,INCOME,GHS,-48,false
+120.100.04,-04,Comm. A/c - Cheque Books,INCOME,GHS,0,false
+120.100.04,-07,Comm. A/c - Cheque Books,INCOME,GHS,0,false
+120.100.04,-09,Comm. A/c - Cheque Books,INCOME,GHS,0,false
+120.100.04,-10,Comm. A/c - Cheque Books,INCOME,GHS,-28,false
+120.100.04,-23,Comm. A/c - Cheque Books (Comm. inc. - Cheques),INCOME,GHS,-20,false
+120.100.06,-01,Comm. - Savings Passbook,INCOME,GHS,-24,false
+120.100.06,-02,Comm. - Savings Passbook,INCOME,GHS,-75,false
+120.100.06,-03,Comm. - Savings Passbook,INCOME,GHS,-63,false
+120.100.06,-04,Comm. - Savings Passbook,INCOME,GHS,-12,false
+120.100.06,-07,Comm. - Savings Passbook,INCOME,GHS,0,false
+120.100.06,-09,Comm. - Savings Passbook,INCOME,GHS,-21,false
+120.100.06,-10,Comm. - Savings Passbook,INCOME,GHS,-9,false
+120.100.06,-23,Comm. - Savings Passbook (Comm. inc. - Other from Customer),INCOME,GHS,-21,false
+121.100.02,-01,Comm. A/c - Mobile money,INCOME,GHS,-5386.33,false
+121.100.02,-02,Comm. A/c - Mobile money,INCOME,GHS,-2438.2199999999998,false
+121.100.02,-03,Comm. A/c - Mobile money,INCOME,GHS,-2135.29,false
+121.100.02,-04,Comm. A/c - Mobile money,INCOME,GHS,-531.76,false
+121.100.02,-07,Comm. A/c - Mobile money,INCOME,GHS,-1550.59,false
+121.100.02,-09,Comm. A/c - Mobile money,INCOME,GHS,-3681.9,false
+121.100.02,-10,Comm. A/c - Mobile money,INCOME,GHS,-2706.73,false
+121.100.02,-23,Comm. A/c - Mobile money (Comm. inc. - money transfers),INCOME,GHS,-1224.51,false
+121.100.04,-02,Comm.-Tigo cash,INCOME,GHS,0,false
+122.100.02,-01,Comm. - Penalty on Loans,INCOME,GHS,-40.06,false
+122.100.02,-02,Comm. - Penalty on Loans,INCOME,GHS,-127.71,false
+122.100.02,-03,Comm. - Penalty on Loans,INCOME,GHS,-141.28,false
+122.100.02,-04,Comm. - Penalty on Loans,INCOME,GHS,-50.92,false
+122.100.02,-05,Comm. - Penalty on Loans,INCOME,GHS,0,false
+122.100.02,-07,Comm. - Penalty on Loans,INCOME,GHS,0,false
+122.100.02,-09,Comm. - Penalty on Loans,INCOME,GHS,-99.52,false
+122.100.02,-10,Comm. - Penalty on Loans,INCOME,GHS,-60.56,false
+122.100.02,-23,Comm. - Penalty on Loans (Other Income - Other),INCOME,GHS,-105.43,false
+122.200.01,-00,Sundry Income,INCOME,GHS,-479820,false
+122.300.02,-00,Commission - Statement of Accounts,INCOME,GHS,0,false
+122.300.02,-01,Commission - Statement of Accounts,INCOME,GHS,-2,false
+122.300.02,-02,Commission - Statement of Accounts,INCOME,GHS,-11,false
+122.300.02,-03,Commission - Statement of Accounts,INCOME,GHS,-34,false
+122.300.02,-04,Commission - Statement of Accounts,INCOME,GHS,0,false
+122.300.02,-05,Commission - Statement of Accounts,INCOME,GHS,0,false
+122.300.02,-07,Commission - Statement of Accounts,INCOME,GHS,0,false
+122.300.02,-10,Commission - Statement of Accounts,INCOME,GHS,-1,false
+122.300.02,-23,Commission - Statement of Accounts (Comm. inc. - Other from Customer),INCOME,GHS,0,false
+210.100.01,-00,Interest Expense - Savings Accounts,EXPENSE,GHS,143.80000000000001,false
+210.100.01,-01,Interest Expense - Savings Accounts,EXPENSE,GHS,21253.13,false
+210.100.01,-02,Interest Expense - Savings Accounts,EXPENSE,GHS,89454.57,false
+210.100.01,-03,Interest Expense - Savings Accounts,EXPENSE,GHS,90321.79,false
+210.100.01,-04,Interest Expense - Savings Accounts,EXPENSE,GHS,18176.96,false
+210.100.01,-05,Interest Expense - Savings Accounts,EXPENSE,GHS,7037.89,false
+210.100.01,-07,Interest Expense - Savings Accounts,EXPENSE,GHS,4651.7700000000004,false
+210.100.01,-09,Interest Expense - Savings Accounts,EXPENSE,GHS,4451.1899999999996,false
+210.100.01,-10,Interest Expense - Savings Accounts,EXPENSE,GHS,12047.06,false
+210.100.01,-23,Interest Expense - Savings Accounts (Interest expenses - Customer accounts),EXPENSE,GHS,2015.13,false
+210.100.02,-00,Interest Expense - Term Deposits - Individuals,EXPENSE,GHS,9290.18,false
+210.100.02,-01,Interest Expense - Term Deposits - Individuals,EXPENSE,GHS,396054.32,false
+210.100.02,-02,Interest Expense - Term Deposits - Individuals,EXPENSE,GHS,228986.68,false
+210.100.02,-03,Interest Expense - Term Deposits - Individuals,EXPENSE,GHS,209188.69,false
+210.100.02,-04,Interest Expense - Term Deposits - Individuals,EXPENSE,GHS,189904.61,false
+210.100.02,-05,Interest Expense - Term Deposits - Individuals,EXPENSE,GHS,1563.96,false
+210.100.02,-07,Interest Expense - Term Deposits - Individuals,EXPENSE,GHS,42667.24,false
+210.100.02,-09,Interest Expense - Term Deposits - Individuals,EXPENSE,GHS,19332.189999999999,false
+210.100.02,-10,Interest Expense - Term Deposits - Individuals,EXPENSE,GHS,119544.86,false
+210.100.02,-23,Interest Expense - Term Deposits - Individuals (Interest expenses - Other),EXPENSE,GHS,45512.33,false
+210.100.03,-00,Interest Expense - Collateral Account,EXPENSE,GHS,0,false
+210.100.04,-00,Interest Rebate - FD Premature Termination,EXPENSE,GHS,0,false
+210.100.04,-01,Interest Rebate - FD Premature Termination,EXPENSE,GHS,-27482.949999999997,false
+210.100.04,-02,Interest Rebate - FD Premature Termination,EXPENSE,GHS,-2204.31,false
+210.100.04,-03,Interest Rebate - FD Premature Termination,EXPENSE,GHS,-5333.16,false
+210.100.04,-04,Interest Rebate - FD Premature Termination,EXPENSE,GHS,-3613.65,false
+210.100.04,-07,Interest Rebate - FD Premature Termination,EXPENSE,GHS,-1998.17,false
+210.100.04,-09,Interest Rebate - FD Premature Termination,EXPENSE,GHS,-910.97,false
+210.100.04,-10,Interest Rebate - FD Premature Termination,EXPENSE,GHS,-634.72,false
+210.100.04,-23,Interest Rebate - FD Premature Termination (Interest expenses - Other),EXPENSE,GHS,-869.74,false
+210.100.05,-00,Ghanapay Interest Expense (Interest expenses - Other),EXPENSE,GHS,566.7399999999999,false
+210.100.05,-01,Ghanapay Interest Expense (Interest expenses - Other),EXPENSE,GHS,334.12,false
+210.100.05,-02,Ghanapay Interest Expense (Interest expenses - Other),EXPENSE,GHS,320.37,false
+210.100.05,-03,Ghanapay Interest Expense (Interest expenses - Other),EXPENSE,GHS,6.92,false
+210.100.05,-04,Ghanapay Interest Expense (Interest expenses - Other),EXPENSE,GHS,1.91,false
+210.100.05,-05,Ghanapay Interest Expense (Interest expenses - Other),EXPENSE,GHS,16.73,false
+210.100.05,-07,Ghanapay Interest Expense (Interest expenses - Other),EXPENSE,GHS,28.6,false
+210.100.05,-09,Ghanapay Interest Expense (Interest expenses - Other),EXPENSE,GHS,15.06,false
+210.100.05,-10,Ghanapay Interest Expense (Interest expenses - Other),EXPENSE,GHS,11.7,false
+210.100.05,-23,Ghanapay Interest Expense (Interest expenses - Other),EXPENSE,GHS,133.27000000000001,false
+211.100.01,-00,Staff Salaries & Allowance,EXPENSE,GHS,4633993.92,false
+211.100.01,-01,Staff Salaries & Allowance,EXPENSE,GHS,47837.599999999999,false
+211.100.01,-02,Staff Salaries & Allowance,EXPENSE,GHS,202958.78,false
+211.100.01,-03,Staff Salaries & Allowance,EXPENSE,GHS,27240.37,false
+211.100.01,-04,Staff Salaries & Allowance,EXPENSE,GHS,50777.15,false
+211.100.01,-05,Staff Salaries & Allowance,EXPENSE,GHS,35649.919999999998,false
+211.100.01,-07,Staff Salaries & Allowance,EXPENSE,GHS,63532.85,false
+211.100.01,-09,Staff Salaries & Allowance,EXPENSE,GHS,54184.53,false
+211.100.01,-10,Staff Salaries & Allowance,EXPENSE,GHS,65692.97,false
+211.100.01,-23,Staff Salaries & Allowance (Personnel exp. - salaries),EXPENSE,GHS,83877.88,false
+211.100.03,-00,Medical Expenses,EXPENSE,GHS,137282.5,false
+211.100.03,-01,Medical Expenses,EXPENSE,GHS,0,false
+211.100.03,-07,Medical Expenses,EXPENSE,GHS,0,false
+211.100.03,-09,Medical Expenses,EXPENSE,GHS,0,false
+211.100.03,-23,Medical Expenses (Personnel exp. - Other),EXPENSE,GHS,0,false
+211.100.04,-00,Funeral Expenses,EXPENSE,GHS,4200,false
+211.100.05,-00,Staff long Service Award Expense,EXPENSE,GHS,13000,false
+211.100.06,-00,Casual Wages Expense,EXPENSE,GHS,296916.09999999998,false
+211.100.08,-00,Staff Performance &  Bonus Expense,EXPENSE,GHS,0,false
+211.100.08,-01,Staff Performance &  Bonus Expense,EXPENSE,GHS,0,false
+211.100.08,-02,Staff Performance &  Bonus Expense,EXPENSE,GHS,0,false
+211.100.08,-03,Staff Performance &  Bonus Expense,EXPENSE,GHS,0,false
+211.100.08,-04,Staff Performance &  Bonus Expense,EXPENSE,GHS,0,false
+211.100.08,-05,Staff Performance &  Bonus Expense,EXPENSE,GHS,0,false
+211.100.08,-07,Staff Performance &  Bonus Expense,EXPENSE,GHS,0,false
+211.100.08,-09,Staff Performance &  Bonus Expense,EXPENSE,GHS,0,false
+211.100.08,-10,Staff Performance &  Bonus Expense,EXPENSE,GHS,0,false
+211.100.08,-23,"Staff Performance &  Bonus Expense (Personnel exp. - Bonus, other)",EXPENSE,GHS,0,false
+211.100.09,-00,"Staff Recruitment, Training &  Professional Due Expense",EXPENSE,GHS,18580,false
+211.100.11,-00,Staff Acting & Field allowance Expense,EXPENSE,GHS,3300,false
+212.100.01,-00,Motor Vehicle Fuel Expense,EXPENSE,GHS,11700,false
+212.100.01,-01,Motor Vehicle Fuel Expense,EXPENSE,GHS,0,false
+212.100.01,-02,Motor Vehicle Fuel Expense,EXPENSE,GHS,0,false
+212.100.01,-04,Motor Vehicle Fuel Expense,EXPENSE,GHS,0,false
+212.100.01,-10,Motor Vehicle Fuel Expense,EXPENSE,GHS,0,false
+212.100.03,-00,"Telephone, WAN & Postage Expense",EXPENSE,GHS,247989.35000000003,false
+212.100.03,-01,"Telephone, WAN & Postage Expense",EXPENSE,GHS,90,false
+212.100.03,-02,"Telephone, WAN & Postage Expense",EXPENSE,GHS,30,false
+212.100.03,-07,"Telephone, WAN & Postage Expense",EXPENSE,GHS,0,false
+212.100.03,-09,"Telephone, WAN & Postage Expense",EXPENSE,GHS,0,false
+212.100.03,-10,"Telephone, WAN & Postage Expense",EXPENSE,GHS,0,false
+212.100.04,-00,Stationery & Printing Expense,EXPENSE,GHS,84179.040000000008,false
+212.100.04,-01,Stationery & Printing Expense,EXPENSE,GHS,-1600,false
+212.100.04,-02,Stationery & Printing Expense,EXPENSE,GHS,59,false
+212.100.04,-03,Stationery & Printing Expense,EXPENSE,GHS,0,false
+212.100.04,-04,Stationery & Printing Expense,EXPENSE,GHS,10,false
+212.100.04,-07,Stationery & Printing Expense,EXPENSE,GHS,1065,false
+212.100.04,-09,Stationery & Printing Expense,EXPENSE,GHS,160,false
+212.100.04,-10,Stationery & Printing Expense,EXPENSE,GHS,0,false
+212.100.04,-23,Stationery & Printing Expense (Office supply exp. - material/stationery),EXPENSE,GHS,80,false
+212.100.05,-00,Travelling  & Transport Expense (Local),EXPENSE,GHS,923506.8,false
+212.100.05,-01,Travelling  & Transport Expense (Local),EXPENSE,GHS,7735,false
+212.100.05,-02,Travelling  & Transport Expense (Local),EXPENSE,GHS,3390,false
+212.100.05,-03,Travelling  & Transport Expense (Local),EXPENSE,GHS,92,false
+212.100.05,-04,Travelling  & Transport Expense (Local),EXPENSE,GHS,30,false
+212.100.05,-05,Travelling  & Transport Expense (Local),EXPENSE,GHS,0,false
+212.100.05,-07,Travelling  & Transport Expense (Local),EXPENSE,GHS,2800,false
+212.100.05,-09,Travelling  & Transport Expense (Local),EXPENSE,GHS,990,false
+212.100.05,-10,Travelling  & Transport Expense (Local),EXPENSE,GHS,3345,false
+212.100.05,-23,Travelling  & Transport Expense (Local) (Business Trip exp. - domestic),EXPENSE,GHS,5714,false
+212.100.06,-00,Cleaning & Sanitation Expense,EXPENSE,GHS,12572.51,false
+212.100.06,-01,Cleaning & Sanitation Expense,EXPENSE,GHS,3823.8999999999996,false
+212.100.06,-02,Cleaning & Sanitation Expense,EXPENSE,GHS,7765.8,false
+212.100.06,-03,Cleaning & Sanitation Expense,EXPENSE,GHS,4193,false
+212.100.06,-04,Cleaning & Sanitation Expense,EXPENSE,GHS,5920,false
+212.100.06,-07,Cleaning & Sanitation Expense,EXPENSE,GHS,2350,false
+212.100.06,-09,Cleaning & Sanitation Expense,EXPENSE,GHS,1392,false
+212.100.06,-10,Cleaning & Sanitation Expense,EXPENSE,GHS,3782,false
+212.100.06,-23,Cleaning & Sanitation Expense (Ext. Serv. Exp. - Cleaning),EXPENSE,GHS,1579,false
+212.100.08,-00,Licensing & Subscription Expense,EXPENSE,GHS,48900,false
+212.100.10,-00,Security Guard Expense,EXPENSE,GHS,67416.56,false
+212.100.10,-02,Security Guard Expense,EXPENSE,GHS,4025,false
+212.100.10,-04,Security Guard Expense,EXPENSE,GHS,2450,false
+212.100.10,-07,Security Guard Expense,EXPENSE,GHS,160,false
+212.100.11,-00,Periodicals & Newspaper Expense,EXPENSE,GHS,120,false
+212.100.11,-02,Periodicals & Newspaper Expense,EXPENSE,GHS,0,false
+212.100.11,-07,Periodicals & Newspaper Expense,EXPENSE,GHS,120,false
+212.100.13,-00,Insurance Expense,EXPENSE,GHS,53362.79,false
+212.100.14,-00,Legal & Professional & Consultanancy Fees,EXPENSE,GHS,633058.07999999996,false
+212.100.15,-00,Repairs &Maintenance-Electricals & Fittings,EXPENSE,GHS,0,false
+212.100.15,-01,Repairs &Maintenance-Electricals & Fittings,EXPENSE,GHS,0,false
+212.100.15,-02,Repairs &Maintenance-Electricals & Fittings,EXPENSE,GHS,80,false
+212.100.15,-03,Repairs &Maintenance-Electricals & Fittings,EXPENSE,GHS,0,false
+212.100.15,-04,Repairs &Maintenance-Electricals & Fittings,EXPENSE,GHS,0,false
+212.100.15,-07,Repairs &Maintenance-Electricals & Fittings,EXPENSE,GHS,18,false
+212.100.15,-09,Repairs &Maintenance-Electricals & Fittings,EXPENSE,GHS,880,false
+212.100.15,-10,Repairs &Maintenance-Electricals & Fittings,EXPENSE,GHS,177,false
+212.100.15,-23,Repairs &Maintenance-Electricals & Fittings (Maint. & Repair exp. - Services),EXPENSE,GHS,70,false
+212.100.16,-00,Annual Audit Fees Expenses,EXPENSE,GHS,135000,false
+212.100.18,-00,Group Agency Expense,EXPENSE,GHS,1791.6200000000001,false
+212.100.18,-01,Group Agency Expense,EXPENSE,GHS,2786.9300000000003,false
+212.100.18,-02,Group Agency Expense,EXPENSE,GHS,1410.2,false
+212.100.18,-03,Group Agency Expense,EXPENSE,GHS,188.13,false
+212.100.18,-04,Group Agency Expense,EXPENSE,GHS,28.13,false
+212.100.18,-05,Group Agency Expense,EXPENSE,GHS,256.08,false
+212.100.18,-07,Group Agency Expense,EXPENSE,GHS,270.60000000000002,false
+212.100.18,-09,Group Agency Expense,EXPENSE,GHS,389.89,false
+212.100.18,-10,Group Agency Expense,EXPENSE,GHS,226.45,false
+212.100.18,-23,"Group Agency Expense (Expenses, other)",EXPENSE,GHS,918.51,false
+212.100.19,-00,Directors Fees Expense,EXPENSE,GHS,117777.71000000002,false
+212.100.21,-00,Advert and Publicity Expense,EXPENSE,GHS,472.8,false
+212.100.22,-00,Bank Charges,EXPENSE,GHS,16521.400000000001,false
+212.100.23,-00,Interest Expense on Lease Liabilities (Lease payment exp. - branches),EXPENSE,GHS,103847.28,false
+212.100.24,-00,Repairs on Premises & Furniture & Equipment,EXPENSE,GHS,105568.88,false
+212.100.24,-01,Repairs on Premises & Furniture & Equipment,EXPENSE,GHS,180,false
+212.100.24,-02,Repairs on Premises & Furniture & Equipment,EXPENSE,GHS,0,false
+212.100.24,-03,Repairs on Premises & Furniture & Equipment,EXPENSE,GHS,0,false
+212.100.24,-04,Repairs on Premises & Furniture & Equipment,EXPENSE,GHS,200,false
+212.100.24,-07,Repairs on Premises & Furniture & Equipment,EXPENSE,GHS,2285,false
+212.100.24,-09,Repairs on Premises & Furniture & Equipment,EXPENSE,GHS,3949,false
+212.100.24,-10,Repairs on Premises & Furniture & Equipment,EXPENSE,GHS,750,false
+212.100.24,-23,Repairs on Premises & Furniture & Equipment (Maint. & Repair exp. - Buildings),EXPENSE,GHS,60,false
+212.200.02,-00,"Loop Digital Expenses (Administrative expenses, other)",EXPENSE,GHS,126213.5,false
+213.100.01,-00,Rent Office Expense,EXPENSE,GHS,700,false
+213.100.03,-00,Property Rates & Permit & Fines & Penalty Expense,EXPENSE,GHS,42781.54,false
+213.100.03,-04,Property Rates & Permit & Fines & Penalty Expense,EXPENSE,GHS,0,false
+213.100.03,-07,Property Rates & Permit & Fines & Penalty Expense,EXPENSE,GHS,0,false
+213.100.03,-23,Property Rates & Permit & Fines & Penalty Expense (Business taxes and licenses),EXPENSE,GHS,0,false
+213.100.04,-00,Electricity  Expense,EXPENSE,GHS,30000,false
+213.100.04,-01,Electricity  Expense,EXPENSE,GHS,12500,false
+213.100.04,-02,Electricity  Expense,EXPENSE,GHS,10000,false
+213.100.04,-03,Electricity  Expense,EXPENSE,GHS,7000,false
+213.100.04,-04,Electricity  Expense,EXPENSE,GHS,3600,false
+213.100.04,-07,Electricity  Expense,EXPENSE,GHS,5000,false
+213.100.04,-09,Electricity  Expense,EXPENSE,GHS,8000,false
+213.100.04,-10,Electricity  Expense,EXPENSE,GHS,6500,false
+213.100.04,-23,Electricity  Expense (Electricity exp.),EXPENSE,GHS,9000,false
+213.100.05,-00,Fuel for Genset Expense,EXPENSE,GHS,0,false
+213.100.05,-01,Fuel for Genset Expense,EXPENSE,GHS,3200,false
+213.100.05,-02,Fuel for Genset Expense,EXPENSE,GHS,1300,false
+213.100.05,-03,Fuel for Genset Expense,EXPENSE,GHS,1000,false
+213.100.05,-04,Fuel for Genset Expense,EXPENSE,GHS,1042,false
+213.100.05,-07,Fuel for Genset Expense,EXPENSE,GHS,446,false
+213.100.05,-09,Fuel for Genset Expense,EXPENSE,GHS,500,false
+213.100.05,-10,Fuel for Genset Expense,EXPENSE,GHS,1200,false
+213.100.05,-23,Fuel for Genset Expense (Electricity exp. - Generators),EXPENSE,GHS,4500,false
+213.100.06,-00,Water Charges Expense,EXPENSE,GHS,5112.34,false
+213.100.06,-01,Water Charges Expense,EXPENSE,GHS,1292,false
+213.100.06,-02,Water Charges Expense,EXPENSE,GHS,1531.21,false
+213.100.06,-03,Water Charges Expense,EXPENSE,GHS,635,false
+213.100.06,-04,Water Charges Expense,EXPENSE,GHS,913,false
+213.100.06,-07,Water Charges Expense,EXPENSE,GHS,200,false
+213.100.06,-09,Water Charges Expense,EXPENSE,GHS,1234,false
+213.100.06,-10,Water Charges Expense,EXPENSE,GHS,666,false
+213.100.06,-23,"Water Charges Expense (Exp., Water)",EXPENSE,GHS,1139,false
+213.100.07,-00,Depreciation - ROU Assets (Lease payment exp. - branches),EXPENSE,GHS,413152.32,false
+213.100.07,-02,Depreciation - ROU Assets (Lease payment exp. - branches),EXPENSE,GHS,47523.360000000001,false
+213.100.07,-03,Depreciation - ROU Assets (Lease payment exp. - branches),EXPENSE,GHS,8250,false
+213.100.07,-04,Depreciation - ROU Assets (Lease payment exp. - branches),EXPENSE,GHS,2817.9,false
+213.100.07,-07,Depreciation - ROU Assets (Lease payment exp. - branches),EXPENSE,GHS,10500,false
+213.100.07,-09,Depreciation - ROU Assets (Lease payment exp. - branches),EXPENSE,GHS,2466.15,false
+213.100.07,-10,Depreciation - ROU Assets (Lease payment exp. - branches),EXPENSE,GHS,1264.3800000000001,false
+213.100.07,-23,Depreciation - ROU Assets (Lease payment exp. - branches),EXPENSE,GHS,5167.74,false
+214.100.01,-00,Depreciation Expense - Buildings,EXPENSE,GHS,28170,false
+214.100.02,-00,"Depreciation Expense - Furniture, Fittings & Fixtures",EXPENSE,GHS,4902.3,false
+214.100.03,-00,Depreciation Expense - Office Equipment,EXPENSE,GHS,12807.58,false
+214.100.04,-00,Depreciation Expense - Plant & Machinery,EXPENSE,GHS,22895.5,false
+214.100.05,-00,Depreciation Expense - Computer Hardware,EXPENSE,GHS,54532.35,false
+214.100.06,-00,Depreciation Expense - Motor Vehicles,EXPENSE,GHS,13136.66,false
+214.100.07,-00,Depreciation Expense - Leasehold Building Improvement,EXPENSE,GHS,4573.2,false
+214.100.08,-00,Depreciation Expense - Software,EXPENSE,GHS,181522.33,false
+214.200.01,-00,Repairs & Maintenance - Motor Vehicle,EXPENSE,GHS,20935.259999999998,false
+214.200.01,-09,Repairs & Maintenance - Motor Vehicle,EXPENSE,GHS,0,false
+214.200.01,-23,Repairs & Maintenance - Motor Vehicle (Maint. & Repair exp. - Cars),EXPENSE,GHS,239,false
+214.200.02,-00,Computer Maintenance & Accessories Expense,EXPENSE,GHS,416,false
+214.200.03,-00,Software & Hardware Retainer Fee Expense,EXPENSE,GHS,567025.24,false
+215.100.01,-00,Expenses for Loan Impairments,EXPENSE,GHS,-56437.82,false
+216.100.01,-00,Interest Expense on other Borrowings,EXPENSE,GHS,0,false
+217.100.01,-00,Tax Expense-NFSL,EXPENSE,GHS,780107.1,false
+217.100.04,-00,Corporate Tax Charge,EXPENSE,GHS,3900535.52,false
+310.100.01,-01,Cash in Vault,ASSET,GHS,1499700.5,false
+310.100.01,-02,Cash in Vault,ASSET,GHS,1568174.24,false
+310.100.01,-03,Cash in Vault,ASSET,GHS,855337.28,false
+310.100.01,-04,Cash in Vault,ASSET,GHS,628901.80000000005,false
+310.100.01,-07,Cash in Vault,ASSET,GHS,0,false
+310.100.01,-09,Cash in Vault,ASSET,GHS,704798.5,false
+310.100.01,-10,Cash in Vault,ASSET,GHS,575831.5,false
+310.100.01,-23,Cash in Vault (Cash in Safe),ASSET,GHS,708070,false
+310.100.02,-01,Cash in Transit,ASSET,GHS,0,false
+310.100.02,-04,Cash in Transit,ASSET,GHS,0,false
+310.200.01,-01,Cash In Till,ASSET,GHS,0,false
+310.200.01,-02,Cash In Till,ASSET,GHS,0,false
+310.200.01,-03,Cash In Till,ASSET,GHS,0,false
+310.200.01,-04,Cash In Till,ASSET,GHS,0,false
+310.200.01,-07,Cash In Till,ASSET,GHS,0,false
+310.200.01,-09,Cash In Till,ASSET,GHS,0,false
+310.200.01,-10,Cash In Till,ASSET,GHS,0,false
+310.200.01,-23,Cash In Till (Cash in Hand),ASSET,GHS,0,false
+310.300.01,-00,Accountable Impresst,ASSET,GHS,0,false
+310.300.01,-01,Accountable Impresst,ASSET,GHS,0,false
+310.300.01,-02,Accountable Impresst,ASSET,GHS,0,false
+310.300.01,-03,Accountable Impresst,ASSET,GHS,0,false
+310.300.01,-04,Accountable Impresst,ASSET,GHS,0,false
+310.300.01,-05,Accountable Impresst,ASSET,GHS,0,false
+310.300.01,-07,Accountable Impresst,ASSET,GHS,0,false
+310.300.01,-09,Accountable Impresst,ASSET,GHS,0,false
+310.300.01,-10,Accountable Impresst,ASSET,GHS,-300,false
+310.300.01,-23,Accountable Impresst (Petty Cash Box),ASSET,GHS,-73,false
+311.100.01,-00,Fidelity Bank Ltd,ASSET,GHS,4736.09,false
+311.100.02,-00,CAL Bank Account,ASSET,GHS,2357.9899999999998,false
+311.100.03,-00,Prudential Bank,ASSET,GHS,578100.09,false
+311.100.05,-00,Ecobank Forex Bank,ASSET,GHS,1008.05,false
+311.100.06,-00,Ecobank Account - Operations 2 (Nostro with non-OECD Banks),ASSET,GHS,180896,false
+311.100.07,-00,OmniBSIC Bank Operations (Nostro with non-OECD Banks),ASSET,GHS,490,false
+311.100.08,-00,OmniBSIC Bank Call Account (Nostro with non-OECD Banks),ASSET,GHS,21198270.719999999,false
+311.200.01,-00,Ecobank Clearing Account,ASSET,GHS,48770464.57,false
+311.200.02,-00,HFC Clearing Account,ASSET,GHS,2546838.5699999998,false
+311.200.03,-00,GT-Bank Clearing Account,ASSET,GHS,111725.93,false
+311.300.01,-00,GT-Bank Western Union Refund Acount,ASSET,GHS,548.51,false
+311.300.02,-00,GT-Bank RIA Account,ASSET,GHS,672.34,false
+311.300.03,-00,GT-Bank Moneygram Account,ASSET,GHS,1572359.5,false
+311.300.04,-00,Adehyeman Group Loan Account,ASSET,GHS,546641.63,false
+311.300.05,-00,GT-Bank Foreign Exch. Account,ASSET,GHS,291.08,false
+312.100.01,-01,Airtel Mobile Money Payments,ASSET,GHS,74.55,false
+312.100.01,-03,Airtel Mobile Money Payments,ASSET,GHS,231.84,false
+312.100.01,-04,Airtel Mobile Money Payments,ASSET,GHS,830.95,false
+312.100.02,-01,MTN Mobile Money Payments,ASSET,GHS,361800.92,false
+312.100.02,-02,MTN Mobile Money Payments,ASSET,GHS,174387.67,false
+312.100.02,-03,MTN Mobile Money Payments,ASSET,GHS,5315.07,false
+312.100.02,-04,MTN Mobile Money Payments,ASSET,GHS,1168.95,false
+312.100.02,-05,MTN Mobile Money Payments,ASSET,GHS,-1009.8,false
+312.100.02,-07,MTN Mobile Money Payments,ASSET,GHS,0,false
+312.100.02,-09,MTN Mobile Money Payments,ASSET,GHS,65141.03,false
+312.100.02,-10,MTN Mobile Money Payments,ASSET,GHS,142206.64000000001,false
+312.100.02,-14,MTN Mobile Money Payments,ASSET,GHS,0,false
+312.100.02,-23,MTN Mobile Money Payments (Receivables from other institutions),ASSET,GHS,5216.07,false
+312.100.03,-00,Hubtel Prepaid Account,ASSET,GHS,225.26,false
+312.100.04,-00,Tigo cash transfer,ASSET,GHS,619.30999999999995,false
+312.100.04,-01,Tigo cash transfer,ASSET,GHS,33026.620000000003,false
+312.100.04,-02,Tigo cash transfer,ASSET,GHS,67588.539999999994,false
+312.100.04,-03,Tigo cash transfer,ASSET,GHS,1246.08,false
+312.100.04,-04,Tigo cash transfer,ASSET,GHS,5421.3,false
+312.100.04,-05,Tigo cash transfer,ASSET,GHS,2513.5,false
+312.100.04,-09,Tigo cash transfer,ASSET,GHS,1323.68,false
+312.100.04,-10,Tigo cash transfer,ASSET,GHS,7038.98,false
+312.200.01,-00,MTN Digital Wallet OVA (Receivables from other institutions),ASSET,GHS,2555141.5,false
+314.100.01,-01,GhanaPay Branch E-value Account (Cash in TCR),ASSET,GHS,6638.02,false
+314.100.01,-02,GhanaPay Branch E-value Account (Cash in TCR),ASSET,GHS,-70830,false
+314.100.01,-03,GhanaPay Branch E-value Account (Cash in TCR),ASSET,GHS,-67658,false
+314.100.01,-09,GhanaPay Branch E-value Account (Cash in TCR),ASSET,GHS,1500,false
+314.100.01,-10,GhanaPay Branch E-value Account (Cash in TCR),ASSET,GHS,-2000,false
+314.100.01,-23,GhanaPay Branch E-value Account (Cash in TCR),ASSET,GHS,-10014,false
+314.100.02,-01,GhanaPay E-value Imprest Account (Cash in TCR),ASSET,GHS,54711.98,false
+314.100.02,-02,GhanaPay E-value Imprest Account (Cash in TCR),ASSET,GHS,70830,false
+314.100.02,-03,GhanaPay E-value Imprest Account (Cash in TCR),ASSET,GHS,67658,false
+314.100.02,-07,GhanaPay E-value Imprest Account (Cash in TCR),ASSET,GHS,255,false
+314.100.02,-09,GhanaPay E-value Imprest Account (Cash in TCR),ASSET,GHS,-500,false
+314.100.02,-10,GhanaPay E-value Imprest Account (Cash in TCR),ASSET,GHS,2000,false
+314.100.02,-23,GhanaPay E-value Imprest Account (Cash in TCR),ASSET,GHS,27572,false
+314.100.03,-01,GhanaPay Teller Account (Cash in TCR),ASSET,GHS,-61350,false
+314.100.03,-07,GhanaPay Teller Account (Cash in TCR),ASSET,GHS,-255,false
+314.100.03,-09,GhanaPay Teller Account (Cash in TCR),ASSET,GHS,-1000,false
+314.100.03,-23,GhanaPay Teller Account (Cash in TCR),ASSET,GHS,-17558,false
+314.100.04,-01,GhanaPay Teller Cash Control Account (Cash in TCR),ASSET,GHS,14980,false
+314.100.04,-02,GhanaPay Teller Cash Control Account (Cash in TCR),ASSET,GHS,500,false
+314.100.04,-03,GhanaPay Teller Cash Control Account (Cash in TCR),ASSET,GHS,-3250,false
+314.100.04,-10,GhanaPay Teller Cash Control Account (Cash in TCR),ASSET,GHS,15487,false
+314.100.04,-23,GhanaPay Teller Cash Control Account (Cash in TCR),ASSET,GHS,-7210,false
+321.100.01,-00,Treasury Bills/BOG Bills - 91-Day T-Bill,ASSET,GHS,50500000,false
+321.100.05,-00,GCB Capital Bond,ASSET,GHS,3526211.71,false
+321.100.06,-00,Cocoa Bonds (CMB-DDE),ASSET,GHS,21680295,false
+330.100.01,-00,Nkosuo Loans,ASSET,GHS,2748.84,false
+330.100.01,-01,Nkosuo Loans,ASSET,GHS,22287.200000000001,false
+330.100.01,-02,Nkosuo Loans,ASSET,GHS,38203.5,false
+330.100.01,-03,Nkosuo Loans,ASSET,GHS,28975.64,false
+330.100.01,-04,Nkosuo Loans,ASSET,GHS,67642.64,false
+330.100.01,-05,Nkosuo Loans,ASSET,GHS,4583.34,false
+330.100.01,-07,Nkosuo Loans,ASSET,GHS,3134.6,false
+330.100.01,-09,Nkosuo Loans,ASSET,GHS,94100.78,false
+330.100.01,-10,Nkosuo Loans,ASSET,GHS,-500.03,false
+330.100.01,-23,"Nkosuo Loans (Loans to residents, principal (not in arrears))",ASSET,GHS,73500.17,false
+330.100.02,-01,Flash Loans,ASSET,GHS,242.73,false
+330.100.02,-02,Flash Loans,ASSET,GHS,2819.66,false
+330.100.02,-03,Flash Loans,ASSET,GHS,-124.99,false
+330.100.02,-04,Flash Loans,ASSET,GHS,2850.29,false
+330.100.02,-05,Flash Loans,ASSET,GHS,-666.68,false
+330.100.02,-09,Flash Loans,ASSET,GHS,1608.21,false
+330.100.02,-10,Flash Loans,ASSET,GHS,4104.2,false
+330.100.02,-23,"Flash Loans (Loans to residents, principal (not in arrears))",ASSET,GHS,8478.9500000000007,false
+330.200.01,-01,Auto Loans,ASSET,GHS,6850.04,false
+330.200.01,-02,Auto Loans,ASSET,GHS,15000,false
+330.200.01,-03,Auto Loans,ASSET,GHS,5000,false
+330.200.01,-04,Auto Loans,ASSET,GHS,3000,false
+330.200.01,-10,Auto Loans,ASSET,GHS,12500.02,false
+330.200.01,-23,"Auto Loans (Loans to residents, principal (not in arrears))",ASSET,GHS,25000,false
+330.200.02,-00,Auto Leasing,ASSET,GHS,-1.99,false
+330.200.02,-05,Auto Leasing,ASSET,GHS,-0.05,false
+330.200.02,-07,Auto Leasing,ASSET,GHS,-0.15,false
+330.300.01,-01,Group Loans - Branch,ASSET,GHS,2740.36,false
+330.300.01,-02,Group Loans - Branch,ASSET,GHS,2559.33,false
+330.300.01,-03,Group Loans - Branch,ASSET,GHS,148.01,false
+330.300.01,-05,Group Loans - Branch,ASSET,GHS,50.11,false
+330.300.01,-07,Group Loans - Branch,ASSET,GHS,693.84,false
+330.400.01,-00,Agric Loan,ASSET,GHS,0,false
+330.400.02,-00,Public Sector Payroll Loan,ASSET,GHS,1420.2,false
+330.400.02,-01,Public Sector Payroll Loan,ASSET,GHS,151405.12,false
+330.400.02,-02,Public Sector Payroll Loan,ASSET,GHS,375,false
+330.400.02,-04,Public Sector Payroll Loan,ASSET,GHS,3133.57,false
+330.400.02,-05,Public Sector Payroll Loan,ASSET,GHS,1978.95,false
+330.400.02,-07,Public Sector Payroll Loan,ASSET,GHS,1785.55,false
+330.400.02,-10,Public Sector Payroll Loan,ASSET,GHS,3750.18,false
+330.400.02,-23,"Public Sector Payroll Loan (Loans to residents, principal (not in arrears))",ASSET,GHS,3999.91,false
+330.400.03,-00,Private Sector Payroll Loan,ASSET,GHS,0.08,false
+330.400.03,-01,Private Sector Payroll Loan,ASSET,GHS,13625.08,false
+330.400.04,-03,Royal Quick Loan,ASSET,GHS,-333.16,false
+330.400.04,-05,Royal Quick Loan,ASSET,GHS,333.33,false
+330.400.05,-02,Nkosuo SME,ASSET,GHS,36475.01,false
+330.400.05,-03,Nkosuo SME,ASSET,GHS,28750.06,false
+330.400.05,-04,Nkosuo SME,ASSET,GHS,-0.18,false
+330.400.05,-23,"Nkosuo SME (Loans to residents, principal (not in arrears))",ASSET,GHS,16666.669999999998,false
+330.400.06,-00,Staff Loan,ASSET,GHS,466824,false
+330.500.01,-00,"MiSika Digital Loan (Loans to residents, principal (not in arrears))",ASSET,GHS,2995612.83,false
+331.100.01,-01,Overdue Nkosuo Loans,ASSET,GHS,-3655.04,false
+331.100.01,-02,Overdue Nkosuo Loans,ASSET,GHS,-6507.84,false
+331.100.01,-03,Overdue Nkosuo Loans,ASSET,GHS,3289.33,false
+331.100.01,-04,Overdue Nkosuo Loans,ASSET,GHS,-25400.63,false
+331.100.01,-05,Overdue Nkosuo Loans,ASSET,GHS,-1004.38,false
+331.100.01,-07,Overdue Nkosuo Loans,ASSET,GHS,11909.46,false
+331.100.01,-09,Overdue Nkosuo Loans,ASSET,GHS,6412.44,false
+331.100.01,-10,Overdue Nkosuo Loans,ASSET,GHS,3064.85,false
+331.100.01,-23,Overdue Nkosuo Loans (Overdue loan principal),ASSET,GHS,666.65,false
+331.100.02,-01,Overdue Flash Loans,ASSET,GHS,1444.32,false
+331.100.02,-02,Overdue Flash Loans,ASSET,GHS,4324.37,false
+331.100.02,-03,Overdue Flash Loans,ASSET,GHS,124.99,false
+331.100.02,-04,Overdue Flash Loans,ASSET,GHS,62.82,false
+331.100.02,-05,Overdue Flash Loans,ASSET,GHS,-65.56,false
+331.100.02,-07,Overdue Flash Loans,ASSET,GHS,396.61,false
+331.100.02,-09,Overdue Flash Loans,ASSET,GHS,160.55000000000001,false
+331.100.02,-10,Overdue Flash Loans,ASSET,GHS,2105.92,false
+331.100.02,-23,Overdue Flash Loans (Overdue loan principal),ASSET,GHS,121.22,false
+331.200.01,-07,Overdue Auto Loan,ASSET,GHS,0.16,false
+331.200.02,-01,Overdue Auto Leasing  Loan,ASSET,GHS,347.69,false
+331.200.02,-02,Overdue Auto Leasing  Loan,ASSET,GHS,-11.71,false
+331.200.02,-03,Overdue Auto Leasing  Loan,ASSET,GHS,0,false
+331.200.02,-04,Overdue Auto Leasing  Loan,ASSET,GHS,0,false
+331.200.02,-10,Overdue Auto Leasing  Loan,ASSET,GHS,6249.99,false
+331.200.02,-23,Overdue Auto Leasing  Loan (Overdue loan principal),ASSET,GHS,0,false
+331.300.01,-01,Overdue Group Loans - Branch,ASSET,GHS,-2743.65,false
+331.300.01,-02,Overdue Group Loans - Branch,ASSET,GHS,-2558.13,false
+331.300.01,-03,Overdue Group Loans - Branch,ASSET,GHS,-10.25,false
+331.300.01,-05,Overdue Group Loans - Branch,ASSET,GHS,330.89,false
+331.300.01,-07,Overdue Group Loans - Branch,ASSET,GHS,-653.92999999999995,false
+331.400.01,-00,Overdue Agric Loans,ASSET,GHS,294860.98,false
+331.400.02,-00,Overdue Public Sector Salary Loan,ASSET,GHS,9645.61,false
+331.400.02,-01,Overdue Public Sector Salary Loan,ASSET,GHS,137.5,false
+331.400.02,-02,Overdue Public Sector Salary Loan,ASSET,GHS,0,false
+331.400.02,-04,Overdue Public Sector Salary Loan,ASSET,GHS,366.54,false
+331.400.02,-05,Overdue Public Sector Salary Loan,ASSET,GHS,1333.28,false
+331.400.02,-07,Overdue Public Sector Salary Loan,ASSET,GHS,-285.72000000000003,false
+331.400.02,-10,Overdue Public Sector Salary Loan,ASSET,GHS,0,false
+331.400.02,-23,Overdue Public Sector Salary Loan (Overdue loan principal),ASSET,GHS,4130.5600000000004,false
+331.400.03,-00,Overdue Private Sector Salary Loan,ASSET,GHS,1607.71,false
+331.400.03,-01,Overdue Private Sector Salary Loan,ASSET,GHS,3631.56,false
+331.400.04,-03,Overdue Royal Quick Loan,ASSET,GHS,333.33,false
+331.400.04,-05,Overdue Royal Quick Loan,ASSET,GHS,-333.33,false
+331.400.05,-02,Overdue Nkosuo SME Loan Principal,ASSET,GHS,1599.99,false
+331.400.05,-03,Overdue Nkosuo SME Loan Principal,ASSET,GHS,0,false
+331.400.05,-04,Overdue Nkosuo SME Loan Principal,ASSET,GHS,0.16,false
+331.400.05,-23,Overdue Nkosuo SME Loan Principal (Overdue loan principal),ASSET,GHS,0,false
+331.400.06,-00,Overdue Staff Loan Principal,ASSET,GHS,12868.94,false
+332.100.01,-00,Portfolio Based Loan Loss Provision,ASSET,GHS,-920584.21,false
+332.100.01,-04,Portfolio Based Loan Loss Provision,ASSET,GHS,157652.53,false
+332.100.02,-00,"Provisions, Loan interest",ASSET,GHS,-52034.63,false
+332.100.02,-02,"Provisions, Loan interest",ASSET,GHS,120,false
+332.100.02,-04,"Provisions, Loan interest",ASSET,GHS,16580.64,false
+340.100.01,-00,Accrued Interest Receivable for Loans,ASSET,GHS,7377.77,false
+340.100.01,-01,Accrued Interest Receivable for Loans,ASSET,GHS,-1090.97,false
+340.100.01,-02,Accrued Interest Receivable for Loans,ASSET,GHS,7264.03,false
+340.100.01,-03,Accrued Interest Receivable for Loans,ASSET,GHS,1538.92,false
+340.100.01,-04,Accrued Interest Receivable for Loans,ASSET,GHS,3765.42,false
+340.100.01,-05,Accrued Interest Receivable for Loans,ASSET,GHS,-4831.7,false
+340.100.01,-07,Accrued Interest Receivable for Loans,ASSET,GHS,4619.82,false
+340.100.01,-09,Accrued Interest Receivable for Loans,ASSET,GHS,2512.02,false
+340.100.01,-10,Accrued Interest Receivable for Loans,ASSET,GHS,860.15,false
+340.100.01,-23,"Accrued Interest Receivable for Loans (Loans, accrued int.)",ASSET,GHS,2025.21,false
+340.100.02,-00,Overdue Interest of Loans,ASSET,GHS,42534.62,false
+340.100.02,-01,Overdue Interest of Loans,ASSET,GHS,2460.1999999999998,false
+340.100.02,-02,Overdue Interest of Loans,ASSET,GHS,-155.65,false
+340.100.02,-03,Overdue Interest of Loans,ASSET,GHS,-1094.47,false
+340.100.02,-04,Overdue Interest of Loans,ASSET,GHS,-886.41,false
+340.100.02,-05,Overdue Interest of Loans,ASSET,GHS,6549.91,false
+340.100.02,-07,Overdue Interest of Loans,ASSET,GHS,3415.66,false
+340.100.02,-09,Overdue Interest of Loans,ASSET,GHS,2085.11,false
+340.100.02,-10,Overdue Interest of Loans,ASSET,GHS,1474.94,false
+340.100.02,-23,Overdue Interest of Loans (Overdue loan Interest),ASSET,GHS,1631.23,false
+340.100.03,-00,Accrued Penalty on Loans,ASSET,GHS,112569.16,false
+340.100.03,-01,Accrued Penalty on Loans,ASSET,GHS,262551.38,false
+340.100.03,-02,Accrued Penalty on Loans,ASSET,GHS,4167.6099999999997,false
+340.100.03,-03,Accrued Penalty on Loans,ASSET,GHS,520,false
+340.100.03,-04,Accrued Penalty on Loans,ASSET,GHS,30498.27,false
+340.100.03,-05,Accrued Penalty on Loans,ASSET,GHS,64860.09,false
+340.100.03,-07,Accrued Penalty on Loans,ASSET,GHS,7147.21,false
+340.100.03,-09,Accrued Penalty on Loans,ASSET,GHS,2190.06,false
+340.100.03,-10,Accrued Penalty on Loans,ASSET,GHS,11860.4,false
+340.100.03,-23,Accrued Penalty on Loans (Penalty fees - Customers),ASSET,GHS,44630.79,false
+340.100.04,-00,"Staff Loans, accrued interests",ASSET,GHS,-2727.95,false
+340.200.01,-00,Sundry Debtors,ASSET,GHS,11677.22,false
+340.400.01,-00,GH-Link Acquirer Account,ASSET,GHS,35448.949999999997,false
+340.400.02,-00,GH-Link Acquirer Transit Account,ASSET,GHS,-1290,false
+340.500.02,-00,Visa Acquirer Transit Account,ASSET,GHS,1535845.22,false
+340.500.02,-01,Visa Acquirer Transit Account,ASSET,GHS,-687907.22,false
+340.500.02,-02,Visa Acquirer Transit Account,ASSET,GHS,-142680.38,false
+340.500.02,-03,Visa Acquirer Transit Account,ASSET,GHS,-383568.06,false
+340.500.02,-04,Visa Acquirer Transit Account,ASSET,GHS,13230.62,false
+340.500.02,-05,Visa Acquirer Transit Account,ASSET,GHS,-5702.9,false
+340.500.02,-07,Visa Acquirer Transit Account,ASSET,GHS,8073.46,false
+340.500.02,-09,Visa Acquirer Transit Account,ASSET,GHS,18391.21,false
+340.500.02,-10,Visa Acquirer Transit Account,ASSET,GHS,1816.73,false
+340.500.02,-23,Visa Acquirer Transit Account (Receivables from other institutions),ASSET,GHS,67687.13,false
+341.100.01,-00,Rent & Rates Prepaid,ASSET,GHS,38888.82,false
+341.100.02,-00,Insurance Prepaid,ASSET,GHS,25199.119999999999,false
+341.100.03,-00,Prepayments - Def. Exp.,ASSET,GHS,332898.12,false
+350.100.01,-00,Building,ASSET,GHS,1126800,false
+350.100.02,-00,Computer Systems,ASSET,GHS,2466921.44,false
+350.100.03,-00,Leasehold Building,ASSET,GHS,740568.97,false
+350.100.04,-00,"Furniture, Fixtures & Fittings",ASSET,GHS,191900.27,false
+350.100.05,-00,Office Equipment,ASSET,GHS,725284.36,false
+350.100.06,-00,Motor Van/Vehicles,ASSET,GHS,284610,false
+350.100.07,-00,Plant & Machinery,ASSET,GHS,457910,false
+350.100.08,-00,Capital Work in Progress,ASSET,GHS,1713530.25,false
+351.100.01,-00,Intangible Asset-Third Party - Software,ASSET,GHS,3335673.05,false
+352.100.01,-00,Accumulated Depreciation - Building,ASSET,GHS,-528810,false
+352.100.02,-00,Accumulated Depreciation - Computer Hardware,ASSET,GHS,-2075314.56,false
+352.100.03,-00,Accumulated Depreciation - Leasehold Building,ASSET,GHS,-716865.94,false
+352.100.04,-00,"Accumulated Depreciation - Furniture, Fixtures & Fittings",ASSET,GHS,-139172.1,false
+352.100.05,-00,Accumulated Depreciation - Office Equipment,ASSET,GHS,-529777.1,false
+352.100.06,-00,Accumulated Depreciation - Motor Van/Vehicles,ASSET,GHS,-127903.33,false
+352.100.07,-00,Accumulated Depreciation - Plant & Machinery,ASSET,GHS,-295141.5,false
+352.100.08,-00,Accumulated Depreciation - Computer Software,ASSET,GHS,-2551820.09,false
+353.100.01,-00,"Right-Of-Use Assets (Tangible FA in operation, Buildings)",ASSET,GHS,8789632.2699999996,false
+353.100.01,-03,"Right-Of-Use Assets (Tangible FA in operation, Buildings)",ASSET,GHS,43200,false
+353.100.02,-00,"Accumulated Depreciation - ROU Assets (Accum. Depreciation (Tangible) FA, Buildi",ASSET,GHS,-4846092.46,false
+353.100.02,-02,"Accumulated Depreciation - ROU Assets (Accum. Depreciation (Tangible) FA, Buildi",ASSET,GHS,-422364.24,false
+353.100.02,-09,"Accumulated Depreciation - ROU Assets (Accum. Depreciation (Tangible) FA, Buildi",ASSET,GHS,-22195.35,false
+353.100.02,-10,"Accumulated Depreciation - ROU Assets (Accum. Depreciation (Tangible) FA, Buildi",ASSET,GHS,-11379.42,false
+353.100.02,-23,"Accumulated Depreciation - ROU Assets (Accum. Depreciation (Tangible) FA, Buildi",ASSET,GHS,-46509.66,false
+390.100.00,-00,Inter-Branch Relations,ASSET,GHS,-18945510.760000002,false
+390.100.00,-01,Inter-Branch Relations,ASSET,GHS,10292326.449999999,false
+390.100.00,-02,Inter-Branch Relations,ASSET,GHS,4674617.74,false
+390.100.00,-03,Inter-Branch Relations,ASSET,GHS,3978866.33,false
+390.100.00,-04,Inter-Branch Relations,ASSET,GHS,21598.99,false
+390.100.00,-05,Inter-Branch Relations,ASSET,GHS,556927.43000000005,false
+390.100.00,-07,Inter-Branch Relations,ASSET,GHS,-1231102.94,false
+390.100.00,-09,Inter-Branch Relations,ASSET,GHS,-736069.46,false
+390.100.00,-10,Inter-Branch Relations,ASSET,GHS,1775720.47,false
+390.100.00,-14,Inter-Branch Relations,ASSET,GHS,0,false
+390.100.00,-23,Inter-Branch Relations (inter-branch transfers (IB)),ASSET,GHS,-387374.25,false
+392.100.01,-00,H/O - Branch /Group Cash Movements,ASSET,GHS,22369332.129999999,false
+410.100.01,-00,Current Accounts - Individuals,LIABILITY,GHS,-465752.36,false
+410.100.01,-01,Current Accounts - Individuals,LIABILITY,GHS,-480834.71,false
+410.100.01,-02,Current Accounts - Individuals,LIABILITY,GHS,-231064.47,false
+410.100.01,-03,Current Accounts - Individuals,LIABILITY,GHS,-247094.91,false
+410.100.01,-04,Current Accounts - Individuals,LIABILITY,GHS,121471.36,false
+410.100.01,-05,Current Accounts - Individuals,LIABILITY,GHS,-253311.14,false
+410.100.01,-07,Current Accounts - Individuals,LIABILITY,GHS,-110827.16,false
+410.100.01,-09,Current Accounts - Individuals,LIABILITY,GHS,-192931.16,false
+410.100.01,-10,Current Accounts - Individuals,LIABILITY,GHS,-21822.94,false
+410.100.01,-23,Current Accounts - Individuals (Customer's CA (Residents)),LIABILITY,GHS,-136611.9,false
+410.100.02,-00,Current Accounts - Legal Entities,LIABILITY,GHS,850763.27,false
+410.100.02,-01,Current Accounts - Legal Entities,LIABILITY,GHS,-1014375.77,false
+410.100.02,-02,Current Accounts - Legal Entities,LIABILITY,GHS,-155736.01,false
+410.100.02,-03,Current Accounts - Legal Entities,LIABILITY,GHS,-3844,false
+410.100.02,-05,Current Accounts - Legal Entities,LIABILITY,GHS,-57.9,false
+410.100.02,-07,Current Accounts - Legal Entities,LIABILITY,GHS,68.28,false
+410.100.02,-09,Current Accounts - Legal Entities,LIABILITY,GHS,-45088.7,false
+410.100.02,-10,Current Accounts - Legal Entities,LIABILITY,GHS,-320300.11,false
+410.100.02,-23,Current Accounts - Legal Entities (Customer's CA (Residents)),LIABILITY,GHS,-53.05,false
+410.100.03,-00,Current Accounts - Staff,LIABILITY,GHS,-2373.33,false
+410.100.03,-01,Current Accounts - Staff,LIABILITY,GHS,-289.68,false
+410.100.03,-04,Current Accounts - Staff,LIABILITY,GHS,-0.14000000000000001,false
+410.200.01,-00,Loan Servicing Current Accounts,LIABILITY,GHS,-169606.62,false
+410.200.01,-01,Loan Servicing Current Accounts,LIABILITY,GHS,-100775.99,false
+410.200.01,-02,Loan Servicing Current Accounts,LIABILITY,GHS,-74532.009999999995,false
+410.200.01,-03,Loan Servicing Current Accounts,LIABILITY,GHS,-36292.26,false
+410.200.01,-04,Loan Servicing Current Accounts,LIABILITY,GHS,-239597.24,false
+410.200.01,-05,Loan Servicing Current Accounts,LIABILITY,GHS,-77589.13,false
+410.200.01,-07,Loan Servicing Current Accounts,LIABILITY,GHS,-33606.980000000003,false
+410.200.01,-09,Loan Servicing Current Accounts,LIABILITY,GHS,-35573.29,false
+410.200.01,-10,Loan Servicing Current Accounts,LIABILITY,GHS,-20680.830000000002,false
+410.200.01,-23,Loan Servicing Current Accounts (Customer's CA (Residents)),LIABILITY,GHS,-29608.14,false
+410.200.02,-00,Auto Loan Servicing Current Accounts,LIABILITY,GHS,-2437.5700000000002,false
+410.200.02,-01,Auto Loan Servicing Current Accounts,LIABILITY,GHS,-16.12,false
+410.200.02,-02,Auto Loan Servicing Current Accounts,LIABILITY,GHS,-4554,false
+410.200.02,-03,Auto Loan Servicing Current Accounts,LIABILITY,GHS,-127.35,false
+410.200.02,-05,Auto Loan Servicing Current Accounts,LIABILITY,GHS,-113.19,false
+410.200.02,-07,Auto Loan Servicing Current Accounts,LIABILITY,GHS,-90.29,false
+412.100.01,-00,Savings Accounts - Individuals,LIABILITY,GHS,-13924.67,false
+412.100.01,-01,Savings Accounts - Individuals,LIABILITY,GHS,-1403437.38,false
+412.100.01,-02,Savings Accounts - Individuals,LIABILITY,GHS,-7532730.21,false
+412.100.01,-03,Savings Accounts - Individuals,LIABILITY,GHS,-5628375.2699999996,false
+412.100.01,-04,Savings Accounts - Individuals,LIABILITY,GHS,-1716772.89,false
+412.100.01,-05,Savings Accounts - Individuals,LIABILITY,GHS,-310568.26,false
+412.100.01,-07,Savings Accounts - Individuals,LIABILITY,GHS,-96458.48,false
+412.100.01,-09,Savings Accounts - Individuals,LIABILITY,GHS,-334983.46000000002,false
+412.100.01,-10,Savings Accounts - Individuals,LIABILITY,GHS,-865095.14,false
+412.100.01,-23,Savings Accounts - Individuals (Customer's SAV (Residents)),LIABILITY,GHS,-209466.72,false
+412.100.02,-01,Savings Accounts - Legal Entities,LIABILITY,GHS,-13563.09,false
+412.100.02,-02,Savings Accounts - Legal Entities,LIABILITY,GHS,-2382.21,false
+412.100.02,-03,Savings Accounts - Legal Entities,LIABILITY,GHS,-21528.11,false
+412.100.02,-07,Savings Accounts - Legal Entities,LIABILITY,GHS,-13671.17,false
+412.100.02,-10,Savings Accounts - Legal Entities,LIABILITY,GHS,-46904.480000000003,false
+412.100.02,-23,Savings Accounts - Legal Entities (Customer's SAV (Residents)),LIABILITY,GHS,-0.03,false
+412.100.03,-00,Savings Accounts - Staff,LIABILITY,GHS,-2697.39,false
+412.100.03,-01,Savings Accounts - Staff,LIABILITY,GHS,-557287.01,false
+412.100.03,-02,Savings Accounts - Staff,LIABILITY,GHS,-207162.52,false
+412.100.03,-03,Savings Accounts - Staff,LIABILITY,GHS,-3741.87,false
+412.100.03,-04,Savings Accounts - Staff,LIABILITY,GHS,-14789.8,false
+412.100.03,-05,Savings Accounts - Staff,LIABILITY,GHS,-71680.37,false
+412.100.03,-07,Savings Accounts - Staff,LIABILITY,GHS,-24805.18,false
+412.100.03,-09,Savings Accounts - Staff,LIABILITY,GHS,-49189.57,false
+412.100.03,-10,Savings Accounts - Staff,LIABILITY,GHS,-5928.61,false
+412.100.03,-23,Savings Accounts - Staff (Customer's SAV (Residents)),LIABILITY,GHS,-35603.300000000003,false
+412.200.01,-02,Savings Accounts- Odehye Saver,LIABILITY,GHS,-72.77,false
+412.200.01,-04,Savings Accounts- Odehye Saver,LIABILITY,GHS,-26741.81,false
+412.200.02,-01,Special Savings,LIABILITY,GHS,-9033.6200000000008,false
+412.200.02,-02,Special Savings,LIABILITY,GHS,-114704.25,false
+412.200.02,-03,Special Savings,LIABILITY,GHS,-11660.14,false
+412.200.02,-04,Special Savings,LIABILITY,GHS,-10055.73,false
+412.200.02,-05,Special Savings,LIABILITY,GHS,-1917.29,false
+412.200.02,-09,Special Savings,LIABILITY,GHS,-5189.38,false
+412.200.02,-10,Special Savings,LIABILITY,GHS,-15648.72,false
+412.200.05,-01,Royal Care Savings,LIABILITY,GHS,-317.11,false
+412.200.05,-02,Royal Care Savings,LIABILITY,GHS,-25514,false
+412.200.05,-03,Royal Care Savings,LIABILITY,GHS,-34289.93,false
+412.200.05,-04,Royal Care Savings,LIABILITY,GHS,-34740.910000000003,false
+412.200.05,-05,Royal Care Savings,LIABILITY,GHS,-12.89,false
+412.200.05,-07,Royal Care Savings,LIABILITY,GHS,-500.78,false
+412.200.05,-09,Royal Care Savings,LIABILITY,GHS,-371.11,false
+412.200.06,-01,Royal Savings,LIABILITY,GHS,-94883.97,false
+412.200.06,-02,Royal Savings,LIABILITY,GHS,-8662.36,false
+412.200.06,-04,Royal Savings,LIABILITY,GHS,-2164.35,false
+412.200.06,-05,Royal Savings,LIABILITY,GHS,-154121.54,false
+412.200.06,-07,Royal Savings,LIABILITY,GHS,-40213.61,false
+412.200.06,-09,Royal Savings,LIABILITY,GHS,-14243.3,false
+412.200.07,-01,Royal Box Savings,LIABILITY,GHS,-12298.66,false
+412.200.07,-02,Royal Box Savings,LIABILITY,GHS,-241974.36,false
+412.200.07,-03,Royal Box Savings,LIABILITY,GHS,-30798.78,false
+412.200.07,-04,Royal Box Savings,LIABILITY,GHS,-4037.2,false
+412.200.07,-05,Royal Box Savings,LIABILITY,GHS,-17.71,false
+412.200.07,-07,Royal Box Savings,LIABILITY,GHS,149.09,false
+412.300.01,-01,Collateral Funds Savings,LIABILITY,GHS,-28291.13,false
+412.300.01,-02,Collateral Funds Savings,LIABILITY,GHS,-50015.22,false
+412.300.01,-03,Collateral Funds Savings,LIABILITY,GHS,-29982.34,false
+412.300.01,-04,Collateral Funds Savings,LIABILITY,GHS,-21747.78,false
+412.300.01,-05,Collateral Funds Savings,LIABILITY,GHS,-56529.72,false
+412.300.01,-07,Collateral Funds Savings,LIABILITY,GHS,-16588.919999999998,false
+412.300.01,-09,Collateral Funds Savings,LIABILITY,GHS,-45340.01,false
+412.300.01,-10,Collateral Funds Savings,LIABILITY,GHS,-11837,false
+412.300.01,-23,Collateral Funds Savings (Customer's SAV (Residents)),LIABILITY,GHS,-12624.65,false
+412.300.02,-02,Police Accounts,LIABILITY,GHS,-1009.18,false
+413.100.01,-00,Term Deposits - Individuals,LIABILITY,GHS,2293190,false
+413.100.01,-01,Term Deposits - Individuals,LIABILITY,GHS,-7661995.4299999997,false
+413.100.01,-02,Term Deposits - Individuals,LIABILITY,GHS,-9566343.7699999996,false
+413.100.01,-03,Term Deposits - Individuals,LIABILITY,GHS,-5566101.0899999999,false
+413.100.01,-04,Term Deposits - Individuals,LIABILITY,GHS,-5223794.41,false
+413.100.01,-05,Term Deposits - Individuals,LIABILITY,GHS,-27606.11,false
+413.100.01,-07,Term Deposits - Individuals,LIABILITY,GHS,-792911.89,false
+413.100.01,-09,Term Deposits - Individuals,LIABILITY,GHS,-574595.55000000005,false
+413.100.01,-10,Term Deposits - Individuals,LIABILITY,GHS,-3751111.09,false
+413.100.01,-23,"Term Deposits - Individuals (Customer's TD (Residents, 1M) - principal)",LIABILITY,GHS,-1348574.18,false
+413.100.02,-01,Term Deposits -Legal Entities,LIABILITY,GHS,-3527783,false
+413.100.02,-10,Term Deposits -Legal Entities,LIABILITY,GHS,-80000,false
+413.100.02,-23,"Term Deposits -Legal Entities (Customer's TD (Residents, 1M) - principal)",LIABILITY,GHS,-4.22,false
+414.100.01,-00,Whatsapp Account,LIABILITY,GHS,-5,false
+414.100.03,-00,GhanaPay Wallet Account (Customer's SAV (Residents)),LIABILITY,GHS,-164166.1,false
+414.100.03,-01,GhanaPay Wallet Account (Customer's SAV (Residents)),LIABILITY,GHS,-150769.34,false
+414.100.03,-02,GhanaPay Wallet Account (Customer's SAV (Residents)),LIABILITY,GHS,-139471.79999999999,false
+414.100.03,-03,GhanaPay Wallet Account (Customer's SAV (Residents)),LIABILITY,GHS,4348.1499999999996,false
+414.100.03,-04,GhanaPay Wallet Account (Customer's SAV (Residents)),LIABILITY,GHS,-155.32,false
+414.100.03,-05,GhanaPay Wallet Account (Customer's SAV (Residents)),LIABILITY,GHS,-4637.58,false
+414.100.03,-07,GhanaPay Wallet Account (Customer's SAV (Residents)),LIABILITY,GHS,-6896.12,false
+414.100.03,-09,GhanaPay Wallet Account (Customer's SAV (Residents)),LIABILITY,GHS,-20654.16,false
+414.100.03,-10,GhanaPay Wallet Account (Customer's SAV (Residents)),LIABILITY,GHS,-8645.5499999999993,false
+414.100.03,-23,GhanaPay Wallet Account (Customer's SAV (Residents)),LIABILITY,GHS,-46000.74,false
+414.100.06,-00,GhanaPay Savings Wallet (Customer's SAV (Residents)),LIABILITY,GHS,-59343.92,false
+414.100.06,-01,GhanaPay Savings Wallet (Customer's SAV (Residents)),LIABILITY,GHS,-644.11,false
+414.100.06,-02,GhanaPay Savings Wallet (Customer's SAV (Residents)),LIABILITY,GHS,-3381.96,false
+414.100.06,-03,GhanaPay Savings Wallet (Customer's SAV (Residents)),LIABILITY,GHS,-2736.19,false
+414.100.06,-04,GhanaPay Savings Wallet (Customer's SAV (Residents)),LIABILITY,GHS,-0.53,false
+414.100.06,-05,GhanaPay Savings Wallet (Customer's SAV (Residents)),LIABILITY,GHS,-32,false
+414.100.06,-07,GhanaPay Savings Wallet (Customer's SAV (Residents)),LIABILITY,GHS,-3751.7,false
+414.100.06,-09,GhanaPay Savings Wallet (Customer's SAV (Residents)),LIABILITY,GHS,-20.13,false
+414.100.06,-23,GhanaPay Savings Wallet (Customer's SAV (Residents)),LIABILITY,GHS,-5848.6,false
+420.100.01,-00,Social Security Contribution Payable - Tier 1,LIABILITY,GHS,-154866.35999999999,false
+420.100.03,-00,Provident Fund Payable - Tier 3,LIABILITY,GHS,-111529,false
+420.100.04,-00,Income Tax Payable (PAYE),LIABILITY,GHS,-284635.71000000002,false
+420.100.05,-00,Net Salaries & Wages Payable,LIABILITY,GHS,-24153.119999999999,false
+420.100.06,-00,Withholding Tax,LIABILITY,GHS,-20121.919999999998,false
+420.100.07,-00,VAT on Financial Services,LIABILITY,GHS,-11179.01,false
+420.100.07,-01,VAT on Financial Services (Tax Liabilities - Non-income Tax (I)),LIABILITY,GHS,-11794.93,false
+420.100.07,-02,VAT on Financial Services (Tax Liabilities - Non-income Tax (I)),LIABILITY,GHS,-8610.6299999999992,false
+420.100.07,-03,VAT on Financial Services (Tax Liabilities - Non-income Tax (I)),LIABILITY,GHS,-1153.3399999999999,false
+420.100.07,-04,VAT on Financial Services (Tax Liabilities - Non-income Tax (I)),LIABILITY,GHS,-312.48,false
+420.100.07,-05,VAT on Financial Services (Tax Liabilities - Non-income Tax (I)),LIABILITY,GHS,-1445.48,false
+420.100.07,-07,VAT on Financial Services (Tax Liabilities - Non-income Tax (I)),LIABILITY,GHS,-623.98,false
+420.100.07,-09,VAT on Financial Services (Tax Liabilities - Non-income Tax (I)),LIABILITY,GHS,-377.27,false
+420.100.07,-10,VAT on Financial Services (Tax Liabilities - Non-income Tax (I)),LIABILITY,GHS,-650.69000000000005,false
+420.100.07,-23,VAT on Financial Services (Tax Liabilities - Non-income Tax (I)),LIABILITY,GHS,-3555.08,false
+420.100.08,-00,Staff Salary Scheme Loan with Other Banks,LIABILITY,GHS,-4792.1000000000004,false
+420.100.09,-00,Sundry Creditors/Other Payable,LIABILITY,GHS,-1548826.71,false
+420.100.09,-05,Sundry Creditors/Other Payable,LIABILITY,GHS,4500,false
+420.300.01,-00,Payment/Bankers Order,LIABILITY,GHS,-44683.76,false
+420.300.02,-00,COLLATERAL INSURANCE-KEK,LIABILITY,GHS,-41832.68,false
+420.300.02,-02,COLLATERAL INSURANCE-KEK,LIABILITY,GHS,-2880,false
+420.300.02,-04,COLLATERAL INSURANCE-KEK,LIABILITY,GHS,5856.27,false
+420.300.02,-05,COLLATERAL INSURANCE-KEK,LIABILITY,GHS,-4019.75,false
+420.300.02,-10,COLLATERAL INSURANCE-KEK,LIABILITY,GHS,-1072.8499999999999,false
+420.300.03,-00,Stamp Duty,LIABILITY,GHS,-50,false
+420.300.04,-00,Current Dormant,LIABILITY,GHS,2231,false
+420.300.04,-00,Savings Dormant,LIABILITY,GHS,-19208.86,false
+420.400.01,-01,Cashiers Overages,LIABILITY,GHS,-14,false
+420.400.01,-01,Cashiers Overages (Other Liabilities - Customer),LIABILITY,GHS,-1452.81,false
+420.400.01,-02,Cashiers Overages,LIABILITY,GHS,0.05,false
+420.400.01,-02,Cashiers Overages (Other Liabilities - Customer),LIABILITY,GHS,-5952.03,false
+420.400.01,-03,Cashiers Overages (Other Liabilities - Customer),LIABILITY,GHS,-5104,false
+420.400.01,-04,Cashiers Overages (Other Liabilities - Customer),LIABILITY,GHS,-3379,false
+420.400.01,-05,Cashiers Overages (Other Liabilities - Customer),LIABILITY,GHS,-3517.5,false
+420.400.01,-07,Cashiers Overages,LIABILITY,GHS,1059.5,false
+420.400.01,-07,Cashiers Overages (Other Liabilities - Customer),LIABILITY,GHS,-6376,false
+420.400.01,-10,Cashiers Overages (Other Liabilities - Customer),LIABILITY,GHS,-1156,false
+420.400.01,-23,Cashiers Overages (Other Liabilities - Customer),LIABILITY,GHS,-345,false
+420.400.04,-02,Vault Overage,LIABILITY,GHS,-1,false
+420.400.04,-03,Vault Overage,LIABILITY,GHS,-2,false
+420.400.04,-10,Vault Overage,LIABILITY,GHS,-6,false
+420.600.03,-00,Employee Salary Transitory,LIABILITY,GHS,0.25,false
+420.600.03,-01,Employee Salary Transitory,LIABILITY,GHS,0,false
+420.600.03,-03,Employee Salary Transitory,LIABILITY,GHS,-0.25,false
+420.700.01,-05,Field Deposit Mobilization,LIABILITY,GHS,-2,false
+420.700.01,-07,Field Deposit Mobilization,LIABILITY,GHS,-1,false
+420.800.01,-00,Lease Liabilities (Other liabilities - creditors),LIABILITY,GHS,-2431573.77,false
+421.100.01,-00,Provision - Corporate Tax Payable,LIABILITY,GHS,-7400887.6100000003,false
+421.100.02,-00,Provision - Deferred Tax Liability,LIABILITY,GHS,-519201.19,false
+421.100.03,-00,Provision for Auditors Fees,LIABILITY,GHS,-524444,false
+421.100.04,-00,Provision- Electricity charges,LIABILITY,GHS,-50000,false
+421.200.01,-00,Accrued Interest Payable on Term Deposits,LIABILITY,GHS,279647.2,false
+421.200.01,-01,Accrued Interest Payable on Term Deposits,LIABILITY,GHS,-158533.45000000001,false
+421.200.01,-02,Accrued Interest Payable on Term Deposits,LIABILITY,GHS,-436571.12,false
+421.200.01,-03,Accrued Interest Payable on Term Deposits,LIABILITY,GHS,-149891.04999999999,false
+421.200.01,-04,Accrued Interest Payable on Term Deposits,LIABILITY,GHS,-219373.46,false
+421.200.01,-05,Accrued Interest Payable on Term Deposits,LIABILITY,GHS,-611.95000000000005,false
+421.200.01,-07,Accrued Interest Payable on Term Deposits,LIABILITY,GHS,-13693.16,false
+421.200.01,-09,Accrued Interest Payable on Term Deposits,LIABILITY,GHS,-15022.95,false
+421.200.01,-10,Accrued Interest Payable on Term Deposits,LIABILITY,GHS,-96004.72,false
+421.200.01,-23,"Accrued Interest Payable on Term Deposits (Customer's TD (Residents, 1M), accrue",LIABILITY,GHS,-29957.47,false
+421.200.03,-00,Accrued Interest Payable on Savings Accounts,LIABILITY,GHS,529.28,false
+421.200.03,-01,Accrued Interest Payable on Savings Accounts,LIABILITY,GHS,-7463.75,false
+421.200.03,-02,Accrued Interest Payable on Savings Accounts,LIABILITY,GHS,-32618.77,false
+421.200.03,-03,Accrued Interest Payable on Savings Accounts,LIABILITY,GHS,-31630.07,false
+421.200.03,-04,Accrued Interest Payable on Savings Accounts,LIABILITY,GHS,-5648.14,false
+421.200.03,-05,Accrued Interest Payable on Savings Accounts,LIABILITY,GHS,-2282.37,false
+421.200.03,-07,Accrued Interest Payable on Savings Accounts,LIABILITY,GHS,-560.79999999999995,false
+421.200.03,-09,Accrued Interest Payable on Savings Accounts,LIABILITY,GHS,-1493.94,false
+421.200.03,-10,Accrued Interest Payable on Savings Accounts,LIABILITY,GHS,-4412.24,false
+421.200.03,-23,Accrued Interest Payable on Savings Accounts (Customer's SAV (Residents) - accru,LIABILITY,GHS,-859.84,false
+421.200.04,-00,GhanaPay Accrued Interest Payable (Customer's SAV (Residents) - accrued interest,LIABILITY,GHS,-301.64,false
+421.200.04,-01,GhanaPay Accrued Interest Payable (Customer's SAV (Residents) - accrued interest,LIABILITY,GHS,-309.33999999999997,false
+421.200.04,-02,GhanaPay Accrued Interest Payable (Customer's SAV (Residents) - accrued interest,LIABILITY,GHS,-310.88,false
+421.200.04,-03,GhanaPay Accrued Interest Payable (Customer's SAV (Residents) - accrued interest,LIABILITY,GHS,-6.08,false
+421.200.04,-04,GhanaPay Accrued Interest Payable (Customer's SAV (Residents) - accrued interest,LIABILITY,GHS,-1.8,false
+421.200.04,-05,GhanaPay Accrued Interest Payable (Customer's SAV (Residents) - accrued interest,LIABILITY,GHS,-16.53,false
+421.200.04,-07,GhanaPay Accrued Interest Payable (Customer's SAV (Residents) - accrued interest,LIABILITY,GHS,-26.99,false
+421.200.04,-09,GhanaPay Accrued Interest Payable (Customer's SAV (Residents) - accrued interest,LIABILITY,GHS,-13.74,false
+421.200.04,-10,GhanaPay Accrued Interest Payable (Customer's SAV (Residents) - accrued interest,LIABILITY,GHS,-11.43,false
+421.200.04,-23,GhanaPay Accrued Interest Payable (Customer's SAV (Residents) - accrued interest,LIABILITY,GHS,-122.23,false
+421.400.01,-00,Non - Amortised Processing Feee-Business loans (Deferred Commission - Loans),LIABILITY,GHS,5254.43,false
+421.400.01,-01,Non - Amortised Processing Feee-Business loans (Deferred Commission - Loans),LIABILITY,GHS,996.1,false
+421.400.01,-02,Non - Amortised Processing Feee-Business loans (Deferred Commission - Loans),LIABILITY,GHS,679.37,false
+421.400.01,-03,Non - Amortised Processing Feee-Business loans (Deferred Commission - Loans),LIABILITY,GHS,1755.02,false
+421.400.01,-04,Non - Amortised Processing Feee-Business loans (Deferred Commission - Loans),LIABILITY,GHS,212.45,false
+421.400.01,-05,Non - Amortised Processing Feee-Business loans (Deferred Commission - Loans),LIABILITY,GHS,1954.05,false
+421.400.01,-07,Non - Amortised Processing Feee-Business loans (Deferred Commission - Loans),LIABILITY,GHS,3623.52,false
+421.400.01,-09,Non - Amortised Processing Feee-Business loans (Deferred Commission - Loans),LIABILITY,GHS,-2840.18,false
+421.400.01,-10,Non - Amortised Processing Feee-Business loans (Deferred Commission - Loans),LIABILITY,GHS,1400.84,false
+421.400.01,-23,Non - Amortised Processing Feee-Nkosuo loans (Deferred Commission - Loans),LIABILITY,GHS,-2463.0500000000002,false
+421.400.02,-01,Non-Amortised Processing Fee- Flash loans (Deferred Commission - Loans),LIABILITY,GHS,292.58,false
+421.400.02,-02,Non-Amortised Processing Fee- Flash loans (Deferred Commission - Loans),LIABILITY,GHS,1233.4000000000001,false
+421.400.02,-03,Non-Amortised Processing Fee- Flash loans (Deferred Commission - Loans),LIABILITY,GHS,81.45,false
+421.400.02,-04,Non-Amortised Processing Fee- Flash loans (Deferred Commission - Loans),LIABILITY,GHS,24.85,false
+421.400.02,-05,Non-Amortised Processing Fee- Flash loans (Deferred Commission - Loans),LIABILITY,GHS,1591.37,false
+421.400.02,-07,Non-Amortised Processing Fee- Flash loans (Deferred Commission - Loans),LIABILITY,GHS,2101.4699999999998,false
+421.400.02,-09,Non-Amortised Processing Fee- Flash loans (Deferred Commission - Loans),LIABILITY,GHS,20.85,false
+421.400.02,-10,Non-Amortised Processing Fee- Flash loans (Deferred Commission - Loans),LIABILITY,GHS,125.74,false
+421.400.02,-23,Non-Amortised Processing Fee- Flash loans (Deferred Commission - Loans),LIABILITY,GHS,234.02,false
+421.400.03,-01,Non - Amortised Processing Fee - Auto Loans (Deferred Commission - Loans),LIABILITY,GHS,-188.31,false
+421.400.03,-02,Non - Amortised Processing Fee - Auto Loans (Deferred Commission - Loans),LIABILITY,GHS,-331.89,false
+421.400.03,-03,Non - Amortised Processing Fee - Auto Loans (Deferred Commission - Loans),LIABILITY,GHS,-74.81,false
+421.400.03,-04,Non - Amortised Processing Fee - Auto Loans (Deferred Commission - Loans),LIABILITY,GHS,203.1,false
+421.400.03,-10,Non - Amortised Processing Fee - Auto Loans (Deferred Commission - Loans),LIABILITY,GHS,-588.69000000000005,false
+421.400.03,-23,Non - Amortised Processing Fee - Auto Loans (Deferred Commission - Loans),LIABILITY,GHS,-657.24,false
+421.400.05,-01,Non - Amortised Processing Fee - Group Loans - Branch (Deferred Commission - Loa,LIABILITY,GHS,20,false
+421.400.07,-01,Non - Amortised Processing Fee - SME Loans (Deferred Commission - Loans),LIABILITY,GHS,509.82,false
+421.400.07,-02,Non - Amortised Processing Fee - SME Loans (Deferred Commission - Loans),LIABILITY,GHS,-436.18,false
+421.400.07,-03,Non - Amortised Processing Fee - SME Loans (Deferred Commission - Loans),LIABILITY,GHS,-244.37,false
+421.400.07,-04,Non - Amortised Processing Fee - SME Loans (Deferred Commission - Loans),LIABILITY,GHS,7.28,false
+421.400.07,-07,Non - Amortised Processing Fee - SME Loans (Deferred Commission - Loans),LIABILITY,GHS,592.38,false
+421.400.07,-10,Non - Amortised Processing Fee - SME Loans (Deferred Commission - Loans),LIABILITY,GHS,86.35,false
+421.400.07,-23,Non - Amortised Processing Fee - SME Loans (Deferred Commission - Loans),LIABILITY,GHS,-387.06,false
+421.400.08,-00,(Deferred Commission - Loans),LIABILITY,GHS,-1044.28,false
+421.400.10,-00,Non - Amortised Processing Fee - Payroll Loans (Deferred Commission - Loans),LIABILITY,GHS,631.36,false
+421.400.10,-01,Non - Amortised Processing Fee - Payroll Loans (Deferred Commission - Loans),LIABILITY,GHS,-4009.82,false
+421.400.10,-02,Non - Amortised Processing Fee - Payroll Loans (Deferred Commission - Loans),LIABILITY,GHS,70.86,false
+421.400.10,-03,Non - Amortised Processing Fee - Payroll Loans (Deferred Commission - Loans),LIABILITY,GHS,47.61,false
+421.400.10,-04,Non - Amortised Processing Fee - Payroll Loans (Deferred Commission - Loans),LIABILITY,GHS,-91.86,false
+421.400.10,-05,Non - Amortised Processing Fee - Payroll Loans (Deferred Commission - Loans),LIABILITY,GHS,-135.47,false
+421.400.10,-07,Non - Amortised Processing Fee - Payroll Loans (Deferred Commission - Loans),LIABILITY,GHS,67.930000000000007,false
+421.400.10,-09,Non - Amortised Processing Fee - Payroll Loans (Deferred Commission - Loans),LIABILITY,GHS,-132.55000000000001,false
+421.400.10,-10,Non - Amortised Processing Fee - Payroll Loans (Deferred Commission - Loans),LIABILITY,GHS,-14.15,false
+421.400.10,-23,Non - Amortised Processing Fee - Payroll Loans (Deferred Commission - Loans),LIABILITY,GHS,36.14,false
+510.100.01,-00,Ordinary Share Capital,EQUITY,GHS,-33103354,false
+511.100.01,-00,Statutory Reserve,EQUITY,GHS,-28130926.57,false
+511.100.02,-00,Credit Reserve,EQUITY,GHS,-182025.49,false
+511.100.03,-00,Revaluation Reserve,EQUITY,GHS,-1290310,false
+512.100.01,-00,Profit (Loss) from previous years,EQUITY,GHS,-188421995.53,false
+512.100.01,-00,Profit (Loss) from previous years (P&L amount),EQUITY,GHS,41212018.340000004,false
+512.100.01,-01,Profit (Loss) from previous years (P&L amount),EQUITY,GHS,1989453.17,false
+512.100.01,-02,Profit (Loss) from previous years (P&L amount),EQUITY,GHS,9988134.7200000007,false
+512.100.01,-03,Profit (Loss) from previous years (P&L amount),EQUITY,GHS,5710179.9199999999,false
+512.100.01,-04,Profit (Loss) from previous years (P&L amount),EQUITY,GHS,5190133.18,false
+512.100.01,-05,Profit (Loss) from previous years (P&L amount),EQUITY,GHS,138426.75,false
+512.100.01,-07,Profit (Loss) from previous years (P&L amount),EQUITY,GHS,1358654.66,false
+512.100.01,-09,Profit (Loss) from previous years (P&L amount),EQUITY,GHS,916233.02,false
+512.100.01,-10,Profit (Loss) from previous years (P&L amount),EQUITY,GHS,1807479.18,false
+512.100.01,-23,Profit (Loss) from previous years (P&L amount),EQUITY,GHS,834770.75,false
+910.100.01,-00,"Written-off Principal, Loans",ASSET,GHS,562124.87,false
+910.100.01,-01,"Written-off Principal, Loans",ASSET,GHS,38038.550000000003,false
+910.100.01,-02,"Written-off Principal, Loans",ASSET,GHS,32424.33,false
+910.100.01,-03,"Written-off Principal, Loans",ASSET,GHS,12164.5,false
+910.100.01,-04,"Written-off Principal, Loans",ASSET,GHS,282691.55,false
+910.100.01,-05,"Written-off Principal, Loans",ASSET,GHS,75606.990000000005,false
+910.100.01,-07,"Written-off Principal, Loans",ASSET,GHS,107090.52,false
+910.100.01,-09,"Written-off Principal, Loans",ASSET,GHS,33895.51,false
+910.100.01,-10,"Written-off Principal, Loans",ASSET,GHS,13422.43,false
+910.100.01,-23,"Written-off Principal, Loans (Off BS Items - Written Off Rcvbl (principal))",ASSET,GHS,13992.65,false
+910.100.02,-02,"Written-off Interest, Loans",ASSET,GHS,120,false
+910.100.02,-04,"Written-off Interest, Loans",ASSET,GHS,16580.64,false
+910.100.03,-00,"Written-off Loans, Counteraccount",ASSET,GHS,-562124.87,false
+910.100.03,-01,"Written-off Loans, Counteraccount",ASSET,GHS,-38038.550000000003,false
