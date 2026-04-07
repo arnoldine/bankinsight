@@ -4,7 +4,13 @@
     <TargetFramework>net8.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
+    <UserSecretsId>bankinsight-api-paystack-sandbox</UserSecretsId>
   </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Modules\Fintech\src\HybridTransfer.Domain\HybridTransfer.Domain.csproj" />
+    <ProjectReference Include="..\Modules\Fintech\src\HybridTransfer.Application\HybridTransfer.Application.csproj" />
+    <ProjectReference Include="..\Modules\Fintech\src\HybridTransfer.Infrastructure\HybridTransfer.Infrastructure.csproj" />
+  </ItemGroup>
 
   <ItemGroup>
     <InternalsVisibleTo Include="BankInsight.IntegrationTests" />
@@ -24,3 +30,5 @@
   </ItemGroup>
 
 </Project>
+
+

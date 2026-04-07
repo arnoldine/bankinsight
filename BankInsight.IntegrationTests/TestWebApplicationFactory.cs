@@ -2,6 +2,7 @@ using BankInsight.API.Data;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace BankInsight.IntegrationTests;
@@ -12,6 +13,18 @@ public class TestWebApplicationFactory<TProgram> : WebApplicationFactory<TProgra
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
+        builder.ConfigureAppConfiguration((_, config) =>
+        {
+            config.AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["FintechProviders:BankTransfer:Mode"] = "Mock",
+                ["FintechProviders:BankTransfer:ProviderCode"] = "paystack-bank-gh",
+                ["FintechProviders:BankTransfer:ApiKey"] = "test-paystack-secret",
+                ["FintechProviders:Webhook:SignatureHeaderName"] = "x-paystack-signature",
+                ["Persistence:Provider"] = "InMemory"
+            });
+        });
+
         builder.ConfigureServices(services =>
         {
             var descriptor = services.SingleOrDefault(

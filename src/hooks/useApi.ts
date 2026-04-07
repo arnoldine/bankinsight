@@ -7,6 +7,7 @@ import { adminService } from '../services/adminService';
 import { loanService, Loan, DisburseLoanRequest, LoanRepayRequest, LoanScheduleDto } from '../services/loanService';
 import { glService, GlAccount, JournalEntry, CreateGlAccountRequest, PostJournalEntryRequest } from '../services/glService';
 import { investmentService } from '../services/investmentService';
+import { fintechPlatformService, FintechApprovalDecisionRequest, FintechManualReconciliationRequest, FintechTransferInvestigation, FintechWorkspaceSnapshot } from '../services/fintechPlatformService';
 import { StaffUser, Role, Branch, SystemConfig, RegulatoryChartSeedResponse } from '../../types';
 import { ApiError } from '../services/httpClient';
 
@@ -1459,12 +1460,83 @@ export function useInvestments() {
   };
 }
 
+// Fintech Platform Hook
+export function useFintechPlatform() {
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
+  const getWorkspaceSnapshot = useCallback(async (): Promise<FintechWorkspaceSnapshot> => {
+    try {
+      setError(null);
+      setLoading(true);
+      return await fintechPlatformService.getWorkspaceSnapshot();
+    } catch (err) {
+      const message = err instanceof ApiError
+        ? err.data?.message || err.data?.error || err.message || 'Failed to load fintech workspace'
+        : (err as Error).message || 'Failed to load fintech workspace';
+      setError(message);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
+  const getTransferInvestigation = useCallback(async (transferOrderId: string): Promise<FintechTransferInvestigation> => {
+    try {
+      setError(null);
+      return await fintechPlatformService.getTransferInvestigation(transferOrderId);
+    } catch (err) {
+      const message = err instanceof ApiError
+        ? err.data?.message || err.data?.error || err.message || 'Failed to load fintech investigation'
+        : (err as Error).message || 'Failed to load fintech investigation';
+      setError(message);
+      throw err;
+    }
+  }, []);
 
+  const decideApproval = useCallback(async (approvalRequestId: string, request: FintechApprovalDecisionRequest) => {
+    try {
+      setError(null);
+      setLoading(true);
+      return await fintechPlatformService.decideApproval(approvalRequestId, request);
+    } catch (err) {
+      const message = err instanceof ApiError
+        ? err.data?.message || err.data?.error || err.message || 'Failed to decide fintech approval'
+        : (err as Error).message || 'Failed to decide fintech approval';
+      setError(message);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
+  const createReconciliationItem = useCallback(async (request: FintechManualReconciliationRequest) => {
+    try {
+      setError(null);
+      setLoading(true);
+      return await fintechPlatformService.createReconciliationItem(request);
+    } catch (err) {
+      const message = err instanceof ApiError
+        ? err.data?.message || err.data?.error || err.message || 'Failed to create reconciliation item'
+        : (err as Error).message || 'Failed to create reconciliation item';
+      setError(message);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
-
-
+  return {
+    loading,
+    error,
+    getWorkspaceSnapshot,
+    getTransferInvestigation,
+    decideApproval,
+    createReconciliationItem,
+    getAdminUrl: () => fintechPlatformService.getAdminUrl(),
+    getHealthUrl: () => fintechPlatformService.getHealthUrl(),
+    getSwaggerUrl: () => fintechPlatformService.getSwaggerUrl(),
+  };
+}
 
 

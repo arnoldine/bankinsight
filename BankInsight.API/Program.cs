@@ -9,6 +9,24 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.OpenApi.Models;
 using Microsoft.AspNetCore.ResponseCompression;
+using HybridTransfer.Infrastructure.DependencyInjection;
+using HybridTransfer.Infrastructure.Persistence;
+using HybridTransfer.Infrastructure.Providers;
+using HybridPostingEngine = HybridTransfer.Application.Services.PostingEngine;
+using HybridAuditTrailService = HybridTransfer.Application.Services.AuditTrailService;
+using HybridTransferPostingPolicyService = HybridTransfer.Application.Services.TransferPostingPolicyService;
+using HybridOperationsExplorerService = HybridTransfer.Application.Services.OperationsExplorerService;
+using HybridComplianceExplorerService = HybridTransfer.Application.Services.ComplianceExplorerService;
+using HybridLedgerApplicationService = HybridTransfer.Application.Services.LedgerApplicationService;
+using HybridRiskAssessmentService = HybridTransfer.Application.Services.RiskAssessmentService;
+using HybridTransferExecutionService = HybridTransfer.Application.Services.TransferExecutionService;
+using HybridApprovalService = HybridTransfer.Application.Services.ApprovalService;
+using HybridReconciliationService = HybridTransfer.Application.Services.ReconciliationService;
+using HybridReportingCatalogService = HybridTransfer.Application.Services.ReportingCatalogService;
+using HybridPayoutOrchestrator = HybridTransfer.Application.Services.PayoutOrchestrator;
+using HybridWebhookProcessor = HybridTransfer.Application.Services.WebhookProcessor;
+using HybridProviderTransferStatusService = HybridTransfer.Application.Services.ProviderTransferStatusService;
+using HybridWebhookReceiptService = HybridTransfer.Application.Services.WebhookReceiptService;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -98,6 +116,8 @@ builder.Services.AddScoped<IFxTradingService, FxTradingService>();
 builder.Services.AddScoped<IInvestmentService, InvestmentService>();
 builder.Services.AddScoped<IRiskAnalyticsService, RiskAnalyticsService>();
 builder.Services.AddHttpClient(); // For Bank of Ghana API integration
+builder.Services.Configure<FintechProviderOptions>(builder.Configuration.GetSection("FintechProviders"));
+builder.Services.Configure<FintechLedgerOptions>(builder.Configuration.GetSection("FintechLedger"));
 
 // Reporting & Analytics services
 builder.Services.AddScoped<IReportingService, ReportingService>();
@@ -107,6 +127,29 @@ builder.Services.AddScoped<IAnalyticsService, AnalyticsService>();
 builder.Services.AddScoped<IReportCatalogRegistry, ReportCatalogRegistry>();
 builder.Services.AddScoped<IReportExportService, ReportExportService>();
 builder.Services.AddScoped<IEnterpriseReportingService, EnterpriseReportingService>();
+// Fintech platform module services
+builder.Services.AddHybridTransferPersistence(builder.Configuration);
+builder.Services.AddSingleton<HybridTransfer.Application.Abstractions.IMobileMoneyProvider, BankInsightMobileMoneyProvider>();
+builder.Services.AddSingleton<HybridTransfer.Application.Abstractions.IBankTransferProvider, BankInsightBankTransferProvider>();
+builder.Services.AddSingleton<HybridTransfer.Application.Abstractions.ICryptoCustodyProvider, BankInsightCryptoCustodyProvider>();
+builder.Services.AddSingleton<HybridTransfer.Application.Abstractions.IWebhookSecurityService, BankInsightWebhookSecurityService>();
+builder.Services.AddScoped<HybridPostingEngine>();
+builder.Services.AddScoped<HybridAuditTrailService>();
+builder.Services.AddScoped<HybridTransferPostingPolicyService>();
+builder.Services.AddScoped<HybridOperationsExplorerService>();
+builder.Services.AddScoped<HybridComplianceExplorerService>();
+builder.Services.AddScoped<HybridLedgerApplicationService>();
+builder.Services.AddScoped<HybridRiskAssessmentService>();
+builder.Services.AddScoped<HybridTransferExecutionService>();
+builder.Services.AddScoped<HybridApprovalService>();
+builder.Services.AddScoped<HybridReconciliationService>();
+builder.Services.AddScoped<HybridReportingCatalogService>();
+builder.Services.AddScoped<HybridPayoutOrchestrator>();
+builder.Services.AddScoped<HybridWebhookProcessor>();
+builder.Services.AddScoped<BankTransferLifecycleService>();
+builder.Services.AddScoped<HybridWebhookReceiptService>();
+builder.Services.AddScoped<HybridProviderTransferStatusService>();
+builder.Services.AddScoped<HybridTransfer.Application.Abstractions.IProviderTransferStatusProvider, BankInsightBankTransferProvider>();
 
 // Add antiforgery service for CSRF protection
 builder.Services.AddAntiforgery(options =>
@@ -221,12 +264,24 @@ using (var scope = app.Services.CreateScope())
         await db.Database.EnsureDeletedAsync();
         await db.Database.EnsureCreatedAsync();
         await DatabaseSeeder.SeedAsync(db);
+
+        if (string.Equals(builder.Configuration["Persistence:Provider"], "Postgres", StringComparison.OrdinalIgnoreCase))
+        {
+            var hybridDb = scope.ServiceProvider.GetRequiredService<HybridTransferDbContext>();
+            await hybridDb.Database.MigrateAsync();
+        }
     }
     else
     {
         await db.Database.MigrateAsync();
         await DatabaseSchemaBootstrapper.EnsureAsync(db);
         await DatabaseSeeder.SeedAsync(db);
+
+        if (string.Equals(builder.Configuration["Persistence:Provider"], "Postgres", StringComparison.OrdinalIgnoreCase))
+        {
+            var hybridDb = scope.ServiceProvider.GetRequiredService<HybridTransferDbContext>();
+            await hybridDb.Database.MigrateAsync();
+        }
     }
 }
 
@@ -268,6 +323,16 @@ app.Run();
 
 // Make Program class accessible to integration tests
 public partial class Program { }
+
+
+
+
+
+
+
+
+
+
 
 
 

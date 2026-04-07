@@ -80,6 +80,7 @@ import RiskDashboard from '../../components/RiskDashboard';
 import InvestmentPortfolio from '../../components/InvestmentPortfolio';
 import FxRateManagement from '../../components/FxRateManagement';
 import FxTradingDesk from '../../components/FxTradingDesk';
+import FintechPlatformHub from './FintechPlatformHub';
 
 interface MenuItem {
   id: string;
@@ -925,6 +926,19 @@ export default function EnhancedDashboardLayout({
           ],
         },
         {
+          id: 'fintech-platform',
+          label: 'Fintech Platform',
+          icon: <Activity size={18} />,
+          permission: Permissions.Accounts.View,
+          subItems: [
+            { id: 'fintech-platform', label: 'Overview', icon: <Activity size={16} />, permission: Permissions.Accounts.View },
+            { id: 'fintech-transfers', label: 'Transfers', icon: <ArrowRightLeft size={16} />, permission: Permissions.Accounts.View },
+            { id: 'fintech-compliance', label: 'Compliance', icon: <Shield size={16} />, permission: Permissions.Accounts.View },
+            { id: 'fintech-treasury', label: 'Treasury', icon: <TrendingUp size={16} />, permission: Permissions.Accounts.View },
+            { id: 'fintech-reconciliation', label: 'Reconciliation', icon: <CheckCircle size={16} />, permission: Permissions.Accounts.View },
+          ],
+        },
+        {
           id: 'reporting',
           label: 'Reporting',
           icon: <FileText size={18} />,
@@ -1531,6 +1545,36 @@ export default function EnhancedDashboardLayout({
         return (
           <ProtectedRoute requiredPermission={Permissions.Accounts.View} userPermissions={userPermissions}>
             <OperationsHub key={activeTab} accounts={accounts} loans={loans} initialTab="npl" />
+          </ProtectedRoute>
+        );
+      case 'fintech-platform':
+        return (
+          <ProtectedRoute requiredPermission={Permissions.Accounts.View} userPermissions={userPermissions}>
+            <FintechPlatformHub initialTab="overview" />
+          </ProtectedRoute>
+        );
+      case 'fintech-transfers':
+        return (
+          <ProtectedRoute requiredPermission={Permissions.Accounts.View} userPermissions={userPermissions}>
+            <FintechPlatformHub initialTab="transfers" />
+          </ProtectedRoute>
+        );
+      case 'fintech-compliance':
+        return (
+          <ProtectedRoute requiredPermission={Permissions.Accounts.View} userPermissions={userPermissions}>
+            <FintechPlatformHub initialTab="compliance" />
+          </ProtectedRoute>
+        );
+      case 'fintech-treasury':
+        return (
+          <ProtectedRoute requiredPermission={Permissions.Accounts.View} userPermissions={userPermissions}>
+            <FintechPlatformHub initialTab="treasury" />
+          </ProtectedRoute>
+        );
+      case 'fintech-reconciliation':
+        return (
+          <ProtectedRoute requiredPermission={Permissions.Accounts.View} userPermissions={userPermissions}>
+            <FintechPlatformHub initialTab="reconciliation" />
           </ProtectedRoute>
         );
       case 'reporting':
@@ -2208,6 +2252,10 @@ function MetricMini({ label, value }: { label: string; value: string }) {
     </div>
   );
 }
+
+
+
+
 
 
 
