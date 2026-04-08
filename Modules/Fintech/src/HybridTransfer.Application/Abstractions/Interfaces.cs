@@ -99,7 +99,7 @@ public sealed record ProviderTransferStatusResult(bool Found, string ProviderRef
 public sealed record DepositAddressResult(string WalletAddress, string Asset, string Network, int RequiredConfirmations);
 public sealed record WithdrawalBroadcastResult(string TxHash, decimal NetworkFee);
 public sealed record MobileMoneyPayoutInstruction(Guid TransferId, string MomoNumber, string Network, decimal Amount, string Currency, string Narrative);
-public sealed record BankPayoutInstruction(Guid TransferId, string BankCode, string AccountNumber, decimal Amount, string Currency, string Narrative);
+public sealed record BankPayoutInstruction(Guid TransferId, string BankCode, string AccountNumber, decimal Amount, string Currency, string DestinationCountryCode, string Narrative);
 public sealed record CryptoWithdrawalInstruction(Guid WithdrawalId, string Asset, string Network, string DestinationAddress, decimal Amount);
 public sealed record AlertRecord(Guid Id, Guid CustomerId, string AlertCode, string Severity, int Score, string Status, string PayloadJson, DateTimeOffset CreatedAtUtc);
 public sealed record ApprovalRequest(Guid Id, Guid TransferOrderId, string ActionCode, string Status, string RequestedBy, string? ApprovedBy, string Reason, DateTimeOffset CreatedAtUtc);

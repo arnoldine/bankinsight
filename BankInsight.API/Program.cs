@@ -27,6 +27,8 @@ using HybridPayoutOrchestrator = HybridTransfer.Application.Services.PayoutOrche
 using HybridWebhookProcessor = HybridTransfer.Application.Services.WebhookProcessor;
 using HybridProviderTransferStatusService = HybridTransfer.Application.Services.ProviderTransferStatusService;
 using HybridWebhookReceiptService = HybridTransfer.Application.Services.WebhookReceiptService;
+using HybridCurrencyPolicyService = HybridTransfer.Application.Services.CurrencyPolicyService;
+using HybridTransferRoutingPolicyService = HybridTransfer.Application.Services.TransferRoutingPolicyService;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -39,6 +41,15 @@ if (string.IsNullOrEmpty(connectionString))
     throw new InvalidOperationException(
         "Database connection string must be provided via DB_CONNECTION_STRING environment variable or ConnectionStrings:DefaultConnection in configuration");
 }
+
+// Keep the core API context and the HybridTransfer module pinned to the same resolved
+// connection string so Docker/container environments do not fall back to localhost
+// values from appsettings.Development.json.
+builder.Configuration.AddInMemoryCollection(new Dictionary<string, string?>
+{
+    ["ConnectionStrings:DefaultConnection"] = connectionString,
+    ["ConnectionStrings:HybridTransferDb"] = connectionString
+});
 
 // Resolve and validate JWT secret once during startup.
 var jwtSecretBytes = JwtSecretResolver.ResolveBytes(builder.Configuration);
@@ -98,6 +109,7 @@ if (builder.Environment.IsDevelopment() || builder.Environment.IsEnvironment("Te
 builder.Services.AddScoped<IEmailAlertService, EmailAlertService>();
 builder.Services.AddScoped<ISuspiciousActivityService, SuspiciousActivityService>();
 builder.Services.AddScoped<IDeviceSecurityService, DeviceSecurityService>();
+builder.Services.AddScoped<IWafService, WafService>();
 builder.Services.AddScoped<IBranchHierarchyService, BranchHierarchyService>();
 builder.Services.AddScoped<IVaultManagementService, VaultManagementService>();
 builder.Services.AddScoped<IInterBranchTransferService, InterBranchTransferService>();
@@ -144,6 +156,8 @@ builder.Services.AddScoped<HybridTransferExecutionService>();
 builder.Services.AddScoped<HybridApprovalService>();
 builder.Services.AddScoped<HybridReconciliationService>();
 builder.Services.AddScoped<HybridReportingCatalogService>();
+builder.Services.AddScoped<HybridCurrencyPolicyService>();
+builder.Services.AddScoped<HybridTransferRoutingPolicyService>();
 builder.Services.AddScoped<HybridPayoutOrchestrator>();
 builder.Services.AddScoped<HybridWebhookProcessor>();
 builder.Services.AddScoped<BankTransferLifecycleService>();
@@ -300,6 +314,7 @@ else
 // Add middleware in proper order
 app.UseGlobalErrorHandling();  // Error handling first
 app.UsePerformanceMonitoring(); // Performance monitoring 
+app.UseWaf();                   // Web application firewall before rate limiting
 app.UseRateLimiting();          // Rate limiting before authentication
 app.UseIpWhitelist();           // IP-based access control
 app.UseJintScriptingSandbox();  // Custom Jint Script Interceptors before Auth

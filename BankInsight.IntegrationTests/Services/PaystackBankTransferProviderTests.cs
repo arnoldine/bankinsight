@@ -44,7 +44,7 @@ public class PaystackBankTransferProviderTests
 
         var provider = new BankInsightBankTransferProvider(options, new TestHttpClientFactory(handler), NullLogger<BankInsightBankTransferProvider>.Instance);
         var transferId = Guid.Parse("22222222-2222-2222-2222-222222222222");
-        var result = await provider.InitiatePayoutAsync(new BankPayoutInstruction(transferId, "057", "0123456789", 125.50m, "GHS", "Vendor settlement"), CancellationToken.None);
+        var result = await provider.InitiatePayoutAsync(new BankPayoutInstruction(transferId, "057", "0123456789", 125.50m, "GHS", "GH", "Vendor settlement"), CancellationToken.None);
 
         result.Accepted.Should().BeTrue();
         result.ProviderReference.Should().Be("TRF_paystack123");

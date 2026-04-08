@@ -13,6 +13,8 @@ public sealed class PayoutOrchestrator
     private readonly IBankTransferProvider _bankTransferProvider;
     private readonly RiskAssessmentService _riskAssessmentService;
     private readonly ApprovalService _approvalService;
+    private readonly CurrencyPolicyService _currencyPolicyService;
+    private readonly TransferRoutingPolicyService _transferRoutingPolicyService;
 
     public PayoutOrchestrator(
         ITransferOrderRepository transferOrderRepository,
@@ -20,7 +22,9 @@ public sealed class PayoutOrchestrator
         IMobileMoneyProvider mobileMoneyProvider,
         IBankTransferProvider bankTransferProvider,
         RiskAssessmentService riskAssessmentService,
-        ApprovalService approvalService)
+        ApprovalService approvalService,
+        CurrencyPolicyService currencyPolicyService,
+        TransferRoutingPolicyService transferRoutingPolicyService)
     {
         _transferOrderRepository = transferOrderRepository;
         _walletProjectionRepository = walletProjectionRepository;
@@ -28,6 +32,8 @@ public sealed class PayoutOrchestrator
         _bankTransferProvider = bankTransferProvider;
         _riskAssessmentService = riskAssessmentService;
         _approvalService = approvalService;
+        _currencyPolicyService = currencyPolicyService;
+        _transferRoutingPolicyService = transferRoutingPolicyService;
     }
 
     public async Task<TransferResponse> CreateMobileMoneyPayoutAsync(MobileMoneyTransferRequest request, string actor, string idempotencyKey, CancellationToken cancellationToken)
@@ -37,8 +43,12 @@ public sealed class PayoutOrchestrator
             throw new InvalidOperationException("A payout with the same idempotency key already exists.");
         }
 
-        var availableBalance = await _walletProjectionRepository.GetAvailableBalanceAsync(request.SourceWalletId, cancellationToken);
-        if (availableBalance < request.Amount)
+        _transferRoutingPolicyService.EnsureFiatRailAllowed(TransferChannel.MobileMoney, request.DestinationCountryCode);
+        var wallet = await _walletProjectionRepository.GetProjectionAsync(request.SourceWalletId, cancellationToken)
+            ?? throw new InvalidOperationException("Source wallet was not found.");
+        _currencyPolicyService.EnsureWalletCurrencyMatches(wallet.Currency, request.Currency);
+
+        if (wallet.AvailableBalance < request.Amount)
         {
             throw new InvalidOperationException("Insufficient available balance.");
         }
@@ -49,6 +59,8 @@ public sealed class PayoutOrchestrator
             "Wallet",
             request.SourceWalletId,
             $"{request.Network}:{request.MomoNumber}",
+            request.Currency,
+            request.DestinationCountryCode,
             request.Amount,
             actor,
             idempotencyKey);
@@ -83,13 +95,17 @@ public sealed class PayoutOrchestrator
             throw new InvalidOperationException("A payout with the same idempotency key already exists.");
         }
 
-        var availableBalance = await _walletProjectionRepository.GetAvailableBalanceAsync(sourceWalletId, cancellationToken);
-        if (availableBalance < instruction.Amount)
+        _transferRoutingPolicyService.EnsureFiatRailAllowed(TransferChannel.Bank, instruction.DestinationCountryCode);
+        var wallet = await _walletProjectionRepository.GetProjectionAsync(sourceWalletId, cancellationToken)
+            ?? throw new InvalidOperationException("Source wallet was not found.");
+        _currencyPolicyService.EnsureWalletCurrencyMatches(wallet.Currency, instruction.Currency);
+
+        if (wallet.AvailableBalance < instruction.Amount)
         {
             throw new InvalidOperationException("Insufficient available balance.");
         }
 
-        var transfer = new TransferOrder(TransferType.BankPayout, TransferChannel.Bank, "Wallet", sourceWalletId, $"{instruction.BankCode}:{instruction.AccountNumber}", instruction.Amount, actor, idempotencyKey);
+        var transfer = new TransferOrder(TransferType.BankPayout, TransferChannel.Bank, "Wallet", sourceWalletId, $"{instruction.BankCode}:{instruction.AccountNumber}", instruction.Currency, instruction.DestinationCountryCode, instruction.Amount, actor, idempotencyKey);
         transfer.ApplyPricing(5m, null);
         var risk = await _riskAssessmentService.EvaluateTransferAsync(Guid.Empty, transfer.Id, instruction.Amount, "Bank", isNewDevice: false, cancellationToken);
         transfer.ApplyRisk(risk.RiskStatus, risk.ComplianceStatus);

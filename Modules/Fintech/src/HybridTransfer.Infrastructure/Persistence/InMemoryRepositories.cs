@@ -136,8 +136,10 @@ public sealed class InMemoryWalletProjectionRepository : IWalletProjectionReposi
     {
         var seededWalletId = Guid.Parse("11111111-1111-1111-1111-111111111111");
         var counterpartyWalletId = Guid.Parse("33333333-3333-3333-3333-333333333333");
+        var usdWalletId = Guid.Parse("44444444-4444-4444-4444-444444444444");
         _balances[seededWalletId] = new WalletBalanceProjection(seededWalletId, 5000m, 0m, "GHS", "Active", Guid.Parse("aaaaaaaa-1111-1111-1111-111111111111"));
         _balances[counterpartyWalletId] = new WalletBalanceProjection(counterpartyWalletId, 1200m, 0m, "GHS", "Active", Guid.Parse("bbbbbbbb-2222-2222-2222-222222222222"));
+        _balances[usdWalletId] = new WalletBalanceProjection(usdWalletId, 2500m, 0m, "USD", "Active", Guid.Parse("cccccccc-5555-5555-5555-555555555555"));
     }
 
     public Task<decimal> GetAvailableBalanceAsync(Guid walletId, CancellationToken cancellationToken)

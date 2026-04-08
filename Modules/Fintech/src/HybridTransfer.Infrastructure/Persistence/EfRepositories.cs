@@ -224,6 +224,8 @@ public sealed class EfTransferOrderRepository : ITransferOrderRepository
         entity.BeneficiaryId = transferOrder.BeneficiaryId;
         entity.SourceWalletId = transferOrder.SourceWalletId;
         entity.DestinationDetails = transferOrder.DestinationDetails;
+        entity.Currency = transferOrder.Currency;
+        entity.DestinationCountryCode = transferOrder.DestinationCountryCode;
         entity.Amount = transferOrder.Amount;
         entity.Fee = transferOrder.Fee;
         entity.FxRate = transferOrder.FxRate;
@@ -302,6 +304,8 @@ public sealed class EfTransferOrderRepository : ITransferOrderRepository
             entity.FundingSource,
             entity.SourceWalletId,
             entity.DestinationDetails,
+            entity.Currency,
+            entity.DestinationCountryCode,
             entity.Amount,
             entity.CreatedBy,
             entity.IdempotencyKey,

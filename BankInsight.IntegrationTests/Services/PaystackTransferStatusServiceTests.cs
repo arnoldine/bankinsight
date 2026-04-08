@@ -20,7 +20,7 @@ public class PaystackTransferStatusServiceTests
         var repository = new InMemoryTransferOrderRepository();
         var auditRepository = new InMemoryAuditEventRepository();
         var auditTrail = new AuditTrailService(auditRepository);
-        var transfer = new TransferOrder(TransferType.BankPayout, TransferChannel.Bank, "Wallet", Guid.Parse("11111111-1111-1111-1111-111111111111"), "057:0123456789", 125.50m, "customer", "idem-verify-1");
+        var transfer = new TransferOrder(TransferType.BankPayout, TransferChannel.Bank, "Wallet", Guid.Parse("11111111-1111-1111-1111-111111111111"), "057:0123456789", "GHS", "GH", 125.50m, "customer", "idem-verify-1");
         transfer.Authorize("checker");
         transfer.Submit("TRF_paystack123");
         await repository.SaveAsync(transfer, CancellationToken.None);
@@ -64,7 +64,7 @@ public class PaystackTransferStatusServiceTests
         var repository = new InMemoryTransferOrderRepository();
         var auditRepository = new InMemoryAuditEventRepository();
         var auditTrail = new AuditTrailService(auditRepository);
-        var transfer = new TransferOrder(TransferType.BankPayout, TransferChannel.Bank, "Wallet", Guid.Parse("11111111-1111-1111-1111-111111111111"), "057:0123456789", 125.50m, "customer", "idem-callback-1");
+        var transfer = new TransferOrder(TransferType.BankPayout, TransferChannel.Bank, "Wallet", Guid.Parse("11111111-1111-1111-1111-111111111111"), "057:0123456789", "GHS", "GH", 125.50m, "customer", "idem-callback-1");
         transfer.Authorize("checker");
         transfer.Submit("TRF_paystack999");
         await repository.SaveAsync(transfer, CancellationToken.None);

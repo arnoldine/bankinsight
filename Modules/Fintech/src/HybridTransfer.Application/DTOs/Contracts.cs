@@ -26,8 +26,8 @@ public sealed record JournalEntryExplorerItemResponse(Guid JournalEntryId, strin
 public sealed record AuditEventExplorerItemResponse(Guid AuditEventId, string Action, string EntityType, string EntityId, string ActorId, string ActorType, DateTimeOffset CreatedAtUtc);
 public sealed record ApprovalExplorerItemResponse(Guid ApprovalRequestId, Guid TransferOrderId, string ActionCode, string Status, string RequestedBy, string? ApprovedBy, string Reason, DateTimeOffset CreatedAtUtc);
 public sealed record AlertExplorerItemResponse(Guid AlertId, Guid CustomerId, string AlertCode, string Severity, int Score, string Status, DateTimeOffset CreatedAtUtc, string Summary);
-public sealed record MobileMoneyTransferRequest(Guid SourceWalletId, string MomoNumber, string Network, decimal Amount, string Currency, string BeneficiaryName, string? Narrative);
-public sealed record CryptoWithdrawalRequest(Guid SourceWalletId, string Asset, string Network, string DestinationAddress, decimal Amount, string? TravelRuleReference);
+public sealed record MobileMoneyTransferRequest(Guid SourceWalletId, string MomoNumber, string Network, decimal Amount, string Currency, string BeneficiaryName, string DestinationCountryCode, string? Narrative);
+public sealed record CryptoWithdrawalRequest(Guid SourceWalletId, string Asset, string Network, string DestinationAddress, decimal Amount, string DestinationCountryCode, string? TravelRuleReference);
 public sealed record TransferResponse(Guid TransferId, string Status, string RiskStatus, string ComplianceStatus, string? ProviderReference);
 public sealed record DepositAddressRequest(Guid WalletId, string Asset, string Network);
 public sealed record DepositAddressResponse(string WalletAddress, string Asset, string Network, int RequiredConfirmations);

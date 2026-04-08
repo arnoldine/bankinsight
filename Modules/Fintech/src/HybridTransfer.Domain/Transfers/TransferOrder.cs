@@ -11,6 +11,8 @@ public sealed class TransferOrder
     public Guid? BeneficiaryId { get; init; }
     public Guid SourceWalletId { get; init; }
     public string DestinationDetails { get; init; }
+    public string Currency { get; init; }
+    public string DestinationCountryCode { get; init; }
     public decimal Amount { get; init; }
     public decimal Fee { get; private set; }
     public decimal? FxRate { get; private set; }
@@ -23,14 +25,17 @@ public sealed class TransferOrder
     public string? ApprovedBy { get; private set; }
     public string IdempotencyKey { get; init; }
     public DateTimeOffset CreatedAtUtc { get; init; } = DateTimeOffset.UtcNow;
+    public bool IsCrossBorder => !string.Equals(DestinationCountryCode, "GH", StringComparison.OrdinalIgnoreCase);
 
-    public TransferOrder(TransferType type, TransferChannel channel, string fundingSource, Guid sourceWalletId, string destinationDetails, decimal amount, string createdBy, string idempotencyKey, Guid? beneficiaryId = null)
+    public TransferOrder(TransferType type, TransferChannel channel, string fundingSource, Guid sourceWalletId, string destinationDetails, string currency, string destinationCountryCode, decimal amount, string createdBy, string idempotencyKey, Guid? beneficiaryId = null)
     {
         Type = type;
         Channel = channel;
         FundingSource = fundingSource;
         SourceWalletId = sourceWalletId;
         DestinationDetails = destinationDetails;
+        Currency = currency.Trim().ToUpperInvariant();
+        DestinationCountryCode = string.IsNullOrWhiteSpace(destinationCountryCode) ? "GH" : destinationCountryCode.Trim().ToUpperInvariant();
         Amount = amount;
         CreatedBy = createdBy;
         IdempotencyKey = idempotencyKey;

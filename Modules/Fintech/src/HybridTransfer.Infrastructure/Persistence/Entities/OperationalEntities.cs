@@ -9,6 +9,8 @@ public sealed class TransferOrderEntity
     public Guid? BeneficiaryId { get; set; }
     public Guid SourceWalletId { get; set; }
     public string DestinationDetails { get; set; } = string.Empty;
+    public string Currency { get; set; } = string.Empty;
+    public string DestinationCountryCode { get; set; } = string.Empty;
     public decimal Amount { get; set; }
     public decimal Fee { get; set; }
     public decimal? FxRate { get; set; }

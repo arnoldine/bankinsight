@@ -53,7 +53,7 @@ public sealed class BankTransferLifecycleService
     public async Task<TransferResponse> SubmitBankPayoutAsync(BankTransferRequest request, string actor, string idempotencyKey, CancellationToken cancellationToken)
     {
         var response = await _payoutOrchestrator.CreateBankPayoutAsync(
-            new BankPayoutInstruction(Guid.NewGuid(), request.BankCode, request.AccountNumber, request.Amount, request.Currency, request.Narrative ?? "HybridTransfer bank payout"),
+            new BankPayoutInstruction(Guid.NewGuid(), request.BankCode, request.AccountNumber, request.Amount, request.Currency, request.DestinationCountryCode, request.Narrative ?? "HybridTransfer bank payout"),
             request.SourceWalletId,
             actor,
             idempotencyKey,

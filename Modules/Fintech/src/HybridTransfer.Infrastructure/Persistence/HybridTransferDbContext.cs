@@ -29,6 +29,8 @@ public sealed class HybridTransferDbContext : DbContext
             entity.Property(x => x.Channel).HasMaxLength(32).IsRequired();
             entity.Property(x => x.FundingSource).HasMaxLength(32).IsRequired();
             entity.Property(x => x.DestinationDetails).HasColumnType("jsonb").IsRequired();
+            entity.Property(x => x.Currency).HasMaxLength(16).IsRequired();
+            entity.Property(x => x.DestinationCountryCode).HasMaxLength(8).IsRequired();
             entity.Property(x => x.Amount).HasPrecision(18, 2);
             entity.Property(x => x.Fee).HasPrecision(18, 2);
             entity.Property(x => x.FxRate).HasPrecision(18, 8);

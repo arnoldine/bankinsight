@@ -81,6 +81,7 @@ public class FintechModuleControllerTests : IntegrationTestBase
             amount = 25.00m,
             currency = "GHS",
             accountName = "Sandbox Beneficiary",
+            destinationCountryCode = "GH",
             narrative = "Webhook replay test"
         };
 

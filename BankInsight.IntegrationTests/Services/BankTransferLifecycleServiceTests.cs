@@ -41,7 +41,7 @@ public class BankTransferLifecycleServiceTests
             Options.Create(new FintechLedgerOptions()));
 
         var submit = await lifecycleService.SubmitBankPayoutAsync(
-            new BankTransferRequest(Guid.Parse("11111111-1111-1111-1111-111111111111"), "057", "0123456789", 100m, "GHS", "Acme Ghana", "Vendor settlement"),
+            new BankTransferRequest(Guid.Parse("11111111-1111-1111-1111-111111111111"), "057", "0123456789", 100m, "GHS", "Acme Ghana", "GH", "Vendor settlement"),
             "customer",
             "idem-bank-1",
             CancellationToken.None);
@@ -86,7 +86,7 @@ public class BankTransferLifecycleServiceTests
             Options.Create(new FintechLedgerOptions()));
 
         var submit = await lifecycleService.SubmitBankPayoutAsync(
-            new BankTransferRequest(Guid.Parse("11111111-1111-1111-1111-111111111111"), "057", "0123456789", 100m, "GHS", "Acme Ghana", "Vendor settlement"),
+            new BankTransferRequest(Guid.Parse("11111111-1111-1111-1111-111111111111"), "057", "0123456789", 100m, "GHS", "Acme Ghana", "GH", "Vendor settlement"),
             "customer",
             "idem-bank-2",
             CancellationToken.None);
@@ -100,6 +100,83 @@ public class BankTransferLifecycleServiceTests
         (await journalRepository.GetByTransferOrderIdAsync(transfer.Id, CancellationToken.None)).Should().HaveCount(2);
     }
 
+    [Fact]
+    public async Task SubmitBankPayout_AllowsDomesticUsdWalletTransfers()
+    {
+        var transferRepository = new InMemoryTransferOrderRepository();
+        var walletRepository = new InMemoryWalletProjectionRepository();
+        var journalRepository = new InMemoryJournalRepository();
+        var auditRepository = new InMemoryAuditEventRepository();
+        var approvalRepository = new InMemoryApprovalRequestRepository();
+        var alertRepository = new InMemoryAlertRepository();
+        var reconciliationRepository = new InMemoryReconciliationRepository();
+        var auditTrail = new AuditTrailService(auditRepository);
+        var reconciliationService = new ReconciliationService(reconciliationRepository);
+        var statusProvider = new StubBankProvider(verifyStatus: "success");
+        var payoutOrchestrator = CreatePayoutOrchestrator(transferRepository, walletRepository, approvalRepository, alertRepository, statusProvider);
+        var ledgerService = CreateLedgerService(journalRepository, walletRepository, transferRepository, auditTrail);
+        var statusService = new ProviderTransferStatusService(transferRepository, statusProvider, auditTrail);
+        var lifecycleService = new BankTransferLifecycleService(
+            payoutOrchestrator,
+            statusService,
+            ledgerService,
+            transferRepository,
+            walletRepository,
+            journalRepository,
+            reconciliationService,
+            auditTrail,
+            Options.Create(new FintechLedgerOptions()));
+
+        var submit = await lifecycleService.SubmitBankPayoutAsync(
+            new BankTransferRequest(Guid.Parse("44444444-4444-4444-4444-444444444444"), "057", "0123456789", 100m, "USD", "Acme USD", "GH", "Domestic USD settlement"),
+            "customer",
+            "idem-bank-usd-1",
+            CancellationToken.None);
+
+        submit.Status.Should().Be(TransferStatus.PendingSettlement.ToString());
+        var transfer = await transferRepository.GetByIdAsync(submit.TransferId, CancellationToken.None);
+        transfer.Should().NotBeNull();
+        transfer!.Currency.Should().Be("USD");
+        transfer.DestinationCountryCode.Should().Be("GH");
+    }
+
+    [Fact]
+    public async Task SubmitBankPayout_RejectsCrossBorderFiatRails()
+    {
+        var transferRepository = new InMemoryTransferOrderRepository();
+        var walletRepository = new InMemoryWalletProjectionRepository();
+        var journalRepository = new InMemoryJournalRepository();
+        var auditRepository = new InMemoryAuditEventRepository();
+        var approvalRepository = new InMemoryApprovalRequestRepository();
+        var alertRepository = new InMemoryAlertRepository();
+        var reconciliationRepository = new InMemoryReconciliationRepository();
+        var auditTrail = new AuditTrailService(auditRepository);
+        var reconciliationService = new ReconciliationService(reconciliationRepository);
+        var statusProvider = new StubBankProvider(verifyStatus: "success");
+        var payoutOrchestrator = CreatePayoutOrchestrator(transferRepository, walletRepository, approvalRepository, alertRepository, statusProvider);
+        var ledgerService = CreateLedgerService(journalRepository, walletRepository, transferRepository, auditTrail);
+        var statusService = new ProviderTransferStatusService(transferRepository, statusProvider, auditTrail);
+        var lifecycleService = new BankTransferLifecycleService(
+            payoutOrchestrator,
+            statusService,
+            ledgerService,
+            transferRepository,
+            walletRepository,
+            journalRepository,
+            reconciliationService,
+            auditTrail,
+            Options.Create(new FintechLedgerOptions()));
+
+        var action = () => lifecycleService.SubmitBankPayoutAsync(
+            new BankTransferRequest(Guid.Parse("44444444-4444-4444-4444-444444444444"), "057", "0123456789", 100m, "USD", "Acme Nigeria", "NG", "Cross-border fiat settlement"),
+            "customer",
+            "idem-bank-cross-border-1",
+            CancellationToken.None);
+
+        await action.Should().ThrowAsync<InvalidOperationException>()
+            .WithMessage("*Cross-border transfers must use blockchain settlement*");
+    }
+
     private static PayoutOrchestrator CreatePayoutOrchestrator(
         InMemoryTransferOrderRepository transferRepository,
         InMemoryWalletProjectionRepository walletRepository,
@@ -111,7 +188,7 @@ public class BankTransferLifecycleServiceTests
         var transferExecutionService = new TransferExecutionService(transferRepository, mobileProvider, bankProvider);
         var approvalService = new HybridApprovalService(approvalRepository, transferRepository, transferExecutionService);
         var riskService = new RiskAssessmentService(alertRepository);
-        return new PayoutOrchestrator(transferRepository, walletRepository, mobileProvider, bankProvider, riskService, approvalService);
+        return new PayoutOrchestrator(transferRepository, walletRepository, mobileProvider, bankProvider, riskService, approvalService, new CurrencyPolicyService(), new TransferRoutingPolicyService());
     }
 
     private static LedgerApplicationService CreateLedgerService(

@@ -24,14 +24,16 @@ public sealed class FintechWorkspaceService : ApiClientBase
             SwaggerUrl = GetSwaggerUrl(),
             SupportedFlows =
             [
-                "Custodial crypto deposits and internal GHS wallet balances",
-                "Wallet transfers to mobile money, bank accounts, and internal recipients",
+                "Custodial crypto deposits and internal multi-currency wallet balances",
+                "Domestic wallet transfers to mobile money, bank accounts, and internal recipients",
+                "Cross-border transfers routed through blockchain settlement",
                 "Compliance review, approval queues, and investigation workflows",
                 "Reconciliation, provider status sync, and payout exception handling"
             ],
             GovernanceControls =
             [
                 "Double-entry ledger with pending, settlement, and reversal posting states",
+                "Cross-border fiat rails blocked in favor of blockchain routing",
                 "Paystack sandbox-ready bank payout verification and replay-safe webhooks",
                 "Provider-ledger divergence breaks with reconciliation escalation",
                 "Audit-backed callback handling and maker-checker approval flow"

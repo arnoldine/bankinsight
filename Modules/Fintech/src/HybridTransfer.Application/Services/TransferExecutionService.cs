@@ -43,7 +43,7 @@ public sealed class TransferExecutionService
             }
 
             var providerResult = await _mobileMoneyProvider.InitiatePayoutAsync(
-                new MobileMoneyPayoutInstruction(transfer.Id, parts[1], parts[0], transfer.Amount, "GHS", "Approved mobile money payout"),
+                new MobileMoneyPayoutInstruction(transfer.Id, parts[1], parts[0], transfer.Amount, transfer.Currency, "Approved mobile money payout"),
                 cancellationToken);
 
             transfer.Submit(providerResult.ProviderReference);
@@ -57,7 +57,7 @@ public sealed class TransferExecutionService
             }
 
             var providerResult = await _bankTransferProvider.InitiatePayoutAsync(
-                new BankPayoutInstruction(transfer.Id, parts[0], parts[1], transfer.Amount, "GHS", "Approved bank payout"),
+                new BankPayoutInstruction(transfer.Id, parts[0], parts[1], transfer.Amount, transfer.Currency, transfer.DestinationCountryCode, "Approved bank payout"),
                 cancellationToken);
 
             transfer.Submit(providerResult.ProviderReference);

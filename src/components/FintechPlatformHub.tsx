@@ -52,12 +52,12 @@ const tabOptions: Array<{ id: FintechTab; label: string }> = [
 const operationalPillars = [
   {
     title: 'Custodial wallet operations',
-    description: 'Manage custodial crypto deposits, internal GHS wallet balances, conversion controls, and payout lifecycle visibility.',
+    description: 'Manage custodial crypto deposits, internal multi-currency wallet balances, conversion controls, and payout lifecycle visibility.',
     icon: Wallet,
   },
   {
     title: 'Hybrid payout rails',
-    description: 'Orchestrate transfers to mobile money, bank accounts, internal wallets, and approved external crypto destinations.',
+    description: 'Orchestrate domestic transfers to mobile money, bank accounts, internal wallets, and route cross-border value through approved blockchain rails.',
     icon: ArrowRightLeft,
   },
   {
@@ -69,9 +69,9 @@ const operationalPillars = [
 
 const transferChannels = [
   { channel: 'Internal wallets', status: 'Ready', helper: 'Instant internal wallet-to-wallet transfers using the internal ledger.' },
-  { channel: 'Mobile money', status: 'Connector-ready', helper: 'MTN, Telecel, and AirtelTigo payout orchestration with callbacks and retries.' },
-  { channel: 'Bank transfers', status: 'Connector-ready', helper: 'Bank payout initiation, settlement monitoring, and account validation support.' },
-  { channel: 'Crypto withdrawals', status: 'Controlled', helper: 'Hot-wallet queueing with approval workflow, allowlists, and fee handling.' },
+  { channel: 'Mobile money', status: 'Domestic only', helper: 'MTN, Telecel, and AirtelTigo payout orchestration for Ghana with callbacks and retries.' },
+  { channel: 'Bank transfers', status: 'Domestic only', helper: 'Local bank payout initiation, settlement monitoring, and account validation support across supported currencies.' },
+  { channel: 'Crypto withdrawals', status: 'Cross-border rail', helper: 'Cross-border settlement runs through blockchain with approval workflow, allowlists, and fee handling.' },
 ];
 
 const treasuryControls = [
