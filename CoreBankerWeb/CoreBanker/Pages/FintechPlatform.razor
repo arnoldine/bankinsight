@@ -3,6 +3,7 @@
 @using CoreBanker.Services
 
 @inject CoreBanker.Services.FintechWorkspaceService FintechWorkspaceService
+@inject CoreBanker.State.AppState AppState
 @inject NavigationManager Navigation
 
 <MudStack Spacing="3">
@@ -17,7 +18,7 @@
                         <MudText Typo="Typo.overline" Class="corebanker-eyebrow">Integrated Module</MudText>
                         <MudText Typo="Typo.h3" Class="mt-1">Fintech Platform</MudText>
                         <MudText Typo="Typo.body1" Class="mt-2 mud-text-secondary">
-                            Operate the Ghana-focused hybrid transfer platform from CoreBanker with the same shared BankInsight fintech backend, multi-currency wallet model, and blockchain-first cross-border posture.
+                            Run the shared hybrid-transfer workspace from CoreBanker with transfer visibility, compliance queues, wallet inventory, and reconciliation controls.
                         </MudText>
                     </div>
                 </MudStack>
@@ -33,12 +34,12 @@
                     <MudItem xs="6">
                         <MudPaper Class="pa-3 corebanker-mini-stat" Elevation="0">
                             <MudText Typo="Typo.caption">Checked</MudText>
-                            <MudText Typo="Typo.subtitle1">@((_snapshot?.Health.CheckedAtUtc.ToLocalTime().ToString("dd MMM HH:mm")) ?? "Pending")</MudText>
+                            <MudText Typo="Typo.subtitle1">@(_snapshot?.Health.CheckedAtUtc.LocalDateTime.ToString("dd MMM HH:mm") ?? "Pending")</MudText>
                         </MudPaper>
                     </MudItem>
                     <MudItem xs="12" Class="mt-2">
-                        <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Refresh" OnClick="LoadWorkspaceAsync">
-                            Refresh Workspace
+                        <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Refresh" Disabled="@_isLoading" OnClick="LoadWorkspaceAsync">
+                            @(_isLoading ? "Refreshing" : "Refresh Workspace")
                         </MudButton>
                     </MudItem>
                 </MudGrid>
@@ -51,145 +52,312 @@
         <MudAlert Severity="Severity.Error">@_error</MudAlert>
     }
 
-    <MudGrid>
-        <MudItem xs="12" md="6" xl="3">
-            <MudPaper Class="pa-4 corebanker-metric-card" Elevation="0">
-                <MudText Typo="Typo.caption">Operating Model</MudText>
-                <MudText Typo="Typo.h6">Custodial + Multi-Currency</MudText>
-                <MudText Typo="Typo.body2" Class="mud-text-secondary">Internal ledgered wallets with crypto deposit, fiat conversion, and supported multi-currency balances.</MudText>
-            </MudPaper>
-        </MudItem>
-        <MudItem xs="12" md="6" xl="3">
-            <MudPaper Class="pa-4 corebanker-metric-card" Elevation="0">
-                <MudText Typo="Typo.caption">Outbound Rails</MudText>
-                <MudText Typo="Typo.h6">Domestic + Blockchain</MudText>
-                <MudText Typo="Typo.body2" Class="mud-text-secondary">Domestic bank and mobile money rails stay local, while cross-border value moves over governed blockchain withdrawals.</MudText>
-            </MudPaper>
-        </MudItem>
-        <MudItem xs="12" md="6" xl="3">
-            <MudPaper Class="pa-4 corebanker-metric-card" Elevation="0">
-                <MudText Typo="Typo.caption">Compliance</MudText>
-                <MudText Typo="Typo.h6">Maker-Checker</MudText>
-                <MudText Typo="Typo.body2" Class="mud-text-secondary">KYC, AML alerts, approval queues, audit trails, and callback replay controls.</MudText>
-            </MudPaper>
-        </MudItem>
-        <MudItem xs="12" md="6" xl="3">
-            <MudPaper Class="pa-4 corebanker-metric-card" Elevation="0">
-                <MudText Typo="Typo.caption">Settlement Control</MudText>
-                <MudText Typo="Typo.h6">Reconciled</MudText>
-                <MudText Typo="Typo.body2" Class="mud-text-secondary">Provider status sync, divergence breaks, and pending-to-settlement ledger posting.</MudText>
-            </MudPaper>
-        </MudItem>
-    </MudGrid>
+    @if (!string.IsNullOrWhiteSpace(_notice))
+    {
+        <MudAlert Severity="@(_noticeSuccess ? Severity.Success : Severity.Warning)">@_notice</MudAlert>
+    }
 
     <MudGrid>
-        <MudItem xs="12" xl="6">
-            <MudPaper Class="pa-4" Elevation="0">
-                <MudStack Class="corebanker-section-heading" Spacing="0">
-                    <MudText Typo="Typo.h6">Launch Points</MudText>
-                    <MudText Typo="Typo.body2" Class="mud-text-secondary">Open the shared fintech surfaces from CoreBanker without losing workspace context.</MudText>
-                </MudStack>
-
-                <MudStack Spacing="2" Class="mt-3">
-                    <MudPaper Class="pa-3 corebanker-watchlist-item" Elevation="0">
-                        <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
-                            <div>
-                                <MudText Typo="Typo.subtitle2">BankInsight Fintech Workspace</MudText>
-                                <MudText Typo="Typo.body2" Class="mud-text-secondary">Open the React operations hub with transfers, compliance, treasury, and reconciliation tabs.</MudText>
-                            </div>
-                            <MudButton Variant="Variant.Outlined" Color="Color.Primary" OnClick="@(() => OpenExternal(_snapshot?.BankInsightWorkspaceUrl))">Open</MudButton>
-                        </MudStack>
-                    </MudPaper>
-                    <MudPaper Class="pa-3 corebanker-watchlist-item" Elevation="0">
-                        <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
-                            <div>
-                                <MudText Typo="Typo.subtitle2">Fintech Admin Portal</MudText>
-                                <MudText Typo="Typo.body2" Class="mud-text-secondary">Launch the Blazor admin shell for deeper compliance, ledger, and reconciliation operations.</MudText>
-                            </div>
-                            <MudButton Variant="Variant.Outlined" Color="Color.Primary" OnClick="@(() => OpenExternal(_snapshot?.FintechAdminUrl))">Open</MudButton>
-                        </MudStack>
-                    </MudPaper>
-                    <MudPaper Class="pa-3 corebanker-watchlist-item" Elevation="0">
-                        <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
-                            <div>
-                                <MudText Typo="Typo.subtitle2">Fintech Swagger</MudText>
-                                <MudText Typo="Typo.body2" Class="mud-text-secondary">Inspect the shared `/api/v1` contract for wallets, transfers, risk, reports, and webhooks.</MudText>
-                            </div>
-                            <MudButton Variant="Variant.Outlined" Color="Color.Primary" OnClick="@(() => OpenExternal(_snapshot?.SwaggerUrl))">Open</MudButton>
-                        </MudStack>
-                    </MudPaper>
-                </MudStack>
-            </MudPaper>
-        </MudItem>
-
-        <MudItem xs="12" xl="6">
-            <MudPaper Class="pa-4" Elevation="0">
-                <MudStack Class="corebanker-section-heading" Spacing="0">
-                    <MudText Typo="Typo.h6">Supported Flows</MudText>
-                    <MudText Typo="Typo.body2" Class="mud-text-secondary">CoreBanker now reflects the fintech operating perimeter exposed through the shared host.</MudText>
-                </MudStack>
-
-                <MudStack Spacing="2" Class="mt-3">
-                    @foreach (var item in _snapshot?.SupportedFlows ?? [])
-                    {
-                        <MudPaper Class="pa-3 corebanker-flow-card" Elevation="0">
-                            <MudText Typo="Typo.subtitle2">@item</MudText>
-                        </MudPaper>
-                    }
-                </MudStack>
-            </MudPaper>
-        </MudItem>
+        <MudItem xs="12" sm="6" xl="3"><MudPaper Class="pa-4 corebanker-metric-card" Elevation="0"><MudText Typo="Typo.caption">Available GHS</MudText><MudText Typo="Typo.h6">@FormatMoney(_availableGhs, "GHS")</MudText></MudPaper></MudItem>
+        <MudItem xs="12" sm="6" xl="3"><MudPaper Class="pa-4 corebanker-metric-card" Elevation="0"><MudText Typo="Typo.caption">Reserved GHS</MudText><MudText Typo="Typo.h6">@FormatMoney(_reservedGhs, "GHS")</MudText></MudPaper></MudItem>
+        <MudItem xs="12" sm="6" xl="3"><MudPaper Class="pa-4 corebanker-metric-card" Elevation="0"><MudText Typo="Typo.caption">Open Alerts</MudText><MudText Typo="Typo.h6">@(_snapshot?.Alerts.Count ?? 0)</MudText></MudPaper></MudItem>
+        <MudItem xs="12" sm="6" xl="3"><MudPaper Class="pa-4 corebanker-metric-card" Elevation="0"><MudText Typo="Typo.caption">Open Breaks</MudText><MudText Typo="Typo.h6">@(_snapshot?.ReconciliationItems.Count ?? 0)</MudText></MudPaper></MudItem>
     </MudGrid>
 
-    <MudPaper Class="pa-4" Elevation="0">
-        <MudStack Class="corebanker-section-heading" Spacing="0">
-            <MudText Typo="Typo.h6">Governance Controls</MudText>
-            <MudText Typo="Typo.body2" Class="mud-text-secondary">The same production-grade controls wired into BankInsight are now visible from CoreBanker too.</MudText>
-        </MudStack>
-
-        <MudGrid Class="mt-3">
-            @foreach (var item in _snapshot?.GovernanceControls ?? [])
-            {
-                <MudItem xs="12" md="6">
-                    <MudPaper Class="pa-4 corebanker-friendly-guide" Elevation="0">
-                        <MudText Typo="Typo.subtitle2">@item</MudText>
+    <MudTabs Rounded="true">
+        <MudTabPanel Text="Overview">
+            <MudGrid Class="mt-1">
+                <MudItem xs="12" xl="7">
+                    <MudPaper Class="pa-4" Elevation="0">
+                        <MudText Typo="Typo.h6">Operational Pillars</MudText>
+                        <MudGrid Class="mt-3">
+                            <MudItem xs="12" md="6"><MudPaper Class="pa-4 corebanker-friendly-guide" Elevation="0"><MudText Typo="Typo.subtitle2">Custodial wallet operations</MudText><MudText Typo="Typo.body2" Class="mud-text-secondary">Track wallet balances, reservations, crypto deposits, and fiat operating liquidity.</MudText></MudPaper></MudItem>
+                            <MudItem xs="12" md="6"><MudPaper Class="pa-4 corebanker-friendly-guide" Elevation="0"><MudText Typo="Typo.subtitle2">Hybrid payout rails</MudText><MudText Typo="Typo.body2" Class="mud-text-secondary">Support internal wallets, mobile money, local bank transfers, and governed blockchain exits.</MudText></MudPaper></MudItem>
+                            <MudItem xs="12" md="6"><MudPaper Class="pa-4 corebanker-friendly-guide" Elevation="0"><MudText Typo="Typo.subtitle2">Compliance-first controls</MudText><MudText Typo="Typo.body2" Class="mud-text-secondary">Manage alert review, maker-checker approvals, and audit-heavy investigations.</MudText></MudPaper></MudItem>
+                            <MudItem xs="12" md="6"><MudPaper Class="pa-4 corebanker-friendly-guide" Elevation="0"><MudText Typo="Typo.subtitle2">Settlement and reconciliation</MudText><MudText Typo="Typo.body2" Class="mud-text-secondary">Investigate divergence events, webhook duplication, and provider settlement breaks.</MudText></MudPaper></MudItem>
+                        </MudGrid>
                     </MudPaper>
                 </MudItem>
-            }
-        </MudGrid>
-    </MudPaper>
+                <MudItem xs="12" xl="5">
+                    <MudPaper Class="pa-4" Elevation="0">
+                        <MudText Typo="Typo.h6">Launch Points</MudText>
+                        <MudStack Spacing="2" Class="mt-3">
+                            <MudPaper Class="pa-3 corebanker-watchlist-item" Elevation="0"><MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center"><div><MudText Typo="Typo.subtitle2">BankInsight Fintech Workspace</MudText><MudText Typo="Typo.body2" Class="mud-text-secondary">Open the React fintech shell directly.</MudText></div><MudButton Variant="Variant.Outlined" Color="Color.Primary" OnClick="@(() => OpenExternal(_snapshot?.BankInsightWorkspaceUrl))">Open</MudButton></MudStack></MudPaper>
+                            <MudPaper Class="pa-3 corebanker-watchlist-item" Elevation="0"><MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center"><div><MudText Typo="Typo.subtitle2">Fintech Admin Portal</MudText><MudText Typo="Typo.body2" Class="mud-text-secondary">Open the dedicated fintech admin shell.</MudText></div><MudButton Variant="Variant.Outlined" Color="Color.Primary" OnClick="@(() => OpenExternal(_snapshot?.FintechAdminUrl))">Open</MudButton></MudStack></MudPaper>
+                            <MudPaper Class="pa-3 corebanker-watchlist-item" Elevation="0"><MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center"><div><MudText Typo="Typo.subtitle2">Fintech Swagger</MudText><MudText Typo="Typo.body2" Class="mud-text-secondary">Inspect the shared `/api/v1` contract.</MudText></div><MudButton Variant="Variant.Outlined" Color="Color.Primary" OnClick="@(() => OpenExternal(_snapshot?.SwaggerUrl))">Open</MudButton></MudStack></MudPaper>
+                        </MudStack>
+                    </MudPaper>
+                </MudItem>
+            </MudGrid>
+        </MudTabPanel>
+
+        <MudTabPanel Text="Transfers">
+            <MudPaper Class="pa-4 mt-1" Elevation="0">
+                <MudText Typo="Typo.h6">Recent Transfers</MudText>
+                <MudTable T="FintechTransferExplorerItem" Items="@(_snapshot?.Transfers ?? [])" Hover="true" Dense="true" Loading="@_isLoading" Class="mt-3">
+                    <HeaderContent><MudTh>Channel</MudTh><MudTh>Status</MudTh><MudTh>Amount</MudTh><MudTh>Created</MudTh><MudTh></MudTh></HeaderContent>
+                    <RowTemplate>
+                        <MudTd DataLabel="Channel"><MudText Typo="Typo.body2">@($"{context.Channel} {context.Type}")</MudText><MudText Typo="Typo.caption" Class="mud-text-secondary">@Display(context.PartnerReference ?? context.TransferOrderId)</MudText></MudTd>
+                        <MudTd DataLabel="Status"><MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Color="@ResolveStatusColor(context.Status)">@context.Status</MudChip></MudTd>
+                        <MudTd DataLabel="Amount">@FormatMoney(context.Amount, "GHS")</MudTd>
+                        <MudTd DataLabel="Created"><MudText Typo="Typo.body2">@Display(context.CreatedBy)</MudText><MudText Typo="Typo.caption" Class="mud-text-secondary">@FormatDate(context.CreatedAtUtc)</MudText></MudTd>
+                        <MudTd DataLabel="Actions"><MudButton Variant="Variant.Text" Color="Color.Primary" OnClick="@(() => InvestigateTransferAsync(context.TransferOrderId))">Investigate</MudButton></MudTd>
+                    </RowTemplate>
+                </MudTable>
+            </MudPaper>
+        </MudTabPanel>
+
+        <MudTabPanel Text="Compliance">
+            <MudGrid Class="mt-1">
+                <MudItem xs="12" xl="6">
+                    <MudPaper Class="pa-4" Elevation="0">
+                        <MudText Typo="Typo.h6">Open Alerts</MudText>
+                        <MudTable T="FintechAlert" Items="@(_snapshot?.Alerts ?? [])" Hover="true" Dense="true" Loading="@_isLoading" Class="mt-3">
+                            <HeaderContent><MudTh>Alert</MudTh><MudTh>Severity</MudTh><MudTh>Status</MudTh><MudTh>Score</MudTh></HeaderContent>
+                            <RowTemplate>
+                                <MudTd DataLabel="Alert"><MudText Typo="Typo.body2">@context.AlertCode</MudText><MudText Typo="Typo.caption" Class="mud-text-secondary">@context.Summary</MudText></MudTd>
+                                <MudTd DataLabel="Severity"><MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Color="@ResolveSeverityColor(context.Severity)">@context.Severity</MudChip></MudTd>
+                                <MudTd DataLabel="Status">@Display(context.Status)</MudTd>
+                                <MudTd DataLabel="Score">@context.Score.ToString("0.##")</MudTd>
+                            </RowTemplate>
+                        </MudTable>
+                    </MudPaper>
+                </MudItem>
+                <MudItem xs="12" xl="6">
+                    <MudPaper Class="pa-4" Elevation="0">
+                        <MudText Typo="Typo.h6">Pending Approvals</MudText>
+                        <MudTable T="FintechApprovalQueueItem" Items="@(_snapshot?.Approvals ?? [])" Hover="true" Dense="true" Loading="@_isLoading" Class="mt-3">
+                            <HeaderContent><MudTh>Action</MudTh><MudTh>Requested By</MudTh><MudTh>Status</MudTh><MudTh></MudTh></HeaderContent>
+                            <RowTemplate>
+                                <MudTd DataLabel="Action"><MudText Typo="Typo.body2">@context.ActionCode</MudText><MudText Typo="Typo.caption" Class="mud-text-secondary">@Display(context.Reason)</MudText></MudTd>
+                                <MudTd DataLabel="Requested By"><MudText Typo="Typo.body2">@Display(context.RequestedBy)</MudText><MudText Typo="Typo.caption" Class="mud-text-secondary">@FormatDate(context.CreatedAtUtc)</MudText></MudTd>
+                                <MudTd DataLabel="Status"><MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Color="@ResolveStatusColor(context.Status)">@context.Status</MudChip></MudTd>
+                                <MudTd DataLabel="Actions"><MudStack Row="true" Spacing="1"><MudButton Variant="Variant.Text" Color="Color.Primary" OnClick="@(() => InvestigateTransferAsync(context.TransferOrderId))">Inspect</MudButton><MudButton Variant="Variant.Text" Color="Color.Success" Disabled="@_isSubmitting" OnClick="@(() => DecideApprovalAsync(context.ApprovalRequestId, "APPROVE"))">Approve</MudButton><MudButton Variant="Variant.Text" Color="Color.Error" Disabled="@_isSubmitting" OnClick="@(() => DecideApprovalAsync(context.ApprovalRequestId, "REJECT"))">Reject</MudButton></MudStack></MudTd>
+                            </RowTemplate>
+                        </MudTable>
+                    </MudPaper>
+                </MudItem>
+            </MudGrid>
+        </MudTabPanel>
+
+        <MudTabPanel Text="Treasury">
+            <MudGrid Class="mt-1">
+                <MudItem xs="12" xl="7">
+                    <MudPaper Class="pa-4" Elevation="0">
+                        <MudText Typo="Typo.h6">Wallet Inventory</MudText>
+                        <MudTable T="FintechWalletSummary" Items="@(_snapshot?.Wallets ?? [])" Hover="true" Dense="true" Loading="@_isLoading" Class="mt-3">
+                            <HeaderContent><MudTh>Wallet</MudTh><MudTh>Currency</MudTh><MudTh>Available</MudTh><MudTh>Reserved</MudTh><MudTh>Status</MudTh></HeaderContent>
+                            <RowTemplate>
+                                <MudTd DataLabel="Wallet">@Display(context.WalletId)</MudTd>
+                                <MudTd DataLabel="Currency">@context.Currency</MudTd>
+                                <MudTd DataLabel="Available">@FormatMoney(context.AvailableBalance, context.Currency)</MudTd>
+                                <MudTd DataLabel="Reserved">@FormatMoney(context.ReservedBalance, context.Currency)</MudTd>
+                                <MudTd DataLabel="Status"><MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Color="@ResolveStatusColor(context.Status)">@context.Status</MudChip></MudTd>
+                            </RowTemplate>
+                        </MudTable>
+                    </MudPaper>
+                </MudItem>
+                <MudItem xs="12" xl="5">
+                    <MudPaper Class="pa-4" Elevation="0">
+                        <MudText Typo="Typo.h6">Treasury Controls</MudText>
+                        <MudStack Spacing="2" Class="mt-3">
+                            @foreach (var item in _treasuryControls)
+                            {
+                                <MudPaper Class="pa-3 corebanker-friendly-guide" Elevation="0"><MudText Typo="Typo.body2">@item</MudText></MudPaper>
+                            }
+                        </MudStack>
+                    </MudPaper>
+                </MudItem>
+            </MudGrid>
+        </MudTabPanel>
+
+        <MudTabPanel Text="Reconciliation">
+            <MudGrid Class="mt-1">
+                <MudItem xs="12" xl="5">
+                    <MudPaper Class="pa-4" Elevation="0">
+                        <MudText Typo="Typo.h6">Create Reconciliation Break</MudText>
+                        <MudSelect @bind-Value="_reconciliationDraft.ReconciliationType" Label="Reconciliation type" Variant="Variant.Outlined" Class="mt-3">
+                            <MudSelectItem Value="@("ManualAdjustment")">ManualAdjustment</MudSelectItem>
+                            <MudSelectItem Value="@("ProviderLedgerDivergence")">ProviderLedgerDivergence</MudSelectItem>
+                            <MudSelectItem Value="@("SettlementMismatch")">SettlementMismatch</MudSelectItem>
+                        </MudSelect>
+                        <MudTextField @bind-Value="_reconciliationDraft.Currency" Label="Currency" Variant="Variant.Outlined" Class="mt-3" />
+                        <MudTextField @bind-Value="_reconciliationDraft.ExternalReference" Label="External reference" Variant="Variant.Outlined" Class="mt-3" />
+                        <MudTextField @bind-Value="_reconciliationDraft.InternalReference" Label="Internal reference" Variant="Variant.Outlined" Class="mt-3" />
+                        <MudNumericField T="decimal" @bind-Value="_reconciliationDraft.Amount" Label="Amount" Variant="Variant.Outlined" Min="0" Step="0.01m" Class="mt-3" />
+                        <MudTextField @bind-Value="_reconciliationDraft.Notes" Label="Notes" Variant="Variant.Outlined" Lines="3" Class="mt-3" />
+                        <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="@_isSubmitting" Class="mt-3" OnClick="CreateReconciliationItemAsync">Create Reconciliation Item</MudButton>
+                    </MudPaper>
+                </MudItem>
+                <MudItem xs="12" xl="7">
+                    <MudPaper Class="pa-4" Elevation="0">
+                        <MudText Typo="Typo.h6">Open Breaks</MudText>
+                        <MudTable T="FintechReconciliationItem" Items="@(_snapshot?.ReconciliationItems ?? [])" Hover="true" Dense="true" Loading="@_isLoading" Class="mt-3">
+                            <HeaderContent><MudTh>Type</MudTh><MudTh>Reference</MudTh><MudTh>Amount</MudTh><MudTh>Status</MudTh></HeaderContent>
+                            <RowTemplate>
+                                <MudTd DataLabel="Type"><MudText Typo="Typo.body2">@context.ReconciliationType</MudText><MudText Typo="Typo.caption" Class="mud-text-secondary">@Display(context.Notes)</MudText></MudTd>
+                                <MudTd DataLabel="Reference">@($"{Display(context.ExternalReference)} / {Display(context.InternalReference)}")</MudTd>
+                                <MudTd DataLabel="Amount">@FormatMoney(context.Amount, context.Currency)</MudTd>
+                                <MudTd DataLabel="Status"><MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Color="@ResolveStatusColor(context.Status)">@context.Status</MudChip></MudTd>
+                            </RowTemplate>
+                        </MudTable>
+
+                        <MudDivider Class="my-4" />
+                        <MudGrid>
+                            <MudItem xs="12" md="6"><MudPaper Class="pa-3 corebanker-friendly-guide" Elevation="0"><MudText Typo="Typo.subtitle2">Duplicate webhook events</MudText><MudText Typo="Typo.h6">@(_snapshot?.OperationsWatch.DuplicateWebhookEvents.Count ?? 0)</MudText></MudPaper></MudItem>
+                            <MudItem xs="12" md="6"><MudPaper Class="pa-3 corebanker-friendly-guide" Elevation="0"><MudText Typo="Typo.subtitle2">Divergence events</MudText><MudText Typo="Typo.h6">@(_snapshot?.OperationsWatch.DivergenceEvents.Count ?? 0)</MudText></MudPaper></MudItem>
+                        </MudGrid>
+                    </MudPaper>
+                </MudItem>
+            </MudGrid>
+        </MudTabPanel>
+    </MudTabs>
+
+    @if (_investigation is not null)
+    {
+        <MudPaper Class="pa-4" Elevation="0">
+            <MudText Typo="Typo.h6">Transfer Investigation</MudText>
+            <MudGrid Class="mt-3">
+                <MudItem xs="12" lg="4">
+                    <MudPaper Class="pa-3 corebanker-watchlist-item" Elevation="0">
+                        <MudText Typo="Typo.subtitle2">@($"{_investigation.Transfer.Channel} {_investigation.Transfer.Type}")</MudText>
+                        <MudText Typo="Typo.body2" Class="mud-text-secondary">@Display(_investigation.Transfer.PartnerReference ?? _investigation.Transfer.TransferOrderId)</MudText>
+                        <MudText Typo="Typo.body2" Class="mt-2">Amount: @FormatMoney(_investigation.Transfer.Amount, "GHS")</MudText>
+                        <MudText Typo="Typo.body2">Fee: @FormatMoney(_investigation.Transfer.Fee, "GHS")</MudText>
+                        <MudText Typo="Typo.body2">Status: @Display(_investigation.Transfer.Status)</MudText>
+                        <MudText Typo="Typo.body2">Risk: @Display(_investigation.Transfer.RiskStatus)</MudText>
+                        <MudText Typo="Typo.body2">Compliance: @Display(_investigation.Transfer.ComplianceStatus)</MudText>
+                    </MudPaper>
+                </MudItem>
+                <MudItem xs="12" lg="4">
+                    <MudPaper Class="pa-3" Elevation="0">
+                        <MudText Typo="Typo.subtitle2">Journal Entries</MudText>
+                        <MudTable T="FintechJournalEntryDetail" Items="@_investigation.Journals" Dense="true" Hover="true" Class="mt-2">
+                            <HeaderContent><MudTh>Reference</MudTh><MudTh>Status</MudTh><MudTh>Module</MudTh></HeaderContent>
+                            <RowTemplate><MudTd DataLabel="Reference">@Display(context.Reference)</MudTd><MudTd DataLabel="Status">@Display(context.Status)</MudTd><MudTd DataLabel="Module">@Display(context.SourceModule)</MudTd></RowTemplate>
+                        </MudTable>
+                    </MudPaper>
+                </MudItem>
+                <MudItem xs="12" lg="4">
+                    <MudPaper Class="pa-3" Elevation="0">
+                        <MudText Typo="Typo.subtitle2">Audit Trail</MudText>
+                        <MudTable T="FintechAuditEvent" Items="@_investigation.AuditEvents" Dense="true" Hover="true" Class="mt-2">
+                            <HeaderContent><MudTh>Action</MudTh><MudTh>Actor</MudTh><MudTh>Date</MudTh></HeaderContent>
+                            <RowTemplate><MudTd DataLabel="Action">@Display(context.Action)</MudTd><MudTd DataLabel="Actor">@Display(context.ActorId)</MudTd><MudTd DataLabel="Date">@FormatDate(context.CreatedAtUtc)</MudTd></RowTemplate>
+                        </MudTable>
+                    </MudPaper>
+                </MudItem>
+            </MudGrid>
+        </MudPaper>
+    }
 </MudStack>
 
 @code {
     private FintechWorkspaceSnapshot? _snapshot;
+    private FintechTransferInvestigation? _investigation;
+    private FintechManualReconciliationRequest _reconciliationDraft = new() { ReconciliationType = "ManualAdjustment", Currency = "GHS" };
     private string? _error;
+    private string? _notice;
+    private bool _noticeSuccess;
+    private bool _isLoading;
+    private bool _isSubmitting;
 
-    protected override async Task OnInitializedAsync()
-    {
-        await LoadWorkspaceAsync();
-    }
+    private readonly List<string> _treasuryControls =
+    [
+        "Track hot-wallet inventory against operational thresholds and cold-storage top-up policy.",
+        "Monitor partner clearing, suspense balances, and daily settlement obligations by rail.",
+        "Publish GHS and crypto exposure views for treasury, finance, and compliance teams.",
+        "Support sandbox and live connector modes independently for controlled rollout."
+    ];
+
+    private decimal _availableGhs => _snapshot?.Wallets.Where(w => string.Equals(w.Currency, "GHS", StringComparison.OrdinalIgnoreCase)).Sum(w => w.AvailableBalance) ?? 0m;
+    private decimal _reservedGhs => _snapshot?.Wallets.Where(w => string.Equals(w.Currency, "GHS", StringComparison.OrdinalIgnoreCase)).Sum(w => w.ReservedBalance) ?? 0m;
+
+    protected override async Task OnInitializedAsync() => await LoadWorkspaceAsync();
 
     private async Task LoadWorkspaceAsync()
     {
         _error = null;
+        _notice = null;
+        _isLoading = true;
+        try { _snapshot = await FintechWorkspaceService.GetWorkspaceSnapshotAsync(); }
+        catch (Exception ex) { _error = ex.Message; }
+        finally { _isLoading = false; }
+    }
 
+    private async Task InvestigateTransferAsync(string transferOrderId)
+    {
+        _notice = null;
+        _isLoading = true;
+        try { _investigation = await FintechWorkspaceService.GetTransferInvestigationAsync(transferOrderId); }
+        catch (Exception ex) { _notice = ex.Message; _noticeSuccess = false; }
+        finally { _isLoading = false; }
+    }
+
+    private async Task DecideApprovalAsync(string approvalRequestId, string decision)
+    {
+        _notice = null;
+        _isSubmitting = true;
         try
         {
-            _snapshot = await FintechWorkspaceService.GetWorkspaceSnapshotAsync();
+            await FintechWorkspaceService.DecideApprovalAsync(approvalRequestId, new FintechApprovalDecisionRequest
+            {
+                ApprovedBy = AppState.UserEmail ?? AppState.UserName ?? "corebanker-operator",
+                Decision = decision,
+                DecisionNotes = $"Decision submitted from CoreBanker fintech workspace: {decision}."
+            });
+            _notice = $"Approval decision '{decision}' submitted successfully.";
+            _noticeSuccess = true;
+            await LoadWorkspaceAsync();
         }
-        catch (Exception ex)
+        catch (Exception ex) { _notice = ex.Message; _noticeSuccess = false; }
+        finally { _isSubmitting = false; }
+    }
+
+    private async Task CreateReconciliationItemAsync()
+    {
+        _notice = null;
+        _isSubmitting = true;
+        try
         {
-            _error = ex.Message;
+            _reconciliationDraft.Currency = (_reconciliationDraft.Currency ?? "GHS").ToUpperInvariant();
+            await FintechWorkspaceService.CreateReconciliationItemAsync(_reconciliationDraft);
+            _notice = "Reconciliation item created successfully.";
+            _noticeSuccess = true;
+            _reconciliationDraft = new FintechManualReconciliationRequest { ReconciliationType = "ManualAdjustment", Currency = "GHS" };
+            await LoadWorkspaceAsync();
         }
+        catch (Exception ex) { _notice = ex.Message; _noticeSuccess = false; }
+        finally { _isSubmitting = false; }
     }
 
     private void OpenExternal(string? uri)
     {
-        if (string.IsNullOrWhiteSpace(uri))
+        if (!string.IsNullOrWhiteSpace(uri))
         {
-            return;
+            Navigation.NavigateTo(uri, forceLoad: true);
         }
-
-        Navigation.NavigateTo(uri, forceLoad: true);
     }
+
+    private static string Display(string? value) => string.IsNullOrWhiteSpace(value) ? "N/A" : value;
+
+    private static string FormatDate(DateTimeOffset value) => value == default ? "N/A" : value.LocalDateTime.ToString("dd MMM yyyy HH:mm");
+
+    private static string FormatMoney(decimal amount, string currency)
+        => string.Format(System.Globalization.CultureInfo.GetCultureInfo("en-GH"), "{0} {1:N2}", currency.ToUpperInvariant(), amount);
+
+    private static Color ResolveStatusColor(string? status) => status?.ToUpperInvariant() switch
+    {
+        "POSTED" or "CLEAR" or "HEALTHY" or "APPROVED" or "ACTIVE" => Color.Success,
+        "PENDING" or "ONHOLD" => Color.Warning,
+        "FAILED" or "UNAVAILABLE" or "REJECTED" => Color.Error,
+        _ => Color.Default
+    };
+
+    private static Color ResolveSeverityColor(string? severity) => severity?.ToUpperInvariant() switch
+    {
+        "CRITICAL" => Color.Error,
+        "HIGH" => Color.Warning,
+        _ => Color.Info
+    };
 }
