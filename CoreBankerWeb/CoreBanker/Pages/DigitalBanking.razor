@@ -1,0 +1,302 @@
+@page "/digital-banking"
+@inject CoreBanker.Services.DigitalBankingService DigitalBankingService
+@inject CoreBanker.Services.ClientService ClientService
+@inject CoreBanker.Services.AccountService AccountService
+@inject CoreBanker.Services.LoanService LoanService
+@using CoreBanker.Services
+
+<PageTitle>Digital Banking</PageTitle>
+
+<MudStack Spacing="4">
+    <MudPaper Class="pa-4">
+        <MudText Typo="Typo.h4">Digital Banking</MudText>
+        <MudText Typo="Typo.body2" Color="Color.Secondary">Manage digital savings, digital investments, and digital lending from one workspace.</MudText>
+    </MudPaper>
+
+    @if (!string.IsNullOrWhiteSpace(_message))
+    {
+        <MudAlert Severity="Severity.Success" Dense="true">@_message</MudAlert>
+    }
+    @if (!string.IsNullOrWhiteSpace(_error))
+    {
+        <MudAlert Severity="Severity.Error" Dense="true">@_error</MudAlert>
+    }
+
+    <MudGrid>
+        <MudItem xs="12" md="3"><MudPaper Class="pa-4"><MudText Typo="Typo.caption">Savings Accounts</MudText><MudText Typo="Typo.h5">@(_dashboard?.ActiveSavingsAccounts ?? 0)</MudText></MudPaper></MudItem>
+        <MudItem xs="12" md="3"><MudPaper Class="pa-4"><MudText Typo="Typo.caption">Savings Balance</MudText><MudText Typo="Typo.h5">@FormatMoney(_dashboard?.TotalSavingsBalance ?? 0)</MudText></MudPaper></MudItem>
+        <MudItem xs="12" md="3"><MudPaper Class="pa-4"><MudText Typo="Typo.caption">Investment Profiles</MudText><MudText Typo="Typo.h5">@(_dashboard?.ActiveInvestmentProfiles ?? 0)</MudText></MudPaper></MudItem>
+        <MudItem xs="12" md="3"><MudPaper Class="pa-4"><MudText Typo="Typo.caption">Loan Exposure</MudText><MudText Typo="Typo.h5">@FormatMoney(_dashboard?.TotalLoanExposure ?? 0)</MudText></MudPaper></MudItem>
+    </MudGrid>
+
+    <MudTabs Rounded="true" Elevation="1">
+        <MudTabPanel Text="Savings">
+            <MudGrid Class="mt-2">
+                <MudItem xs="12" md="6">
+                    <MudPaper Class="pa-4">
+                        <MudText Typo="Typo.h6">Open Digital Savings</MudText>
+                        <MudSelect T="string" Label="Customer" Value="_selectedCustomerId" ValueChanged="OnCustomerChanged">
+                            @foreach (var customer in _customers)
+                            {
+                                <MudSelectItem Value="@customer.Id">@customer.Name (@customer.Id)</MudSelectItem>
+                            }
+                        </MudSelect>
+                        <MudSelect T="string" Label="Product" @bind-Value="_openSavings.ProductCode">
+                            @foreach (var product in _products)
+                            {
+                                <MudSelectItem Value="@product.ProductCode">@product.Name (@product.Type)</MudSelectItem>
+                            }
+                        </MudSelect>
+                        <MudSelect T="string" Label="Funding Account" @bind-Value="_openSavings.FundingAccountId">
+                            @foreach (var account in CustomerAccounts)
+                            {
+                                <MudSelectItem Value="@account.Id">@account.Id (@account.Type)</MudSelectItem>
+                            }
+                        </MudSelect>
+                        <MudNumericField T="decimal" Label="Initial Deposit" @bind-Value="_openSavings.InitialDepositAmount" />
+                        <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="mt-3" OnClick="OpenSavingsAsync">Open Savings Account</MudButton>
+                    </MudPaper>
+                </MudItem>
+                <MudItem xs="12" md="6">
+                    <MudPaper Class="pa-4">
+                        <MudText Typo="Typo.h6">Customer Deposit Accounts</MudText>
+                        @foreach (var account in CustomerAccounts)
+                        {
+                            <MudPaper Outlined="true" Class="pa-3 mt-2">
+                                <MudText Typo="Typo.subtitle2">@account.Id</MudText>
+                                <MudText Typo="Typo.body2">@account.Type · @account.Currency · @FormatMoney(account.Balance)</MudText>
+                            </MudPaper>
+                        }
+                    </MudPaper>
+                </MudItem>
+            </MudGrid>
+        </MudTabPanel>
+        <MudTabPanel Text="Investments">
+            <MudGrid Class="mt-2">
+                <MudItem xs="12" md="6">
+                    <MudPaper Class="pa-4">
+                        <MudText Typo="Typo.h6">Create Digital Investment</MudText>
+                        <MudSelect T="string" Label="Customer" Value="_selectedCustomerId" ValueChanged="OnCustomerChanged">
+                            @foreach (var customer in _customers)
+                            {
+                                <MudSelectItem Value="@customer.Id">@customer.Name (@customer.Id)</MudSelectItem>
+                            }
+                        </MudSelect>
+                        <MudSelect T="string" Label="Product" @bind-Value="_investment.ProductCode">
+                            @foreach (var product in _products.Where(p => p.Type == "FIXED_DEPOSIT"))
+                            {
+                                <MudSelectItem Value="@product.ProductCode">@product.Name</MudSelectItem>
+                            }
+                        </MudSelect>
+                        <MudSelect T="string" Label="Funding Account" @bind-Value="_investment.FundingAccountId">
+                            @foreach (var account in CustomerAccounts)
+                            {
+                                <MudSelectItem Value="@account.Id">@account.Id</MudSelectItem>
+                            }
+                        </MudSelect>
+                        <MudNumericField T="decimal" Label="Principal" @bind-Value="_investment.Principal" />
+                        <MudNumericField T="decimal" Label="Rate (%)" @bind-Value="_investment.Rate" />
+                        <MudNumericField T="int" Label="Tenor (days)" @bind-Value="_investment.TenorDays" />
+                        <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="mt-3" OnClick="CreateInvestmentAsync">Place Investment</MudButton>
+                    </MudPaper>
+                </MudItem>
+                <MudItem xs="12" md="6">
+                    <MudPaper Class="pa-4">
+                        <MudText Typo="Typo.h6">Investment Portfolio</MudText>
+                        <MudText Typo="Typo.body2" Color="Color.Secondary">Active: @(_portfolio?.ActiveProfiles ?? 0) · Principal: @FormatMoney(_portfolio?.TotalPrincipal ?? 0)</MudText>
+                        @foreach (var item in (_portfolio?.Items ?? []).Take(6))
+                        {
+                            <MudPaper Outlined="true" Class="pa-3 mt-2">
+                                <MudText Typo="Typo.subtitle2">@item.AccountId</MudText>
+                                <MudText Typo="Typo.body2">@item.Status · @item.TenorDays days · @item.Rate% · @FormatMoney(item.ProjectedMaturityValue)</MudText>
+                            </MudPaper>
+                        }
+                    </MudPaper>
+                </MudItem>
+            </MudGrid>
+        </MudTabPanel>
+        <MudTabPanel Text="Lending">
+            <MudGrid Class="mt-2">
+                <MudItem xs="12" md="6">
+                    <MudPaper Class="pa-4">
+                        <MudText Typo="Typo.h6">Check Eligibility</MudText>
+                        <MudSelect T="string" Label="Customer" Value="_selectedCustomerId" ValueChanged="OnCustomerChanged">
+                            @foreach (var customer in _customers)
+                            {
+                                <MudSelectItem Value="@customer.Id">@customer.Name (@customer.Id)</MudSelectItem>
+                            }
+                        </MudSelect>
+                        <MudSelect T="string" Label="Loan Product" @bind-Value="_eligibilityRequest.LoanProductId">
+                            @foreach (var product in _loanProducts)
+                            {
+                                <MudSelectItem Value="@product.Id">@product.Name</MudSelectItem>
+                            }
+                        </MudSelect>
+                        <MudNumericField T="decimal?" Label="Requested Amount" @bind-Value="_eligibilityRequest.Principal" />
+                        <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="mt-3" OnClick="CheckEligibilityAsync">Check Eligibility</MudButton>
+                        @if (_eligibility != null)
+                        {
+                            <MudPaper Outlined="true" Class="pa-3 mt-3">
+                                <MudText Typo="Typo.subtitle2">Decision: @_eligibility.CreditCheck.Decision</MudText>
+                                <MudText Typo="Typo.body2">Score: @_eligibility.CreditCheck.Score · @_eligibility.CreditCheck.RiskBand · @_eligibility.CreditCheck.RiskGrade</MudText>
+                                @foreach (var reason in _eligibility.Reasons)
+                                {
+                                    <MudText Typo="Typo.caption" Color="Color.Warning">@reason</MudText>
+                                }
+                            </MudPaper>
+                        }
+                    </MudPaper>
+                </MudItem>
+                <MudItem xs="12" md="6">
+                    <MudPaper Class="pa-4">
+                        <MudText Typo="Typo.h6">Apply Digital Loan</MudText>
+                        <MudSelect T="string" Label="Loan Product" @bind-Value="_loanApplication.LoanProductId">
+                            @foreach (var product in _loanProducts)
+                            {
+                                <MudSelectItem Value="@product.Id">@product.Name</MudSelectItem>
+                            }
+                        </MudSelect>
+                        <MudNumericField T="decimal" Label="Principal" @bind-Value="_loanApplication.Principal" />
+                        <MudSelect T="string" Label="Servicing Account" @bind-Value="_loanApplication.ServicingAccountId">
+                            @foreach (var account in CustomerAccounts)
+                            {
+                                <MudSelectItem Value="@account.Id">@account.Id</MudSelectItem>
+                            }
+                        </MudSelect>
+                        <MudSelect T="string" Label="Collateral Account" @bind-Value="_loanApplication.CollateralAccountId">
+                            @foreach (var account in CustomerAccounts)
+                            {
+                                <MudSelectItem Value="@account.Id">@account.Id</MudSelectItem>
+                            }
+                        </MudSelect>
+                        <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="mt-3" OnClick="ApplyLoanAsync">Submit Loan Application</MudButton>
+                        @foreach (var loan in CustomerLoans)
+                        {
+                            <MudPaper Outlined="true" Class="pa-3 mt-2">
+                                <MudText Typo="Typo.subtitle2">@loan.Id</MudText>
+                                <MudText Typo="Typo.body2">@loan.ProductName · @loan.Status · @FormatMoney(loan.OutstandingBalance ?? 0)</MudText>
+                            </MudPaper>
+                        }
+                    </MudPaper>
+                </MudItem>
+            </MudGrid>
+        </MudTabPanel>
+    </MudTabs>
+</MudStack>
+
+@code {
+    private DigitalBankingDashboardDto? _dashboard;
+    private List<ClientDto> _customers = new();
+    private List<DigitalBankingProductDto> _products = new();
+    private List<LoanProductDefinitionDto> _loanProducts = new();
+    private DigitalInvestmentPortfolioDto? _portfolio;
+    private DigitalLoanEligibilityDto? _eligibility;
+    private string? _message;
+    private string? _error;
+    private string _selectedCustomerId = string.Empty;
+
+    private OpenDigitalSavingsAccountRequest _openSavings = new();
+    private CreateDigitalInvestmentRequest _investment = new();
+    private CheckDigitalLoanEligibilityRequest _eligibilityRequest = new();
+    private CreateDigitalLoanApplicationRequest _loanApplication = new();
+
+    private IEnumerable<AccountListItemDto> CustomerAccounts => _customerSavingsAccounts;
+    private IEnumerable<LoanDto> CustomerLoans => _loans.Where(l => l.Cif == _selectedCustomerId);
+
+    private List<AccountListItemDto> _customerSavingsAccounts = new();
+    private List<LoanDto> _loans = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadWorkspaceAsync();
+    }
+
+    private async Task LoadWorkspaceAsync()
+    {
+        _customers = (await ClientService.GetClientsAsync()).Take(200).ToList();
+        _dashboard = await DigitalBankingService.GetDashboardAsync();
+        _products = await DigitalBankingService.GetSavingsProductsAsync();
+        _loanProducts = await LoanService.GetLoanProductsAsync();
+        _portfolio = await DigitalBankingService.GetInvestmentPortfolioAsync();
+        _loans = await LoanService.GetLoansAsync();
+        await RefreshCustomerDataAsync();
+    }
+
+    private async Task RefreshCustomerDataAsync()
+    {
+        _customerSavingsAccounts = string.IsNullOrWhiteSpace(_selectedCustomerId)
+            ? new()
+            : await DigitalBankingService.GetCustomerSavingsAccountsAsync(_selectedCustomerId);
+    }
+
+    private async Task OnCustomerChanged(string value)
+    {
+        _selectedCustomerId = value;
+        await RefreshCustomerDataAsync();
+    }
+
+    private async Task OpenSavingsAsync()
+    {
+        _message = null; _error = null;
+        try
+        {
+            _openSavings.CustomerId = _selectedCustomerId;
+            await DigitalBankingService.OpenSavingsAccountAsync(_openSavings);
+            await LoadWorkspaceAsync();
+            _message = "Digital savings account opened successfully.";
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+    }
+
+    private async Task CreateInvestmentAsync()
+    {
+        _message = null; _error = null;
+        try
+        {
+            _investment.CustomerId = _selectedCustomerId;
+            await DigitalBankingService.CreateInvestmentAsync(_investment);
+            await LoadWorkspaceAsync();
+            _message = "Digital investment placed successfully.";
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+    }
+
+    private async Task CheckEligibilityAsync()
+    {
+        _message = null; _error = null;
+        try
+        {
+            _eligibilityRequest.CustomerId = _selectedCustomerId;
+            _eligibility = await DigitalBankingService.CheckLoanEligibilityAsync(_eligibilityRequest);
+            _message = "Digital loan eligibility refreshed.";
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+    }
+
+    private async Task ApplyLoanAsync()
+    {
+        _message = null; _error = null;
+        try
+        {
+            _loanApplication.CustomerId = _selectedCustomerId;
+            await DigitalBankingService.ApplyLoanAsync(_loanApplication);
+            await LoadWorkspaceAsync();
+            _message = "Digital loan application submitted.";
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+    }
+
+    private static string FormatMoney(decimal amount) => amount.ToString("N2");
+}

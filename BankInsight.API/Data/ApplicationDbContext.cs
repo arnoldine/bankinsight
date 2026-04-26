@@ -35,6 +35,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<LoanAccountingProfile> LoanAccountingProfiles { get; set; }
     public DbSet<LoanDisclosure> LoanDisclosures { get; set; }
     public DbSet<CreditBureauCheck> CreditBureauChecks { get; set; }
+    public DbSet<InternalCreditScoreAssessment> InternalCreditScoreAssessments { get; set; }
     public DbSet<LoanRepaymentBehavior> LoanRepaymentBehaviors { get; set; }
     public DbSet<LoanBogClassification> LoanBogClassifications { get; set; }
     public DbSet<GroupLoanApplication> GroupLoanApplications { get; set; }
@@ -80,6 +81,15 @@ public class ApplicationDbContext : DbContext
     public DbSet<UserSession> UserSessions { get; set; }
     public DbSet<LoginAttempt> LoginAttempts { get; set; }
     public DbSet<UserActivity> UserActivities { get; set; }
+    public DbSet<ClientComplaint> ClientComplaints { get; set; }
+    public DbSet<ClientComplaintEvent> ClientComplaintEvents { get; set; }
+    public DbSet<ClientComplaintAttachment> ClientComplaintAttachments { get; set; }
+    public DbSet<ClientKycCase> ClientKycCases { get; set; }
+    public DbSet<ClientKycCaseEvent> ClientKycCaseEvents { get; set; }
+    public DbSet<ClientStandingOrder> ClientStandingOrders { get; set; }
+    public DbSet<ClientMerchantProfile> ClientMerchantProfiles { get; set; }
+    public DbSet<CustomerCredential> CustomerCredentials { get; set; }
+    public DbSet<ClientChannelSession> ClientChannelSessions { get; set; }
     
     // Branch Management
     public DbSet<BranchHierarchy> BranchHierarchies { get; set; }
@@ -99,6 +109,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<TreasuryPosition> TreasuryPositions { get; set; }
     public DbSet<FxTrade> FxTrades { get; set; }
     public DbSet<Investment> Investments { get; set; }
+    public DbSet<DigitalInvestmentProfile> DigitalInvestmentProfiles { get; set; }
     public DbSet<RiskMetric> RiskMetrics { get; set; }
     
     // Reporting & Analytics
@@ -159,6 +170,31 @@ public class ApplicationDbContext : DbContext
 
         modelBuilder.Entity<CustomerMediaAsset>()
             .HasIndex(m => new { m.CustomerId, m.MediaType, m.MediaSide, m.UploadedAt });
+
+        modelBuilder.Entity<DigitalInvestmentProfile>()
+            .HasIndex(profile => profile.AccountId)
+            .IsUnique();
+
+        modelBuilder.Entity<DigitalInvestmentProfile>()
+            .HasIndex(profile => new { profile.CustomerId, profile.Status, profile.MaturityDate });
+
+        modelBuilder.Entity<DigitalInvestmentProfile>()
+            .HasOne(profile => profile.Account)
+            .WithMany()
+            .HasForeignKey(profile => profile.AccountId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<DigitalInvestmentProfile>()
+            .HasOne(profile => profile.Customer)
+            .WithMany()
+            .HasForeignKey(profile => profile.CustomerId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<DigitalInvestmentProfile>()
+            .HasOne(profile => profile.FundingAccount)
+            .WithMany()
+            .HasForeignKey(profile => profile.FundingAccountId)
+            .OnDelete(DeleteBehavior.Restrict);
 
         modelBuilder.Entity<GroupMember>()
             .HasIndex(gm => new { gm.GroupId, gm.CustomerId })
@@ -281,6 +317,112 @@ public class ApplicationDbContext : DbContext
             .HasIndex(s => s.Email)
             .IsUnique();
 
+        modelBuilder.Entity<ClientComplaint>()
+            .HasIndex(c => c.Reference)
+            .IsUnique();
+
+        modelBuilder.Entity<ClientComplaint>()
+            .HasIndex(c => new { c.CustomerId, c.Status, c.UpdatedAt });
+
+        modelBuilder.Entity<ClientComplaintEvent>()
+            .HasOne(e => e.Complaint)
+            .WithMany(c => c.Events)
+            .HasForeignKey(e => e.ComplaintId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<ClientComplaintEvent>()
+            .HasIndex(e => new { e.ComplaintId, e.CreatedAt });
+
+        modelBuilder.Entity<ClientComplaintAttachment>()
+            .HasOne(a => a.Complaint)
+            .WithMany(c => c.Attachments)
+            .HasForeignKey(a => a.ComplaintId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<ClientComplaintAttachment>()
+            .HasIndex(a => new { a.ComplaintId, a.UploadedAt });
+
+        modelBuilder.Entity<ClientKycCase>()
+            .HasIndex(c => c.Reference)
+            .IsUnique();
+
+        modelBuilder.Entity<ClientKycCase>()
+            .HasIndex(c => new { c.CustomerId, c.Status, c.UpdatedAt });
+
+        modelBuilder.Entity<ClientKycCaseEvent>()
+            .HasOne(e => e.KycCase)
+            .WithMany(c => c.Events)
+            .HasForeignKey(e => e.KycCaseId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<ClientKycCaseEvent>()
+            .HasIndex(e => new { e.KycCaseId, e.CreatedAt });
+
+        modelBuilder.Entity<ClientStandingOrder>()
+            .HasIndex(s => new { s.CustomerId, s.Status, s.NextRunAt });
+
+        modelBuilder.Entity<ClientStandingOrder>()
+            .HasOne(s => s.Customer)
+            .WithMany()
+            .HasForeignKey(s => s.CustomerId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<ClientStandingOrder>()
+            .HasOne(s => s.SourceAccount)
+            .WithMany()
+            .HasForeignKey(s => s.SourceAccountId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<ClientStandingOrder>()
+            .HasOne(s => s.DestinationAccount)
+            .WithMany()
+            .HasForeignKey(s => s.DestinationAccountId)
+            .OnDelete(DeleteBehavior.SetNull);
+
+        modelBuilder.Entity<ClientMerchantProfile>()
+            .HasIndex(m => m.MerchantCode)
+            .IsUnique();
+
+        modelBuilder.Entity<ClientMerchantProfile>()
+            .HasIndex(m => new { m.CustomerId, m.Status, m.UpdatedAt });
+
+        modelBuilder.Entity<ClientMerchantProfile>()
+            .HasOne(m => m.Customer)
+            .WithMany()
+            .HasForeignKey(m => m.CustomerId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<ClientMerchantProfile>()
+            .HasOne(m => m.SettlementAccount)
+            .WithMany()
+            .HasForeignKey(m => m.SettlementAccountId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<CustomerCredential>()
+            .HasIndex(c => c.LoginEmail)
+            .IsUnique();
+
+        modelBuilder.Entity<CustomerCredential>()
+            .HasOne(c => c.Customer)
+            .WithMany()
+            .HasForeignKey(c => c.CustomerId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<ClientChannelSession>()
+            .HasIndex(s => new { s.CustomerId, s.IsActive, s.LastActivity });
+
+        modelBuilder.Entity<ClientChannelSession>()
+            .HasOne(s => s.CustomerCredential)
+            .WithMany()
+            .HasForeignKey(s => s.CustomerCredentialId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<ClientChannelSession>()
+            .HasOne(s => s.Customer)
+            .WithMany()
+            .HasForeignKey(s => s.CustomerId)
+            .OnDelete(DeleteBehavior.Cascade);
+
         modelBuilder.Entity<PrivilegeLease>()
             .HasIndex(p => new { p.StaffId, p.Permission, p.ExpiresAt });
 
@@ -351,6 +493,12 @@ public class ApplicationDbContext : DbContext
 
         modelBuilder.Entity<CreditBureauCheck>()
             .HasIndex(c => new { c.ProviderName, c.InquiryReference });
+
+        modelBuilder.Entity<InternalCreditScoreAssessment>()
+            .HasIndex(c => new { c.CustomerId, c.CheckedAt });
+
+        modelBuilder.Entity<InternalCreditScoreAssessment>()
+            .HasIndex(c => new { c.LoanId, c.CheckedAt });
 
         // Process Engine Configuration
         modelBuilder.Entity<ProcessDefinition>()

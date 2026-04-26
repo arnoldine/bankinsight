@@ -380,6 +380,10 @@ export interface SecuritySummary {
   restrictedDevices: number;
   revokedDevices: number;
   activeSessions: number;
+  wafEnabled: boolean;
+  wafMode: 'DETECTION' | 'PREVENTION';
+  wafDetectedCount: number;
+  wafBlockedCount: number;
   minimumSupportedVersion: string;
   generatedAt: string;
 }
@@ -484,6 +488,38 @@ export interface IrregularTransaction {
   status?: string;
   transactionDate: string;
   detectedAt: string;
+}
+
+export interface WafIncident {
+  auditLogId: number;
+  action: string;
+  outcome: 'DETECTED' | 'BLOCKED';
+  mode: 'DETECTION' | 'PREVENTION';
+  ruleCode: string;
+  method: string;
+  requestPath: string;
+  ipAddress?: string;
+  userAgent?: string;
+  description?: string;
+  detectedAt: string;
+}
+
+export interface WafProfile {
+  enabled: boolean;
+  mode: 'DETECTION' | 'PREVENTION';
+  maxRequestBodyBytes: number;
+  blockSqlInjection: boolean;
+  blockXss: boolean;
+  blockPathTraversal: boolean;
+  blockBadBots: boolean;
+  protectedPaths: string[];
+  trustedIps: string[];
+  blockedUserAgents: string[];
+  detectedCount24Hours: number;
+  blockedCount24Hours: number;
+  updatedAt?: string;
+  generatedAt: string;
+  recentIncidents: WafIncident[];
 }
 
 export interface GLAccount {

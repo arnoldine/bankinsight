@@ -15,17 +15,20 @@ public class SecurityController : ControllerBase
 {
     private readonly ApplicationDbContext _context;
     private readonly IDeviceSecurityService _deviceSecurityService;
+    private readonly IWafService _wafService;
     private readonly ISessionService _sessionService;
     private readonly ICurrentUserContext _currentUser;
 
     public SecurityController(
         ApplicationDbContext context,
         IDeviceSecurityService deviceSecurityService,
+        IWafService wafService,
         ISessionService sessionService,
         ICurrentUserContext currentUser)
     {
         _context = context;
         _deviceSecurityService = deviceSecurityService;
+        _wafService = wafService;
         _sessionService = sessionService;
         _currentUser = currentUser;
     }
@@ -139,5 +142,21 @@ public class SecurityController : ControllerBase
     {
         var irregularities = await _deviceSecurityService.GetIrregularTransactionsAsync(hours, limit);
         return Ok(irregularities);
+    }
+
+    [HttpGet("waf")]
+    [HasPermission(AppPermissions.Audit.View)]
+    public async Task<IActionResult> GetWafProfile([FromQuery] int incidentLimit = 25)
+    {
+        var profile = await _wafService.GetProfileAsync(incidentLimit);
+        return Ok(profile);
+    }
+
+    [HttpPut("waf")]
+    [HasPermission(AppPermissions.Users.Manage)]
+    public async Task<IActionResult> UpdateWafProfile([FromBody] UpdateWafProfileRequest request)
+    {
+        var profile = await _wafService.UpdateProfileAsync(request, _currentUser.UserId);
+        return Ok(profile);
     }
 }

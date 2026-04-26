@@ -19,6 +19,7 @@ public class LoanService
     private readonly ISuspiciousActivityService _suspiciousActivityService;
     private readonly IKycService _kycService;
     private readonly ICreditBureauService _creditBureauService;
+    private readonly IInternalCreditScoringService _internalCreditScoringService;
     private readonly ILoanAccountingPostingService _loanAccountingPostingService;
     private readonly ISequenceGeneratorService _sequenceService;
     private readonly Security.ICurrentUserContext _currentUser;
@@ -31,6 +32,7 @@ public class LoanService
         ISuspiciousActivityService suspiciousActivityService,
         IKycService kycService,
         ICreditBureauService creditBureauService,
+        IInternalCreditScoringService internalCreditScoringService,
         ILoanAccountingPostingService loanAccountingPostingService,
         ISequenceGeneratorService sequenceService,
         Security.ICurrentUserContext currentUser,
@@ -42,6 +44,7 @@ public class LoanService
         _suspiciousActivityService = suspiciousActivityService;
         _kycService = kycService;
         _creditBureauService = creditBureauService;
+        _internalCreditScoringService = internalCreditScoringService;
         _loanAccountingPostingService = loanAccountingPostingService;
         _sequenceService = sequenceService;
         _currentUser = currentUser;
@@ -1117,33 +1120,10 @@ public class LoanService
             throw new InvalidOperationException("Concentration threshold breached for this approval");
         }
 
-        var requireCreditBureauCheck = await GetBoolConfigAsync("loan.credit_bureau_required_for_approval", false);
-        CreditBureauCheck? creditResult = null;
-        try
+        var creditAssessment = await EvaluateCreditEligibilityAsync(customer.Id, loan.Id);
+        if (string.Equals(creditAssessment.Decision, "FAIL", StringComparison.OrdinalIgnoreCase))
         {
-            creditResult = await CheckCreditAndPersistAsync(customer.Id, loan.Id);
-        }
-        catch (Exception ex) when (!requireCreditBureauCheck)
-        {
-            await _auditLoggingService.LogActionAsync(
-                action: "LOAN_CREDIT_CHECK_SKIPPED",
-                entityType: "LOAN",
-                entityId: loan.Id,
-                userId: resolvedCheckerId,
-                description: $"Credit bureau check skipped because optional enforcement is disabled. Reason: {ex.Message}",
-                status: "WARNING",
-                errorMessage: ex.Message,
-                newValues: new { loan.Id, loan.CustomerId, Mandatory = false });
-        }
-
-        if (requireCreditBureauCheck && creditResult == null)
-        {
-            throw new InvalidOperationException("Credit bureau check is mandatory but could not be completed");
-        }
-
-        if (creditResult != null && requireCreditBureauCheck && string.Equals(creditResult.Decision, "FAIL", StringComparison.OrdinalIgnoreCase))
-        {
-            throw new InvalidOperationException("Credit bureau check failed");
+            throw new InvalidOperationException($"Credit eligibility failed: {creditAssessment.Recommendation}");
         }
 
         loan.Status = "APPROVED";
@@ -1331,29 +1311,12 @@ public class LoanService
 
     public async Task<CreditCheckDto> CheckCreditAsync(CheckCreditRequest request)
     {
-        var requireCreditBureauCheck = await GetBoolConfigAsync("loan.credit_bureau_required_for_approval", false);
-        try
-        {
-            var check = await CheckCreditAndPersistAsync(request.CustomerId, request.LoanId, request.ProviderName);
+        return await EvaluateCreditEligibilityAsync(request.CustomerId, request.LoanId, request.ProviderName);
+    }
 
-            return new CreditCheckDto
-            {
-                CustomerId = request.CustomerId,
-                LoanId = request.LoanId,
-                Score = check.Score,
-                RiskBand = check.RiskBand,
-                RiskGrade = check.RiskGrade,
-                Decision = check.Decision,
-                Recommendation = check.Recommendation,
-                ProviderName = check.ProviderName,
-                InquiryReference = check.InquiryReference,
-                CheckedAt = DateTime.UtcNow
-            };
-        }
-        catch (Exception ex) when (!requireCreditBureauCheck)
-        {
-            return BuildSkippedCreditCheckDto(request.CustomerId, request.LoanId, ex.Message);
-        }
+    public Task<CreditScoringModelStatusDto> GetCreditScoringModelStatusAsync()
+    {
+        return _internalCreditScoringService.GetModelStatusAsync();
     }
 
     public async Task<LoanScheduleGenerationResultDto> GenerateScheduleAsync(GenerateLoanScheduleRequest request)
@@ -1409,6 +1372,73 @@ public class LoanService
         return "GHS";
     }
 
+    private async Task<CreditCheckDto> EvaluateCreditEligibilityAsync(string customerId, string? loanId, string? providerName = null, bool? requireMandatoryBureauCheck = null)
+    {
+        var requireCreditBureauCheck = requireMandatoryBureauCheck
+            ?? await GetBoolConfigAsync("loan.credit_bureau_required_for_approval", false);
+
+        var internalScore = await _internalCreditScoringService.ScoreCustomerAsync(customerId, loanId);
+        CreditBureauCheck? bureauCheck = null;
+        string? bureauFailure = null;
+
+        try
+        {
+            bureauCheck = await CheckCreditAndPersistAsync(customerId, loanId, providerName);
+        }
+        catch (Exception ex) when (!requireCreditBureauCheck)
+        {
+            bureauFailure = ex.Message;
+            await _auditLoggingService.LogActionAsync(
+                action: "LOAN_CREDIT_CHECK_SKIPPED",
+                entityType: "LOAN",
+                entityId: loanId,
+                userId: _currentUser.UserId,
+                description: $"Credit bureau check skipped because optional enforcement is disabled. Reason: {ex.Message}",
+                status: "WARNING",
+                errorMessage: ex.Message,
+                newValues: new { loanId, CustomerId = customerId, Mandatory = false });
+        }
+
+        if (requireCreditBureauCheck && bureauCheck == null)
+        {
+            throw new InvalidOperationException("Credit bureau check is mandatory but could not be completed.");
+        }
+
+        var bureauScore = bureauCheck?.Score;
+        var compositeScore = bureauScore.HasValue
+            ? (int)Math.Round((internalScore.Score * 0.7m) + (bureauScore.Value * 0.3m), MidpointRounding.AwayFromZero)
+            : internalScore.Score;
+
+        var decision = ResolveCompositeDecision(internalScore.Decision, bureauCheck?.Decision, compositeScore, requireCreditBureauCheck);
+        var recommendation = BuildCompositeRecommendation(decision, internalScore, bureauCheck, bureauFailure);
+
+        return new CreditCheckDto
+        {
+            CustomerId = customerId,
+            LoanId = loanId,
+            Score = compositeScore,
+            BureauScore = bureauScore,
+            InternalScore = internalScore.Score,
+            CompositeScore = compositeScore,
+            ProbabilityGood = internalScore.ProbabilityGood,
+            RiskBand = ResolveCompositeRiskBand(internalScore.RiskBand, bureauCheck?.RiskBand, compositeScore),
+            RiskGrade = ResolveCompositeRiskGrade(internalScore.RiskGrade, compositeScore),
+            Decision = decision,
+            Recommendation = recommendation,
+            ProviderName = bureauCheck?.ProviderName ?? "internal-ml",
+            InquiryReference = bureauCheck?.InquiryReference ?? $"INT-ML-{DateTime.UtcNow:yyyyMMddHHmmss}",
+            AssessmentSource = bureauCheck == null ? "INTERNAL_ML" : "INTERNAL_ML+BUREAU",
+            InternalDecision = internalScore.Decision,
+            BureauDecision = bureauCheck?.Decision,
+            ModelVersion = internalScore.ModelVersion,
+            TrainingSampleCount = internalScore.TrainingSampleCount,
+            BureauStatus = bureauCheck?.Status,
+            BureauFailureReason = bureauFailure,
+            FeatureSummary = internalScore.FeatureSummary,
+            CheckedAt = DateTime.UtcNow
+        };
+    }
+
     private async Task<CreditBureauCheck> CheckCreditAndPersistAsync(string customerId, string? loanId, string? providerName = null)
     {
         var bureauResult = await _creditBureauService.CheckCreditAsync(customerId, providerName);
@@ -1439,21 +1469,78 @@ public class LoanService
         return check;
     }
 
-    private static CreditCheckDto BuildSkippedCreditCheckDto(string customerId, string? loanId, string reason)
+    private static string ResolveCompositeDecision(string internalDecision, string? bureauDecision, int compositeScore, bool requireCreditBureauCheck)
     {
-        return new CreditCheckDto
+        if (string.Equals(internalDecision, "FAIL", StringComparison.OrdinalIgnoreCase))
         {
-            CustomerId = customerId,
-            LoanId = loanId,
-            Score = 0,
-            RiskBand = "OPTIONAL",
-            RiskGrade = "N/A",
-            Decision = "SKIPPED",
-            Recommendation = $"Credit bureau check is optional and was skipped: {reason}",
-            ProviderName = "optional-bypass",
-            InquiryReference = $"SKIP-{DateTime.UtcNow:yyyyMMddHHmmss}",
-            CheckedAt = DateTime.UtcNow
+            return "FAIL";
+        }
+
+        if (requireCreditBureauCheck && string.Equals(bureauDecision, "FAIL", StringComparison.OrdinalIgnoreCase))
+        {
+            return "FAIL";
+        }
+
+        if (compositeScore >= 700)
+        {
+            return "PASS";
+        }
+
+        if (compositeScore >= 600)
+        {
+            return "REVIEW";
+        }
+
+        return "FAIL";
+    }
+
+    private static string ResolveCompositeRiskBand(string internalRiskBand, string? bureauRiskBand, int compositeScore)
+    {
+        if (!string.IsNullOrWhiteSpace(bureauRiskBand) && string.Equals(bureauRiskBand, "HIGH", StringComparison.OrdinalIgnoreCase))
+        {
+            return compositeScore >= 700 ? "MEDIUM" : "HIGH";
+        }
+
+        return compositeScore switch
+        {
+            >= 760 => "LOW",
+            >= 660 => "MEDIUM",
+            >= 580 => "ELEVATED",
+            _ => string.IsNullOrWhiteSpace(internalRiskBand) ? "HIGH" : internalRiskBand
         };
+    }
+
+    private static string ResolveCompositeRiskGrade(string internalRiskGrade, int compositeScore)
+    {
+        return compositeScore switch
+        {
+            >= 800 => "A",
+            >= 720 => "B",
+            >= 640 => "C",
+            >= 560 => "D",
+            _ => string.IsNullOrWhiteSpace(internalRiskGrade) ? "E" : internalRiskGrade
+        };
+    }
+
+    private static string BuildCompositeRecommendation(string decision, InternalCreditScoreResult internalScore, CreditBureauCheck? bureauCheck, string? bureauFailure)
+    {
+        if (string.Equals(decision, "PASS", StringComparison.OrdinalIgnoreCase))
+        {
+            return bureauCheck == null
+                ? $"Eligible on internal behavioral score {internalScore.Score}."
+                : $"Eligible. Internal score {internalScore.Score} aligned with bureau outcome {bureauCheck.Decision}.";
+        }
+
+        if (string.Equals(decision, "REVIEW", StringComparison.OrdinalIgnoreCase))
+        {
+            return bureauCheck == null
+                ? $"Behavioral score {internalScore.Score} needs enhanced review. {bureauFailure ?? "Bureau input was not used."}"
+                : $"Review required. Internal score {internalScore.Score}; bureau outcome {bureauCheck.Decision}.";
+        }
+
+        return bureauCheck == null
+            ? $"Decline based on internal behavioral score {internalScore.Score}. {bureauFailure ?? string.Empty}".Trim()
+            : $"Decline based on combined internal score {internalScore.Score} and bureau outcome {bureauCheck.Decision}.";
     }
 
     private static List<LoanScheduleLineDto> GenerateScheduleLines(

@@ -186,6 +186,25 @@ export const API_ENDPOINTS = {
     update: (id: string) => `/accounts/${id}`,
     transactions: (id: string) => `/accounts/${id}/transactions`,
   },
+  digitalBanking: {
+    dashboard: '/digital-banking/dashboard',
+    savingsProducts: '/digital-banking/savings/products',
+    customerSavingsAccounts: (customerId: string) => `/digital-banking/savings/accounts/${customerId}`,
+    openSavingsAccount: '/digital-banking/savings/accounts',
+    fundSavingsAccount: (accountId: string) => `/digital-banking/savings/accounts/${accountId}/fund`,
+    withdrawSavingsAccount: (accountId: string) => `/digital-banking/savings/accounts/${accountId}/withdraw`,
+    investmentPortfolio: '/digital-banking/investments/portfolio',
+    createInvestment: '/digital-banking/investments',
+    topUpInvestment: (profileId: string) => `/digital-banking/investments/${profileId}/top-up`,
+    rolloverInvestment: (profileId: string) => `/digital-banking/investments/${profileId}/rollover`,
+    liquidateInvestment: (profileId: string) => `/digital-banking/investments/${profileId}/liquidate`,
+    checkLoanEligibility: '/digital-banking/loans/eligibility',
+    applyLoan: '/digital-banking/loans/apply',
+    repayLoan: (loanId: string) => `/digital-banking/loans/${loanId}/repay`,
+    restructureLoan: '/digital-banking/loans/restructure',
+    loanStatement: (loanId: string) => `/digital-banking/loans/${loanId}/statement`,
+    loanSchedule: (loanId: string) => `/digital-banking/loans/${loanId}/schedule`,
+  },
   fees: {
     list: '/fees',
     apply: '/fees/apply',
@@ -238,6 +257,11 @@ export const API_ENDPOINTS = {
     kyc: (id: string) => `/customers/${id}/kyc`,
   },
 
+  clientKycOps: {
+    queue: '/client-kyc-ops/queue',
+    review: (kycCaseId: string) => `/client-kyc-ops/${kycCaseId}/review`,
+  },
+
   approvals: {
     list: '/approvals',
     create: '/approvals',
@@ -262,6 +286,7 @@ export const API_ENDPOINTS = {
     deviceActions: (id: string) => `/security/devices/${id}/actions`,
     scanOutdated: '/security/devices/scan-outdated',
     irregularTransactions: '/security/irregular-transactions',
+    waf: '/security/waf',
   },
 
   workflowDefinitions: {

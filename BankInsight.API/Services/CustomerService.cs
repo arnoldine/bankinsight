@@ -14,15 +14,23 @@ public class CustomerService
 {
     private static readonly string[] AllowedMediaTypes = ["PROFILE_PHOTO", "SIGNATURE", "ID_CARD"];
     private static readonly string[] AllowedMediaSides = ["FRONT", "BACK"];
+    private static readonly string[] AllowedImageContentTypes = ["image/png", "image/jpeg", "image/jpg", "image/webp"];
+    private const int MaxProfileMediaBytes = 8 * 1024 * 1024;
     private readonly ApplicationDbContext _context;
     private readonly ISequenceGeneratorService _sequenceService;
     private readonly Security.ICurrentUserContext _currentUser;
+    private readonly IClientFileStorageService _clientFileStorageService;
 
-    public CustomerService(ApplicationDbContext context, ISequenceGeneratorService sequenceService, Security.ICurrentUserContext currentUser)
+    public CustomerService(
+        ApplicationDbContext context,
+        ISequenceGeneratorService sequenceService,
+        Security.ICurrentUserContext currentUser,
+        IClientFileStorageService clientFileStorageService)
     {
         _context = context;
         _sequenceService = sequenceService;
         _currentUser = currentUser;
+        _clientFileStorageService = clientFileStorageService;
     }
 
     public async Task<List<Customer>> GetCustomersAsync()
@@ -288,11 +296,18 @@ public class CustomerService
             throw new InvalidOperationException("Only image uploads are supported.");
         }
 
-        var contentType = string.IsNullOrWhiteSpace(request.ContentType) ? "image/png" : request.ContentType.Trim();
-        if (!contentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase))
-        {
-            throw new InvalidOperationException("Content type must be an image type.");
-        }
+        var contentType = string.IsNullOrWhiteSpace(request.ContentType)
+            ? "image/png"
+            : request.ContentType.Trim().ToLowerInvariant();
+        ValidateUploadedFile(
+            request.FileName,
+            contentType,
+            dataUrl,
+            AllowedImageContentTypes,
+            MaxProfileMediaBytes,
+            "Only PNG, JPEG, and WEBP image uploads are supported.");
+
+        var storedFile = await _clientFileStorageService.StoreAsync("customer-media", request.FileName.Trim(), contentType, dataUrl);
 
         var asset = new CustomerMediaAsset
         {
@@ -302,9 +317,9 @@ public class CustomerService
             MediaSide = mediaSide,
             FileName = request.FileName.Trim(),
             ContentType = contentType,
-            DataUrl = dataUrl,
-            Status = "PENDING",
-            FileSizeBytes = EstimateBase64Bytes(dataUrl),
+            DataUrl = storedFile.StorageReference,
+            Status = "PENDING_SCAN",
+            FileSizeBytes = storedFile.ByteCount,
             UploadedBy = string.IsNullOrWhiteSpace(_currentUser.Email) ? (_currentUser.UserId ?? "System") : _currentUser.Email,
             UploadedAt = DateTime.UtcNow
         };
@@ -339,7 +354,7 @@ public class CustomerService
         return query;
     }
 
-    private static CustomerProfileResponse MapCustomerProfile(Customer customer, List<CustomerNoteDto> notes, List<CustomerDocumentDto> documents, List<CustomerMediaAsset> mediaAssets)
+    private CustomerProfileResponse MapCustomerProfile(Customer customer, List<CustomerNoteDto> notes, List<CustomerDocumentDto> documents, List<CustomerMediaAsset> mediaAssets)
     {
         var mappedMedia = mediaAssets.Select(MapMedia).ToList();
         var readiness = BuildKycReadiness(customer, mediaAssets);
@@ -389,7 +404,7 @@ public class CustomerService
         return combined;
     }
 
-    private static CustomerMediaDto MapMedia(CustomerMediaAsset asset)
+    private CustomerMediaDto MapMedia(CustomerMediaAsset asset)
     {
         return new CustomerMediaDto
         {
@@ -398,7 +413,9 @@ public class CustomerService
             MediaSide = asset.MediaSide,
             FileName = asset.FileName,
             ContentType = asset.ContentType,
-            PreviewUrl = asset.DataUrl,
+            PreviewUrl = _clientFileStorageService.IsInlineData(asset.DataUrl)
+                ? asset.DataUrl
+                : $"/api/client-files/customer-media/{asset.Id}",
             Status = string.IsNullOrWhiteSpace(asset.Status) ? "PENDING" : asset.Status,
             FileSizeBytes = asset.FileSizeBytes,
             UploadedBy = asset.UploadedBy,
@@ -424,6 +441,66 @@ public class CustomerService
         var base64 = dataUrl[(commaIndex + 1)..];
         var padding = base64.EndsWith("==", StringComparison.Ordinal) ? 2 : base64.EndsWith("=", StringComparison.Ordinal) ? 1 : 0;
         return (base64.Length * 3L / 4L) - padding;
+    }
+
+    private static void ValidateUploadedFile(
+        string fileName,
+        string contentType,
+        string dataUrl,
+        IEnumerable<string> allowedContentTypes,
+        int maxBytes,
+        string unsupportedTypeMessage)
+    {
+        if (string.IsNullOrWhiteSpace(fileName) ||
+            fileName.Contains('/') ||
+            fileName.Contains('\\') ||
+            fileName.Contains("..", StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException("File name is invalid.");
+        }
+
+        if (!allowedContentTypes.Contains(contentType, StringComparer.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException(unsupportedTypeMessage);
+        }
+
+        var commaIndex = dataUrl.IndexOf(',');
+        if (commaIndex <= 0 || commaIndex == dataUrl.Length - 1)
+        {
+            throw new InvalidOperationException("Uploaded file payload is malformed.");
+        }
+
+        var header = dataUrl[..commaIndex];
+        if (!header.Contains(";base64", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException("Uploaded file payload must be base64 encoded.");
+        }
+
+        var payload = dataUrl[(commaIndex + 1)..];
+        byte[] bytes;
+        try
+        {
+            bytes = Convert.FromBase64String(payload);
+        }
+        catch (FormatException)
+        {
+            throw new InvalidOperationException("Uploaded file payload is not valid base64 content.");
+        }
+
+        if (bytes.Length == 0)
+        {
+            throw new InvalidOperationException("Uploaded file is empty.");
+        }
+
+        if (bytes.Length > maxBytes)
+        {
+            throw new InvalidOperationException($"Uploaded file exceeds the maximum allowed size of {maxBytes / (1024 * 1024)} MB.");
+        }
+
+        if (!header.Contains(contentType, StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException("Uploaded file content type does not match the payload header.");
+        }
     }
 
     private static CustomerKycReadinessDto BuildKycReadiness(Customer customer, List<CustomerMediaAsset> mediaAssets)

@@ -1,0 +1,22 @@
+{
+  "expo": {
+    "name": "BankInsight Client",
+    "slug": "bankinsight-client",
+    "scheme": "bankinsight-client",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "platforms": ["ios", "android", "web"],
+    "assetBundlePatterns": ["**/*"],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.bankinsight.client"
+    },
+    "android": {
+      "package": "com.bankinsight.client"
+    },
+    "web": {
+      "bundler": "metro"
+    }
+  }
+}

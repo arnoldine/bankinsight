@@ -56,6 +56,84 @@ BEGIN
 END $$;");
 
         await context.Database.ExecuteSqlRawAsync(@"
+CREATE TABLE IF NOT EXISTS client_standing_orders (
+    id character varying(50) PRIMARY KEY,
+    customer_id character varying(50) NOT NULL,
+    source_account_id character varying(50) NOT NULL,
+    instruction_type character varying(30) NOT NULL DEFAULT 'INTERNAL_TRANSFER',
+    merchant_code character varying(50) NULL,
+    merchant_name character varying(200) NULL,
+    destination_account_id character varying(50) NULL,
+    amount numeric(18,2) NOT NULL,
+    currency character varying(10) NOT NULL DEFAULT 'GHS',
+    frequency character varying(20) NOT NULL DEFAULT 'MONTHLY',
+    narration character varying(500) NOT NULL DEFAULT '',
+    start_date timestamp with time zone NOT NULL,
+    next_run_at timestamp with time zone NOT NULL,
+    end_date timestamp with time zone NULL,
+    last_run_at timestamp with time zone NULL,
+    status character varying(20) NOT NULL DEFAULT 'ACTIVE',
+    created_at timestamp with time zone NOT NULL DEFAULT NOW(),
+    updated_at timestamp with time zone NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS ix_client_standing_orders_customer_status_next_run
+    ON client_standing_orders (customer_id, status, next_run_at);");
+
+        await context.Database.ExecuteSqlRawAsync(@"
+CREATE TABLE IF NOT EXISTS client_merchant_profiles (
+    id character varying(50) PRIMARY KEY,
+    customer_id character varying(50) NOT NULL,
+    settlement_account_id character varying(50) NOT NULL,
+    merchant_code character varying(50) NOT NULL,
+    display_name character varying(200) NOT NULL,
+    category character varying(100) NOT NULL DEFAULT 'General',
+    currency character varying(10) NOT NULL DEFAULT 'GHS',
+    status character varying(20) NOT NULL DEFAULT 'ACTIVE',
+    qr_scheme character varying(30) NOT NULL DEFAULT 'BANKINSIGHT_QR',
+    qr_payload text NOT NULL,
+    ghqr_ready boolean NOT NULL DEFAULT false,
+    accepts_app_payments boolean NOT NULL DEFAULT true,
+    created_at timestamp with time zone NOT NULL DEFAULT NOW(),
+    updated_at timestamp with time zone NOT NULL DEFAULT NOW(),
+    last_payment_at timestamp with time zone NULL
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS ix_client_merchant_profiles_merchant_code
+    ON client_merchant_profiles (merchant_code);
+CREATE INDEX IF NOT EXISTS ix_client_merchant_profiles_customer_status_updated
+    ON client_merchant_profiles (customer_id, status, updated_at DESC);");
+
+        await context.Database.ExecuteSqlRawAsync(@"
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_client_standing_orders_customer') THEN
+        ALTER TABLE client_standing_orders ADD CONSTRAINT fk_client_standing_orders_customer
+        FOREIGN KEY (customer_id) REFERENCES customers (id) ON DELETE CASCADE;
+    END IF;
+
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_client_standing_orders_source_account') THEN
+        ALTER TABLE client_standing_orders ADD CONSTRAINT fk_client_standing_orders_source_account
+        FOREIGN KEY (source_account_id) REFERENCES accounts (id) ON DELETE RESTRICT;
+    END IF;
+
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_client_standing_orders_destination_account') THEN
+        ALTER TABLE client_standing_orders ADD CONSTRAINT fk_client_standing_orders_destination_account
+        FOREIGN KEY (destination_account_id) REFERENCES accounts (id) ON DELETE SET NULL;
+    END IF;
+
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_client_merchant_profiles_customer') THEN
+        ALTER TABLE client_merchant_profiles ADD CONSTRAINT fk_client_merchant_profiles_customer
+        FOREIGN KEY (customer_id) REFERENCES customers (id) ON DELETE CASCADE;
+    END IF;
+
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_client_merchant_profiles_settlement_account') THEN
+        ALTER TABLE client_merchant_profiles ADD CONSTRAINT fk_client_merchant_profiles_settlement_account
+        FOREIGN KEY (settlement_account_id) REFERENCES accounts (id) ON DELETE RESTRICT;
+    END IF;
+END $$;");
+
+        await context.Database.ExecuteSqlRawAsync(@"
 CREATE TABLE IF NOT EXISTS bulk_payment_batches (
     id character varying(50) PRIMARY KEY,
     batch_reference character varying(100) NOT NULL,
@@ -235,6 +313,51 @@ CREATE INDEX IF NOT EXISTS ix_product_charge_definitions_status
     ON product_charge_definitions (status);");
 
         await context.Database.ExecuteSqlRawAsync(@"
+CREATE TABLE IF NOT EXISTS digital_investment_profiles (
+    id character varying(50) PRIMARY KEY,
+    account_id character varying(50) NOT NULL,
+    customer_id character varying(50) NOT NULL,
+    funding_account_id character varying(50) NOT NULL,
+    product_code character varying(50) NOT NULL,
+    tenor_days integer NOT NULL,
+    rate numeric(18,6) NOT NULL,
+    payout_option character varying(30) NOT NULL DEFAULT 'AT_MATURITY',
+    auto_rollover boolean NOT NULL DEFAULT false,
+    status character varying(20) NOT NULL DEFAULT 'ACTIVE',
+    start_date timestamp with time zone NOT NULL,
+    maturity_date timestamp with time zone NOT NULL,
+    matured_at timestamp with time zone NULL,
+    liquidated_at timestamp with time zone NULL,
+    notes character varying(1000) NULL,
+    created_at timestamp with time zone NOT NULL DEFAULT NOW(),
+    updated_at timestamp with time zone NOT NULL DEFAULT NOW()
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS ix_digital_investment_profiles_account_id
+    ON digital_investment_profiles (account_id);
+CREATE INDEX IF NOT EXISTS ix_digital_investment_profiles_customer_status_maturity
+    ON digital_investment_profiles (customer_id, status, maturity_date);");
+
+        await context.Database.ExecuteSqlRawAsync(@"
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_digital_investment_profiles_account') THEN
+        ALTER TABLE digital_investment_profiles ADD CONSTRAINT fk_digital_investment_profiles_account
+        FOREIGN KEY (account_id) REFERENCES accounts (id) ON DELETE CASCADE;
+    END IF;
+
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_digital_investment_profiles_customer') THEN
+        ALTER TABLE digital_investment_profiles ADD CONSTRAINT fk_digital_investment_profiles_customer
+        FOREIGN KEY (customer_id) REFERENCES customers (id) ON DELETE CASCADE;
+    END IF;
+
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_digital_investment_profiles_funding_account') THEN
+        ALTER TABLE digital_investment_profiles ADD CONSTRAINT fk_digital_investment_profiles_funding_account
+        FOREIGN KEY (funding_account_id) REFERENCES accounts (id) ON DELETE RESTRICT;
+    END IF;
+END $$;");
+
+        await context.Database.ExecuteSqlRawAsync(@"
 DO $$
 BEGIN
     IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_product_charge_definitions_product') THEN
@@ -310,6 +433,10 @@ ALTER TABLE IF EXISTS user_sessions
     ALTER COLUMN refresh_token TYPE text;");
 
         await context.Database.ExecuteSqlRawAsync(@"
+ALTER TABLE IF EXISTS customer_credentials
+    ADD COLUMN IF NOT EXISTS transaction_pin_hash character varying(255) NULL;");
+
+        await context.Database.ExecuteSqlRawAsync(@"
 CREATE TABLE IF NOT EXISTS report_favorites (
     id uuid PRIMARY KEY,
     staff_id character varying(50) NOT NULL,
@@ -350,18 +477,81 @@ CREATE TABLE IF NOT EXISTS customer_media_assets (
     id character varying(50) PRIMARY KEY,
     customer_id character varying(50) NOT NULL,
     media_type character varying(30) NOT NULL,
-    media_side character varying(10) NULL,
+    media_side character varying(20) NULL,
     file_name character varying(255) NOT NULL,
     content_type character varying(100) NOT NULL,
-    data_url text NOT NULL,
-    status character varying(20) NOT NULL DEFAULT 'PENDING',
+    storage_mode character varying(20) NOT NULL DEFAULT 'inline',
+    storage_path text NULL,
+    data_url text NULL,
     file_size_bytes bigint NULL,
-    uploaded_by character varying(100) NULL,
-    uploaded_at timestamp with time zone NOT NULL DEFAULT NOW()
+    status character varying(30) NOT NULL DEFAULT 'PENDING_SCAN',
+    uploaded_by character varying(50) NULL,
+    uploaded_at timestamp with time zone NOT NULL DEFAULT NOW(),
+    scanned_at timestamp with time zone NULL,
+    reviewed_at timestamp with time zone NULL,
+    review_note character varying(1000) NULL
 );
 
-CREATE INDEX IF NOT EXISTS ix_customer_media_assets_customer_slot
-    ON customer_media_assets (customer_id, media_type, media_side, uploaded_at DESC);");
+CREATE INDEX IF NOT EXISTS ix_customer_media_assets_customer_media_type
+    ON customer_media_assets (customer_id, media_type);
+CREATE INDEX IF NOT EXISTS ix_customer_media_assets_status
+    ON customer_media_assets (status);
+
+CREATE TABLE IF NOT EXISTS client_kyc_cases (
+    id character varying(50) PRIMARY KEY,
+    customer_id character varying(50) NOT NULL,
+    reference character varying(50) NOT NULL,
+    status character varying(30) NOT NULL DEFAULT 'SUBMITTED',
+    reason character varying(100) NOT NULL DEFAULT 'PROFILE_REFRESH',
+    summary character varying(500) NOT NULL DEFAULT '',
+    submitted_at timestamp with time zone NOT NULL DEFAULT NOW(),
+    reviewed_at timestamp with time zone NULL,
+    reviewed_by character varying(50) NULL,
+    decision_note character varying(1000) NULL
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS ix_client_kyc_cases_reference
+    ON client_kyc_cases (reference);
+CREATE INDEX IF NOT EXISTS ix_client_kyc_cases_customer_submitted_at
+    ON client_kyc_cases (customer_id, submitted_at DESC);
+CREATE INDEX IF NOT EXISTS ix_client_kyc_cases_status_submitted_at
+    ON client_kyc_cases (status, submitted_at DESC);
+
+CREATE TABLE IF NOT EXISTS client_kyc_case_events (
+    id character varying(50) PRIMARY KEY,
+    case_id character varying(50) NOT NULL,
+    event_type character varying(50) NOT NULL,
+    title character varying(200) NOT NULL,
+    description character varying(1000) NOT NULL,
+    actor_id character varying(50) NULL,
+    actor_name character varying(200) NULL,
+    created_at timestamp with time zone NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS ix_client_kyc_case_events_case_created_at
+    ON client_kyc_case_events (case_id, created_at DESC);");
+
+        await context.Database.ExecuteSqlRawAsync(@"
+ALTER TABLE IF EXISTS customer_media_assets
+    ADD COLUMN IF NOT EXISTS storage_mode character varying(20) NOT NULL DEFAULT 'inline',
+    ADD COLUMN IF NOT EXISTS storage_path text NULL,
+    ADD COLUMN IF NOT EXISTS data_url text NULL,
+    ADD COLUMN IF NOT EXISTS file_size_bytes bigint NULL,
+    ADD COLUMN IF NOT EXISTS status character varying(30) NOT NULL DEFAULT 'PENDING_SCAN',
+    ADD COLUMN IF NOT EXISTS uploaded_by character varying(50) NULL,
+    ADD COLUMN IF NOT EXISTS uploaded_at timestamp with time zone NOT NULL DEFAULT NOW(),
+    ADD COLUMN IF NOT EXISTS scanned_at timestamp with time zone NULL,
+    ADD COLUMN IF NOT EXISTS reviewed_at timestamp with time zone NULL,
+    ADD COLUMN IF NOT EXISTS review_note character varying(1000) NULL;
+
+ALTER TABLE IF EXISTS client_kyc_cases
+    ADD COLUMN IF NOT EXISTS reviewer_user_id character varying(50) NULL,
+    ADD COLUMN IF NOT EXISTS reviewer_name character varying(100) NULL,
+    ADD COLUMN IF NOT EXISTS created_at timestamp with time zone NOT NULL DEFAULT NOW(),
+    ADD COLUMN IF NOT EXISTS updated_at timestamp with time zone NOT NULL DEFAULT NOW();
+
+ALTER TABLE IF EXISTS client_kyc_case_events
+    ADD COLUMN IF NOT EXISTS actor_id character varying(50) NULL;");
 
         await context.Database.ExecuteSqlRawAsync(@"
 DO $$
@@ -369,6 +559,57 @@ BEGIN
     IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_customer_media_assets_customer') THEN
         ALTER TABLE customer_media_assets ADD CONSTRAINT fk_customer_media_assets_customer
         FOREIGN KEY (customer_id) REFERENCES customers (id) ON DELETE CASCADE;
+    END IF;
+
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_client_kyc_cases_customer') THEN
+        ALTER TABLE client_kyc_cases ADD CONSTRAINT fk_client_kyc_cases_customer
+        FOREIGN KEY (customer_id) REFERENCES customers (id) ON DELETE CASCADE;
+    END IF;
+
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_client_kyc_cases_reviewer') THEN
+        ALTER TABLE client_kyc_cases ADD CONSTRAINT fk_client_kyc_cases_reviewer
+        FOREIGN KEY (reviewed_by) REFERENCES staff (id) ON DELETE SET NULL;
+    END IF;
+
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_client_kyc_case_events_case') THEN
+        ALTER TABLE client_kyc_case_events ADD CONSTRAINT fk_client_kyc_case_events_case
+        FOREIGN KEY (case_id) REFERENCES client_kyc_cases (id) ON DELETE CASCADE;
+    END IF;
+END $$;");
+
+        await context.Database.ExecuteSqlRawAsync(@"
+CREATE TABLE IF NOT EXISTS internal_credit_score_assessments (
+    id uuid PRIMARY KEY,
+    customer_id character varying(50) NOT NULL,
+    loan_id character varying(50) NULL,
+    score integer NOT NULL,
+    probability_good numeric(9,6) NOT NULL DEFAULT 0,
+    risk_band character varying(20) NOT NULL DEFAULT 'UNKNOWN',
+    risk_grade character varying(20) NOT NULL DEFAULT 'UNKNOWN',
+    decision character varying(20) NOT NULL DEFAULT 'REVIEW',
+    recommendation character varying(200) NOT NULL DEFAULT 'Manual review',
+    model_version character varying(50) NOT NULL DEFAULT 'ml-credit-v1',
+    training_sample_count integer NOT NULL DEFAULT 0,
+    feature_payload jsonb NOT NULL DEFAULT '{{}}'::jsonb,
+    checked_at timestamp with time zone NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS ix_internal_credit_score_assessments_customer_checked
+    ON internal_credit_score_assessments (customer_id, checked_at DESC);
+CREATE INDEX IF NOT EXISTS ix_internal_credit_score_assessments_loan_checked
+    ON internal_credit_score_assessments (loan_id, checked_at DESC);");
+
+        await context.Database.ExecuteSqlRawAsync(@"
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_internal_credit_score_customer') THEN
+        ALTER TABLE internal_credit_score_assessments ADD CONSTRAINT fk_internal_credit_score_customer
+        FOREIGN KEY (customer_id) REFERENCES customers (id) ON DELETE CASCADE;
+    END IF;
+
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_internal_credit_score_loan') THEN
+        ALTER TABLE internal_credit_score_assessments ADD CONSTRAINT fk_internal_credit_score_loan
+        FOREIGN KEY (loan_id) REFERENCES loans (id) ON DELETE SET NULL;
     END IF;
 END $$;");
     }

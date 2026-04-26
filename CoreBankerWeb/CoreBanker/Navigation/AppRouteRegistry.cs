@@ -21,6 +21,7 @@ public static class AppRouteRegistry
         new("/accounts", "Accounts", "Open deposit accounts and review account balances and product usage.", "Accounts", Icons.Material.Filled.AccountBalance, ["accounts.view", "VIEW_ACCOUNTS"], true),
         new("/teller", "Teller Operations", "Post live counter transactions through the active teller station.", "Teller", Icons.Material.Filled.PointOfSale, ["transactions.post", "transactions.create", "POST_TRANSACTIONS"], true),
         new("/transactions", "Transaction Explorer", "Review posted and pending transactions across the branch network.", "Transactions", Icons.Material.Filled.ReceiptLong, ["transactions.view", "VIEW_TRANSACTIONS"], true),
+        new("/digital-banking", "Digital Banking", "Manage digital savings, investments, lending, and eligibility from a unified workspace.", "Digital Banking", Icons.Material.Filled.PhoneIphone, ["accounts.view", "VIEW_ACCOUNTS"], true),
         new("/loans", "Loan Management", "Monitor origination, portfolio status, and repayment performance.", "Loan Management", Icons.Material.Filled.Money, ["loans.view", "VIEW_LOANS"], true),
         new("/approvals", "Approval Inbox", "Review requests waiting on maker-checker approval and operational sign-off.", "Approvals", Icons.Material.Filled.Verified, ["approvals.view", "VIEW_APPROVALS", "workflow.view"], true),
         new("/accounting", "Accounting", "Manage GL accounts and journal activity for the banking ledger.", "Accounting", Icons.Material.Filled.Calculate, ["gl.view", "VIEW_GL", "MANAGE_GL"]),

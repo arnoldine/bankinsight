@@ -15,6 +15,7 @@ dist-ssr
 .dotnet-home/
 .appdata/
 .env
+.expo/
 server/.env
 BankingOS/web/.env
 **/bin/

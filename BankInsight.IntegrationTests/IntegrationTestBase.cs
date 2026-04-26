@@ -38,6 +38,43 @@ public class IntegrationTestBase : IClassFixture<TestWebApplicationFactory<Progr
         return AuthToken;
     }
 
+    protected async Task<string> AuthenticateClientAsync(
+        string email = "akosua.mensah@bankinsight.local",
+        string password = "ClientPass123!")
+    {
+        var response = await Client.PostAsJsonAsync("/api/client-auth/login", new ClientLoginRequest
+        {
+            Email = email,
+            Password = password
+        });
+
+        response.EnsureSuccessStatusCode();
+
+        var loginResponse = await response.Content.ReadFromJsonAsync<ClientLoginResponse>();
+        loginResponse.Should().NotBeNull();
+
+        if (loginResponse!.MfaRequired)
+        {
+            loginResponse.DebugCode.Should().NotBeNullOrEmpty();
+
+            response = await Client.PostAsJsonAsync("/api/client-auth/mfa/verify", new ClientVerifyMfaRequest
+            {
+                MfaToken = loginResponse.MfaToken!,
+                Code = loginResponse.DebugCode!
+            });
+
+            response.EnsureSuccessStatusCode();
+            loginResponse = await response.Content.ReadFromJsonAsync<ClientLoginResponse>();
+            loginResponse.Should().NotBeNull();
+        }
+
+        loginResponse!.Token.Should().NotBeNullOrEmpty();
+        AuthToken = loginResponse.Token;
+        Client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", AuthToken);
+
+        return AuthToken!;
+    }
+
     protected async Task<T> GetAsync<T>(string url)
     {
         var response = await Client.GetAsync(url);

@@ -37,6 +37,7 @@ builder.Services.AddScoped<CoreBanker.Services.ClientService>();
 builder.Services.AddScoped<CoreBanker.Services.AccountService>();
 builder.Services.AddScoped<CoreBanker.Services.TellerService>();
 builder.Services.AddScoped<CoreBanker.Services.TransactionService>();
+builder.Services.AddScoped<CoreBanker.Services.DigitalBankingService>();
 builder.Services.AddScoped<CoreBanker.Services.LoanService>();
 builder.Services.AddScoped<CoreBanker.Services.ApprovalService>();
 builder.Services.AddScoped<CoreBanker.Services.AuditService>();

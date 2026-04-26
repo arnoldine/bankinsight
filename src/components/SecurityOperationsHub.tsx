@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Activity, AlertTriangle, Clock3, Globe, Laptop, Plus, RefreshCw, Search, Shield, ShieldAlert } from 'lucide-react';
-import { Branch, FailedLoginAttempt, IrregularTransaction, SecurityAlert, SecurityDevice, SecuritySession, SecuritySummary, StaffUser } from '../../types';
+import { Branch, FailedLoginAttempt, IrregularTransaction, SecurityAlert, SecurityDevice, SecuritySession, SecuritySummary, StaffUser, WafProfile } from '../../types';
 import { securityService } from '../services/securityService';
 import { adminService } from '../services/adminService';
 import { ApiError } from '../services/httpClient';
@@ -18,7 +18,20 @@ type DeviceDraft = {
   notes: string;
 };
 
-type SecurityTab = 'overview' | 'registry' | 'investigations' | 'setup';
+type WafDraft = {
+  enabled: boolean;
+  mode: 'DETECTION' | 'PREVENTION';
+  maxRequestBodyBytes: string;
+  blockSqlInjection: boolean;
+  blockXss: boolean;
+  blockPathTraversal: boolean;
+  blockBadBots: boolean;
+  protectedPaths: string;
+  trustedIps: string;
+  blockedUserAgents: string;
+};
+
+type SecurityTab = 'overview' | 'registry' | 'investigations' | 'waf' | 'setup';
 
 const defaultDraft: DeviceDraft = {
   deviceId: '',
@@ -30,6 +43,19 @@ const defaultDraft: DeviceDraft = {
   softwareVersion: '2.0.0',
   minimumSupportedVersion: '2.0.0',
   notes: '',
+};
+
+const defaultWafDraft: WafDraft = {
+  enabled: false,
+  mode: 'DETECTION',
+  maxRequestBodyBytes: '262144',
+  blockSqlInjection: true,
+  blockXss: true,
+  blockPathTraversal: true,
+  blockBadBots: true,
+  protectedPaths: '/api/auth\n/api/payments\n/api/migration\n/api/report\n/api/security',
+  trustedIps: '',
+  blockedUserAgents: 'sqlmap\nnikto\nacunetix\nnmap\nmasscan\ndirbuster\nnessus',
 };
 
 const getErrorMessage = (error: unknown, fallback: string) => {
@@ -72,6 +98,7 @@ export default function SecurityOperationsHub({ userPermissions }: { userPermiss
   const [irregularities, setIrregularities] = useState<IrregularTransaction[]>([]);
   const [failedLogins, setFailedLogins] = useState<FailedLoginAttempt[]>([]);
   const [sessions, setSessions] = useState<SecuritySession[]>([]);
+  const [wafProfile, setWafProfile] = useState<WafProfile | null>(null);
   const [branches, setBranches] = useState<Branch[]>([]);
   const [users, setUsers] = useState<StaffUser[]>([]);
   const [selectedDeviceId, setSelectedDeviceId] = useState<string | null>(null);
@@ -80,21 +107,24 @@ export default function SecurityOperationsHub({ userPermissions }: { userPermiss
   const [notice, setNotice] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [savingWaf, setSavingWaf] = useState(false);
   const [busyDeviceId, setBusyDeviceId] = useState<string | null>(null);
   const [draft, setDraft] = useState<DeviceDraft>(defaultDraft);
+  const [wafDraft, setWafDraft] = useState<WafDraft>(defaultWafDraft);
   const canManageDevices = userPermissions.includes(Permissions.Users.Manage);
 
   const loadData = async () => {
     setLoading(true);
     setError(null);
     try {
-      const [summaryData, devicesData, alertsData, irregularData, failedData, sessionData, branchData, userData] = await Promise.all([
+      const [summaryData, devicesData, alertsData, irregularData, failedData, sessionData, wafData, branchData, userData] = await Promise.all([
         securityService.getSummary(),
         securityService.getDevices(),
         securityService.getAlerts(),
         securityService.getIrregularTransactions(),
         securityService.getFailedLogins().catch(() => [] as FailedLoginAttempt[]),
         securityService.getSessions().catch(() => [] as SecuritySession[]),
+        securityService.getWafProfile().catch(() => null as WafProfile | null),
         adminService.getBranches().catch(() => [] as Branch[]),
         adminService.getUsers().catch(() => [] as StaffUser[]),
       ]);
@@ -105,10 +135,25 @@ export default function SecurityOperationsHub({ userPermissions }: { userPermiss
       setIrregularities(irregularData);
       setFailedLogins(failedData);
       setSessions(sessionData);
+      setWafProfile(wafData);
       setBranches(branchData);
       setUsers(userData);
       setSelectedDeviceId((current) => current ?? devicesData[0]?.id ?? null);
       setDraft((current) => ({ ...current, minimumSupportedVersion: current.minimumSupportedVersion || summaryData.minimumSupportedVersion }));
+      if (wafData) {
+        setWafDraft({
+          enabled: wafData.enabled,
+          mode: wafData.mode,
+          maxRequestBodyBytes: String(wafData.maxRequestBodyBytes),
+          blockSqlInjection: wafData.blockSqlInjection,
+          blockXss: wafData.blockXss,
+          blockPathTraversal: wafData.blockPathTraversal,
+          blockBadBots: wafData.blockBadBots,
+          protectedPaths: wafData.protectedPaths.join('\n'),
+          trustedIps: wafData.trustedIps.join('\n'),
+          blockedUserAgents: wafData.blockedUserAgents.join('\n'),
+        });
+      }
     } catch (loadError) {
       setError(getErrorMessage(loadError, 'Failed to load security operations data.'));
     } finally {
@@ -217,6 +262,34 @@ export default function SecurityOperationsHub({ userPermissions }: { userPermiss
       setError(getErrorMessage(scanError, 'Unable to scan for outdated terminals.'));
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const handleSaveWaf = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setSavingWaf(true);
+    setError(null);
+    try {
+      const updated = await securityService.updateWafProfile({
+        enabled: wafDraft.enabled,
+        mode: wafDraft.mode,
+        maxRequestBodyBytes: Number(wafDraft.maxRequestBodyBytes || '262144'),
+        blockSqlInjection: wafDraft.blockSqlInjection,
+        blockXss: wafDraft.blockXss,
+        blockPathTraversal: wafDraft.blockPathTraversal,
+        blockBadBots: wafDraft.blockBadBots,
+        protectedPaths: wafDraft.protectedPaths.split(/\r?\n/).map((value) => value.trim()).filter(Boolean),
+        trustedIps: wafDraft.trustedIps.split(/\r?\n/).map((value) => value.trim()).filter(Boolean),
+        blockedUserAgents: wafDraft.blockedUserAgents.split(/\r?\n/).map((value) => value.trim()).filter(Boolean),
+      });
+      setWafProfile(updated);
+      setNotice('WAF policy saved successfully.');
+      await loadData();
+      setActiveTab('waf');
+    } catch (saveError) {
+      setError(getErrorMessage(saveError, 'Unable to save WAF policy.'));
+    } finally {
+      setSavingWaf(false);
     }
   };
 
@@ -454,6 +527,125 @@ export default function SecurityOperationsHub({ userPermissions }: { userPermiss
     </div>
   );
 
+  const renderWaf = () => (
+    <div className="grid gap-6 xl:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]">
+      <form onSubmit={handleSaveWaf} className="screen-panel p-6">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <h3 className="text-lg font-heading font-bold text-slate-900 dark:text-white">Web Application Firewall</h3>
+            <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Protect high-risk API routes with configurable inspection rules and switch between detection and prevention without redeploying the app.</p>
+          </div>
+          {renderPill(wafDraft.mode, wafDraft.mode === 'PREVENTION' ? 'red' : 'blue')}
+        </div>
+
+        <div className="mt-5 grid gap-4 md:grid-cols-2">
+          <label className="rounded-2xl border border-slate-200 bg-slate-50/80 p-4 text-sm text-slate-700 dark:border-slate-700 dark:bg-slate-800/55 dark:text-slate-300">
+            <span className="font-semibold">Enable WAF</span>
+            <input type="checkbox" checked={wafDraft.enabled} onChange={(event) => setWafDraft((current) => ({ ...current, enabled: event.target.checked }))} className="ml-3 h-4 w-4 align-middle accent-teal-600" />
+            <div className="mt-2 text-xs text-slate-500 dark:text-slate-400">When enabled, matching rules are inspected on protected API paths.</div>
+          </label>
+          <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Mode
+            <select value={wafDraft.mode} onChange={(event) => setWafDraft((current) => ({ ...current, mode: event.target.value as 'DETECTION' | 'PREVENTION' }))} className="mt-1 w-full rounded-2xl border border-slate-300/90 bg-white px-3.5 py-3 text-sm text-slate-900 outline-none transition focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20 dark:border-slate-600 dark:bg-slate-950/80 dark:text-white">
+              <option value="DETECTION">Detection</option>
+              <option value="PREVENTION">Prevention</option>
+            </select>
+          </label>
+          <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Max request body bytes
+            <input value={wafDraft.maxRequestBodyBytes} onChange={(event) => setWafDraft((current) => ({ ...current, maxRequestBodyBytes: event.target.value }))} className="mt-1 w-full rounded-2xl border border-slate-300/90 bg-white px-3.5 py-3 text-sm text-slate-900 outline-none transition focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20 dark:border-slate-600 dark:bg-slate-950/80 dark:text-white" />
+          </label>
+        </div>
+
+        <div className="mt-4 grid gap-3 md:grid-cols-2">
+          {[
+            ['blockSqlInjection', 'SQL injection rule'],
+            ['blockXss', 'XSS rule'],
+            ['blockPathTraversal', 'Path traversal rule'],
+            ['blockBadBots', 'Scanner and bot rule'],
+          ].map(([key, label]) => (
+            <label key={key} className="rounded-2xl border border-slate-200 bg-slate-50/80 px-4 py-3 text-sm text-slate-700 dark:border-slate-700 dark:bg-slate-800/55 dark:text-slate-300">
+              <input
+                type="checkbox"
+                checked={Boolean(wafDraft[key as keyof WafDraft])}
+                onChange={(event) => setWafDraft((current) => ({ ...current, [key]: event.target.checked }))}
+                className="mr-3 h-4 w-4 align-middle accent-teal-600"
+              />
+              <span className="font-medium">{label}</span>
+            </label>
+          ))}
+        </div>
+
+        <div className="mt-4 grid gap-4">
+          <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Protected paths
+            <textarea value={wafDraft.protectedPaths} onChange={(event) => setWafDraft((current) => ({ ...current, protectedPaths: event.target.value }))} rows={4} className="mt-1 w-full rounded-2xl border border-slate-300/90 bg-white px-3.5 py-3 text-sm text-slate-900 outline-none transition focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20 dark:border-slate-600 dark:bg-slate-950/80 dark:text-white" />
+          </label>
+          <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Trusted IPs
+            <textarea value={wafDraft.trustedIps} onChange={(event) => setWafDraft((current) => ({ ...current, trustedIps: event.target.value }))} rows={3} className="mt-1 w-full rounded-2xl border border-slate-300/90 bg-white px-3.5 py-3 text-sm text-slate-900 outline-none transition focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20 dark:border-slate-600 dark:bg-slate-950/80 dark:text-white" />
+          </label>
+          <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Blocked user-agent signatures
+            <textarea value={wafDraft.blockedUserAgents} onChange={(event) => setWafDraft((current) => ({ ...current, blockedUserAgents: event.target.value }))} rows={4} className="mt-1 w-full rounded-2xl border border-slate-300/90 bg-white px-3.5 py-3 text-sm text-slate-900 outline-none transition focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20 dark:border-slate-600 dark:bg-slate-950/80 dark:text-white" />
+          </label>
+        </div>
+
+        <div className="mt-5 flex flex-wrap gap-3">
+          <button disabled={savingWaf || !canManageDevices} className="inline-flex items-center gap-2 rounded-2xl bg-slate-950 px-4 py-3 text-sm font-medium text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-white dark:text-slate-950 dark:hover:bg-slate-200">
+            {savingWaf ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Shield className="h-4 w-4" />}
+            Save WAF Policy
+          </button>
+          <button type="button" onClick={() => wafProfile && setWafDraft({
+            enabled: wafProfile.enabled,
+            mode: wafProfile.mode,
+            maxRequestBodyBytes: String(wafProfile.maxRequestBodyBytes),
+            blockSqlInjection: wafProfile.blockSqlInjection,
+            blockXss: wafProfile.blockXss,
+            blockPathTraversal: wafProfile.blockPathTraversal,
+            blockBadBots: wafProfile.blockBadBots,
+            protectedPaths: wafProfile.protectedPaths.join('\n'),
+            trustedIps: wafProfile.trustedIps.join('\n'),
+            blockedUserAgents: wafProfile.blockedUserAgents.join('\n'),
+          })} className="inline-flex items-center gap-2 rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-medium text-slate-700 transition hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-900/70 dark:text-slate-200 dark:hover:bg-slate-800">Reset Draft</button>
+        </div>
+      </form>
+
+      <div className="space-y-6">
+        <div className="grid gap-4 md:grid-cols-3">
+          <div className="screen-stat p-5"><div className="text-xs text-slate-500 dark:text-slate-400">Runtime status</div><div className="mt-3 text-2xl font-bold text-slate-900 dark:text-white">{wafProfile?.enabled ? 'Enabled' : 'Disabled'}</div><div className="mt-1 text-xs text-slate-500 dark:text-slate-400">{wafProfile?.mode || 'DETECTION'}</div></div>
+          <div className="screen-stat p-5"><div className="text-xs text-slate-500 dark:text-slate-400">Detected (24h)</div><div className="mt-3 text-2xl font-bold text-slate-900 dark:text-white">{wafProfile?.detectedCount24Hours ?? 0}</div><div className="mt-1 text-xs text-slate-500 dark:text-slate-400">Request signatures flagged</div></div>
+          <div className="screen-stat p-5"><div className="text-xs text-slate-500 dark:text-slate-400">Blocked (24h)</div><div className="mt-3 text-2xl font-bold text-slate-900 dark:text-white">{wafProfile?.blockedCount24Hours ?? 0}</div><div className="mt-1 text-xs text-slate-500 dark:text-slate-400">Requests stopped in prevention mode</div></div>
+        </div>
+
+        <div className="screen-panel p-6">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <h3 className="text-lg font-heading font-bold text-slate-900 dark:text-white">Recent WAF incidents</h3>
+              <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Latest detected and blocked requests captured by the application firewall.</p>
+            </div>
+            {renderPill(`${wafProfile?.recentIncidents.length ?? 0} incidents`, (wafProfile?.blockedCount24Hours ?? 0) > 0 ? 'red' : 'blue')}
+          </div>
+          <div className="mt-5 space-y-3">
+            {wafProfile?.recentIncidents.length ? wafProfile.recentIncidents.map((incident) => (
+              <div key={`${incident.auditLogId}-${incident.detectedAt}`} className="rounded-2xl border border-slate-200 bg-slate-50/80 p-4 dark:border-slate-700 dark:bg-slate-800/55">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <div className="font-semibold text-slate-900 dark:text-white">{incident.ruleCode || 'WAF rule'}</div>
+                    <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">{incident.method} {incident.requestPath}</div>
+                  </div>
+                  {renderPill(incident.outcome, incident.outcome === 'BLOCKED' ? 'red' : 'amber')}
+                </div>
+                <div className="mt-3 grid gap-2 text-xs text-slate-500 dark:text-slate-400 md:grid-cols-2">
+                  <div>Mode: {incident.mode}</div>
+                  <div>IP: {incident.ipAddress || 'Not captured'}</div>
+                  <div>User agent: {incident.userAgent || 'Not captured'}</div>
+                  <div>Time: {formatDateTime(incident.detectedAt)}</div>
+                </div>
+                {incident.description && <div className="mt-3 text-sm text-slate-600 dark:text-slate-300">{incident.description}</div>}
+              </div>
+            )) : <div className="rounded-2xl border border-dashed border-slate-300 px-4 py-8 text-center text-sm text-slate-500 dark:border-slate-700 dark:text-slate-400">No WAF incidents have been recorded yet.</div>}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
   return (
     <div className="space-y-6 text-slate-900 dark:text-white">
       <section className="screen-hero p-6 sm:p-8">
@@ -479,6 +671,7 @@ export default function SecurityOperationsHub({ userPermissions }: { userPermiss
             { id: 'overview', label: 'Overview' },
             { id: 'registry', label: 'Terminal Registry' },
             { id: 'investigations', label: 'Investigations' },
+            { id: 'waf', label: 'WAF' },
             { id: 'setup', label: 'Terminal Setup' },
           ] as Array<{ id: SecurityTab; label: string }>).map((tab) => (
             <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`px-4 py-2.5 text-sm font-medium transition ${activeTab === tab.id ? 'screen-tab screen-tab-active' : 'screen-tab'}`}>{tab.label}</button>
@@ -489,6 +682,7 @@ export default function SecurityOperationsHub({ userPermissions }: { userPermiss
       {activeTab === 'overview' && renderOverview()}
       {activeTab === 'registry' && renderRegistry()}
       {activeTab === 'investigations' && renderInvestigations()}
+      {activeTab === 'waf' && renderWaf()}
       {activeTab === 'setup' && renderSetup()}
     </div>
   );

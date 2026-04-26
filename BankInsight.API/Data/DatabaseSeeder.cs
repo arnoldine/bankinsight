@@ -7,6 +7,7 @@ using BankInsight.API.Entities;
 using BankInsight.API.Security;
 using BankInsight.API.Services;
 using Microsoft.EntityFrameworkCore;
+using Npgsql;
 
 namespace BankInsight.API.Data;
 
@@ -14,8 +15,16 @@ public static class DatabaseSeeder
 {
     public static async Task SeedAsync(ApplicationDbContext context)
     {
+        var environmentName = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") ?? string.Empty;
+        var isNonProductionEnvironment =
+            environmentName.Equals("Development", StringComparison.OrdinalIgnoreCase) ||
+            environmentName.Equals("Testing", StringComparison.OrdinalIgnoreCase);
         var seedDemoData = string.Equals(
             Environment.GetEnvironmentVariable("SEED_DEMO_DATA"),
+            "true",
+            StringComparison.OrdinalIgnoreCase);
+        var seedDefaultAdmin = isNonProductionEnvironment || string.Equals(
+            Environment.GetEnvironmentVariable("SEED_DEFAULT_ADMIN"),
             "true",
             StringComparison.OrdinalIgnoreCase);
 
@@ -23,7 +32,12 @@ public static class DatabaseSeeder
         await EnsureBranchVaultsAsync(context);
         await EnsurePermissionsAsync(context);
         await EnsureRolesAsync(context);
-        await EnsureAdminUserAsync(context);
+
+        if (seedDefaultAdmin)
+        {
+            await EnsureAdminUserAsync(context);
+        }
+
         await EnsureSystemConfigAsync(context);
         await EnsureWorkflowAsync(context);
         await EnsureBankingOSProcessDefinitionsAsync(context);
@@ -34,6 +48,7 @@ public static class DatabaseSeeder
 
         if (seedDemoData)
         {
+            await EnsureDemoClientCustomersAsync(context);
             await EnsureProductsAsync(context);
             await EnsureLoanProductsAsync(context);
             await EnsureGroupLendingSeedDataAsync(context);
@@ -43,6 +58,293 @@ public static class DatabaseSeeder
         }
 
         await BackfillLegacyLoanMetadataAsync(context);
+    }
+
+    private static async Task EnsureDemoClientCustomersAsync(ApplicationDbContext context)
+    {
+        var customerId = "CIF-2604-00001";
+        var customer = await context.Customers.FirstOrDefaultAsync(c => c.Id == customerId);
+        if (customer == null)
+        {
+            customer = new Customer
+            {
+                Id = customerId,
+                Type = "INDIVIDUAL",
+                Name = "Akosua Mensah",
+                Email = "akosua.mensah@bankinsight.local",
+                Phone = "+233240000001",
+                DigitalAddress = "GA-123-4567",
+                GhanaCard = "GHA-123456789-0",
+                KycLevel = "Tier 2",
+                RiskRating = "Low",
+                BranchId = "BR001",
+                CreatedAt = DateTime.UtcNow
+            };
+            context.Customers.Add(customer);
+            await context.SaveChangesAsync();
+        }
+
+        var credential = await context.Set<CustomerCredential>().FirstOrDefaultAsync(c => c.CustomerId == customerId);
+        if (credential == null)
+        {
+            context.Set<CustomerCredential>().Add(new CustomerCredential
+            {
+                Id = "CCRED000001",
+                CustomerId = customerId,
+                LoginEmail = "akosua.mensah@bankinsight.local",
+                PasswordHash = BCrypt.Net.BCrypt.HashPassword("ClientPass123!"),
+                IsActive = true,
+                MfaEnabled = true,
+                CreatedAt = DateTime.UtcNow
+            });
+            await context.SaveChangesAsync();
+        }
+        else if (string.IsNullOrWhiteSpace(credential.TransactionPinHash))
+        {
+            credential.TransactionPinHash = BCrypt.Net.BCrypt.HashPassword("1234");
+            await context.SaveChangesAsync();
+        }
+
+        var requiredAccounts = new[]
+        {
+            new Account
+            {
+                Id = "ACC-CLIENT-001",
+                CustomerId = customerId,
+                BranchId = "BR001",
+                ProductCode = "PRD_SAVINGS",
+                Type = "SAVINGS",
+                Currency = "GHS",
+                Balance = 12500m,
+                Status = "ACTIVE",
+                LastTransDate = DateTime.UtcNow.AddDays(-1),
+                CreatedAt = DateTime.UtcNow.AddMonths(-10)
+            },
+            new Account
+            {
+                Id = "ACC-CLIENT-002",
+                CustomerId = customerId,
+                BranchId = "BR001",
+                ProductCode = "PRD_SAVINGS",
+                Type = "CURRENT",
+                Currency = "GHS",
+                Balance = 4600m,
+                Status = "ACTIVE",
+                LastTransDate = DateTime.UtcNow.AddDays(-2),
+                CreatedAt = DateTime.UtcNow.AddMonths(-6)
+            },
+            new Account
+            {
+                Id = "FD-CLIENT-001",
+                CustomerId = customerId,
+                BranchId = "BR001",
+                ProductCode = "PRD_SAVINGS",
+                Type = "FIXED_DEPOSIT",
+                Currency = "GHS",
+                Balance = 3000m,
+                Status = "ACTIVE",
+                LastTransDate = DateTime.UtcNow.AddDays(-15),
+                CreatedAt = DateTime.UtcNow.AddMonths(-2)
+            }
+        };
+
+        var existingAccountIds = await context.Accounts
+            .Where(a => requiredAccounts.Select(r => r.Id).Contains(a.Id))
+            .Select(a => a.Id)
+            .ToListAsync();
+
+        foreach (var account in requiredAccounts.Where(account => !existingAccountIds.Contains(account.Id)))
+        {
+            context.Accounts.Add(account);
+        }
+
+        var merchants = new[]
+        {
+            new Customer
+            {
+                Id = "MERCHANT-ECG",
+                Type = "BUSINESS",
+                Name = "ECG Bills",
+                Email = "ecg@bankinsight.local",
+                Phone = "+233240000200",
+                BranchId = "BR001",
+                KycLevel = "Tier 2",
+                RiskRating = "Low",
+                Sector = "Utilities",
+                CreatedAt = DateTime.UtcNow
+            },
+            new Customer
+            {
+                Id = "MERCHANT-DSTV",
+                Type = "BUSINESS",
+                Name = "DStv Ghana",
+                Email = "dstv@bankinsight.local",
+                Phone = "+233240000201",
+                BranchId = "BR001",
+                KycLevel = "Tier 2",
+                RiskRating = "Low",
+                Sector = "Media",
+                CreatedAt = DateTime.UtcNow
+            },
+            new Customer
+            {
+                Id = "MERCHANT-SHOP",
+                Type = "BUSINESS",
+                Name = "Market Square Stores",
+                Email = "market@bankinsight.local",
+                Phone = "+233240000202",
+                BranchId = "BR001",
+                KycLevel = "Tier 2",
+                RiskRating = "Low",
+                Sector = "Retail",
+                CreatedAt = DateTime.UtcNow
+            }
+        };
+
+        foreach (var merchant in merchants)
+        {
+            if (!await context.Customers.AnyAsync(c => c.Id == merchant.Id))
+            {
+                context.Customers.Add(merchant);
+            }
+        }
+
+        var merchantAccounts = new[]
+        {
+            new Account
+            {
+                Id = "ACC-MERCHANT-ECG",
+                CustomerId = "MERCHANT-ECG",
+                BranchId = "BR001",
+                ProductCode = "PRD_SAVINGS",
+                Type = "CURRENT",
+                Currency = "GHS",
+                Balance = 8000m,
+                Status = "ACTIVE",
+                CreatedAt = DateTime.UtcNow.AddMonths(-8)
+            },
+            new Account
+            {
+                Id = "ACC-MERCHANT-DSTV",
+                CustomerId = "MERCHANT-DSTV",
+                BranchId = "BR001",
+                ProductCode = "PRD_SAVINGS",
+                Type = "CURRENT",
+                Currency = "GHS",
+                Balance = 9500m,
+                Status = "ACTIVE",
+                CreatedAt = DateTime.UtcNow.AddMonths(-8)
+            },
+            new Account
+            {
+                Id = "ACC-MERCHANT-SHOP",
+                CustomerId = "MERCHANT-SHOP",
+                BranchId = "BR001",
+                ProductCode = "PRD_SAVINGS",
+                Type = "CURRENT",
+                Currency = "GHS",
+                Balance = 6200m,
+                Status = "ACTIVE",
+                CreatedAt = DateTime.UtcNow.AddMonths(-8)
+            }
+        };
+
+        var existingMerchantAccountIds = await context.Accounts
+            .Where(a => merchantAccounts.Select(r => r.Id).Contains(a.Id))
+            .Select(a => a.Id)
+            .ToListAsync();
+
+        foreach (var account in merchantAccounts.Where(account => !existingMerchantAccountIds.Contains(account.Id)))
+        {
+            context.Accounts.Add(account);
+        }
+
+        var businessCustomerId = "CIF-2604-BIZ01";
+        var businessCustomer = await context.Customers.FirstOrDefaultAsync(c => c.Id == businessCustomerId);
+        if (businessCustomer == null)
+        {
+            businessCustomer = new Customer
+            {
+                Id = businessCustomerId,
+                Type = "BUSINESS",
+                Name = "Adansi Traders Ltd",
+                Email = "adansi.traders@bankinsight.local",
+                Phone = "+233240000301",
+                DigitalAddress = "GA-567-8890",
+                BusinessRegNo = "CS024560124",
+                Tin = "C0004567891",
+                Sector = "Retail",
+                LegalForm = "LIMITED_COMPANY",
+                KycLevel = "Tier 2",
+                RiskRating = "Low",
+                BranchId = "BR001",
+                CreatedAt = DateTime.UtcNow
+            };
+            context.Customers.Add(businessCustomer);
+            await context.SaveChangesAsync();
+        }
+
+        var businessCredential = await context.Set<CustomerCredential>()
+            .FirstOrDefaultAsync(c => c.CustomerId == businessCustomerId);
+        if (businessCredential == null)
+        {
+            context.Set<CustomerCredential>().Add(new CustomerCredential
+            {
+                Id = "CCRED000301",
+                CustomerId = businessCustomerId,
+                LoginEmail = "adansi.traders@bankinsight.local",
+                PasswordHash = BCrypt.Net.BCrypt.HashPassword("ClientPass123!"),
+                IsActive = true,
+                MfaEnabled = true,
+                CreatedAt = DateTime.UtcNow
+            });
+        }
+        else if (string.IsNullOrWhiteSpace(businessCredential.TransactionPinHash))
+        {
+            businessCredential.TransactionPinHash = BCrypt.Net.BCrypt.HashPassword("1234");
+        }
+
+        if (!await context.Accounts.AnyAsync(a => a.Id == "ACC-BIZ-001"))
+        {
+            context.Accounts.Add(new Account
+            {
+                Id = "ACC-BIZ-001",
+                CustomerId = businessCustomerId,
+                BranchId = "BR001",
+                ProductCode = "PRD_SAVINGS",
+                Type = "CURRENT",
+                Currency = "GHS",
+                Balance = 18250m,
+                Status = "ACTIVE",
+                LastTransDate = DateTime.UtcNow.AddDays(-1),
+                CreatedAt = DateTime.UtcNow.AddMonths(-5)
+            });
+        }
+
+        await context.SaveChangesAsync();
+
+        if (!await context.Set<ClientMerchantProfile>().AnyAsync(m => m.Id == "CMP-BIZ-001"))
+        {
+            context.Set<ClientMerchantProfile>().Add(new ClientMerchantProfile
+            {
+                Id = "CMP-BIZ-001",
+                CustomerId = businessCustomerId,
+                SettlementAccountId = "ACC-BIZ-001",
+                MerchantCode = "BIZ-ADANSI",
+                DisplayName = "Adansi Traders",
+                Category = "Retail",
+                Currency = "GHS",
+                Status = "ACTIVE",
+                QrScheme = "BANKINSIGHT_QR",
+                QrPayload = "bankinsight://merchant-pay?scheme=BANKINSIGHT_QR&merchantCode=BIZ-ADANSI&profileId=CMP-BIZ-001&currency=GHS",
+                GhQrReady = false,
+                AcceptsAppPayments = true,
+                CreatedAt = DateTime.UtcNow.AddDays(-7),
+                UpdatedAt = DateTime.UtcNow.AddDays(-1)
+            });
+        }
+
+        await context.SaveChangesAsync();
     }
 
     private static async Task EnsureBranchesAsync(ApplicationDbContext context)
@@ -1354,32 +1656,41 @@ public static class DatabaseSeeder
 
     private static async Task BackfillLegacyLoanMetadataAsync(ApplicationDbContext context)
     {
-        var defaultRetailLoanProductId = await context.Products
-            .Where(p => p.Type == "LOAN" && p.Status == "ACTIVE")
-            .OrderBy(p => p.Id)
-            .Select(p => p.Id)
-            .FirstOrDefaultAsync();
-
-        if (string.IsNullOrWhiteSpace(defaultRetailLoanProductId))
+        try
         {
+            var defaultRetailLoanProductId = await context.Products
+                .Where(p => p.Type == "LOAN" && p.Status == "ACTIVE")
+                .OrderBy(p => p.Id)
+                .Select(p => p.Id)
+                .FirstOrDefaultAsync();
+
+            if (string.IsNullOrWhiteSpace(defaultRetailLoanProductId))
+            {
+                return;
+            }
+
+            var legacyLoans = await context.Loans
+                .Where(l => string.IsNullOrWhiteSpace(l.ProductCode) && !string.IsNullOrWhiteSpace(l.LoanProductId))
+                .ToListAsync();
+
+            if (legacyLoans.Count == 0)
+            {
+                return;
+            }
+
+            foreach (var loan in legacyLoans)
+            {
+                loan.ProductCode = defaultRetailLoanProductId;
+            }
+
+            await context.SaveChangesAsync();
+        }
+        catch (PostgresException ex) when (ex.SqlState == PostgresErrorCodes.UndefinedColumn)
+        {
+            // Older databases can lag behind the current loan schema; skip this
+            // compatibility backfill so startup stays available until migrations catch up.
             return;
         }
-
-        var legacyLoans = await context.Loans
-            .Where(l => string.IsNullOrWhiteSpace(l.ProductCode) && !string.IsNullOrWhiteSpace(l.LoanProductId))
-            .ToListAsync();
-
-        if (legacyLoans.Count == 0)
-        {
-            return;
-        }
-
-        foreach (var loan in legacyLoans)
-        {
-            loan.ProductCode = defaultRetailLoanProductId;
-        }
-
-        await context.SaveChangesAsync();
     }
 
     private static async Task EnsureGroupLendingSeedDataAsync(ApplicationDbContext context)

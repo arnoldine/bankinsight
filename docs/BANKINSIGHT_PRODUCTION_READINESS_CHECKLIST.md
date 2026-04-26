@@ -97,6 +97,11 @@ The release is ready only when all of the following are true:
 - `BankOfGhana:FxRatesUrl` is configured in the production API environment.
 - Any production API base URL used by the frontend is correct.
 - Environment-specific secrets are not hardcoded in the frontend bundle.
+- Expo public variables for the client channel are set explicitly for the target environment.
+- `EXPO_PUBLIC_SHOW_DEV_OTP` is disabled in every non-local environment.
+- The mobile/web client no longer relies on source-level API URL edits to change environments.
+- Development-only API startup switches such as `SKIP_DB_MIGRATIONS=true` are not enabled in staging or production.
+- Demo-seeding flags such as `SEED_DEMO_DATA=true` are disabled outside local preview environments.
 
 ## Error Handling And UX
 
@@ -112,6 +117,7 @@ The release is ready only when all of the following are true:
 - Operators know where to inspect API logs if the frontend surfaces errors.
 - Support staff have the current user manuals and role guides.
 - A rollback path is documented for the deployed frontend image or build.
+- Operators know how to confirm the client-channel API health endpoint and customer-auth endpoints after deployment.
 
 ## Browser Coverage
 
@@ -127,6 +133,17 @@ The release is ready only when all of the following are true:
 - Test users and roles used during validation
 - Known non-blocking issues, if any
 - Deployer name and deployment timestamp
+
+## Client Channel Gaps To Close Before Release
+
+- Remove development OTP exposure from all login, registration, reset, and step-up flows.
+- Replace development email-only OTP assumptions with the approved production MFA factor strategy.
+- Review and apply the client-channel database migration chain without relying on migration-skip startup flags.
+- Move complaint attachments out of inline payload storage into scanned, access-controlled object storage.
+- Add regulator-ready complaint evidence export, SLA automation, and operational dashboards.
+- Complete customer-safe statement artifact generation and download auditing.
+- Complete KYC refresh, review, and compliance escalation flows for the mobile client.
+- Run Android and iOS device signoff in addition to the web preview signoff.
 
 ## Final Signoff
 

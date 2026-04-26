@@ -81,6 +81,8 @@ import InvestmentPortfolio from '../../components/InvestmentPortfolio';
 import FxRateManagement from '../../components/FxRateManagement';
 import FxTradingDesk from '../../components/FxTradingDesk';
 import FintechPlatformHub from './FintechPlatformHub';
+import ClientKycReviewQueue from './ClientKycReviewQueue';
+import DigitalBankingHub from './DigitalBankingHub';
 
 interface MenuItem {
   id: string;
@@ -803,6 +805,7 @@ export default function EnhancedDashboardLayout({
           subItems: [
             { id: 'clients-list', label: 'Client List', icon: <Users size={16} />, permission: Permissions.Customers.View },
             { id: 'clients-onboard', label: 'Onboarding', icon: <UserPlus size={16} />, permission: Permissions.Customers.Create },
+            { id: 'clients-kyc-review', label: 'KYC Review', icon: <UploadCloud size={16} />, permission: Permissions.Customers.View },
           ],
         },
         {
@@ -837,6 +840,12 @@ export default function EnhancedDashboardLayout({
           id: 'transactions',
           label: 'Transactions',
           icon: <ArrowRightLeft size={18} />,
+          permission: Permissions.Accounts.View,
+        },
+        {
+          id: 'digital-banking',
+          label: 'Digital Banking',
+          icon: <Activity size={18} />,
           permission: Permissions.Accounts.View,
         },
         {
@@ -1208,6 +1217,12 @@ export default function EnhancedDashboardLayout({
             />
           </ProtectedRoute>
         );
+      case 'clients-kyc-review':
+        return (
+          <ProtectedRoute requiredPermission={Permissions.Customers.View} userPermissions={userPermissions}>
+            <ClientKycReviewQueue canReview={hasPermission(Permissions.Customers.Edit)} />
+          </ProtectedRoute>
+        );
       case 'accounts-list':
         return (
           <ProtectedRoute requiredPermission={Permissions.Accounts.View} userPermissions={userPermissions}>
@@ -1575,6 +1590,18 @@ export default function EnhancedDashboardLayout({
         return (
           <ProtectedRoute requiredPermission={Permissions.Accounts.View} userPermissions={userPermissions}>
             <FintechPlatformHub initialTab="reconciliation" />
+          </ProtectedRoute>
+        );
+      case 'digital-banking':
+        return (
+          <ProtectedRoute requiredPermission={Permissions.Accounts.View} userPermissions={userPermissions}>
+            <DigitalBankingHub
+              customers={customers}
+              accounts={accounts}
+              loans={loans}
+              onRefreshAccounts={loadRetailAccounts}
+              onRefreshLoans={loadLoans}
+            />
           </ProtectedRoute>
         );
       case 'reporting':

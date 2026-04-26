@@ -1,6 +1,6 @@
 import { httpClient } from './httpClient';
 import { API_ENDPOINTS } from './apiConfig';
-import { DeviceScanResult, FailedLoginAttempt, IrregularTransaction, SecurityAlert, SecurityDevice, SecuritySession, SecuritySummary } from '../../types';
+import { DeviceScanResult, FailedLoginAttempt, IrregularTransaction, SecurityAlert, SecurityDevice, SecuritySession, SecuritySummary, WafProfile } from '../../types';
 
 class SecurityService {
   async getSummary(hours: number = 24): Promise<SecuritySummary> {
@@ -40,6 +40,14 @@ class SecurityService {
 
   async getIrregularTransactions(hours: number = 72, limit: number = 50): Promise<IrregularTransaction[]> {
     return httpClient.get<IrregularTransaction[]>(`${API_ENDPOINTS.security.irregularTransactions}?hours=${hours}&limit=${limit}`);
+  }
+
+  async getWafProfile(incidentLimit: number = 25): Promise<WafProfile> {
+    return httpClient.get<WafProfile>(`${API_ENDPOINTS.security.waf}?incidentLimit=${incidentLimit}`);
+  }
+
+  async updateWafProfile(payload: Partial<WafProfile>): Promise<WafProfile> {
+    return httpClient.put<WafProfile>(API_ENDPOINTS.security.waf, payload);
   }
 }
 

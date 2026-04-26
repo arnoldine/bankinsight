@@ -59,11 +59,15 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseNpgsql(connectionString));
 
 builder.Services.AddScoped<AuthService>();
+builder.Services.AddScoped<ClientAuthService>();
 builder.Services.AddScoped<AccountService>();
 builder.Services.AddScoped<ApprovalService>();
 builder.Services.AddScoped<ConfigService>();
 builder.Services.AddScoped<BankingOSMetadataService>();
 builder.Services.AddScoped<CustomerService>();
+builder.Services.AddScoped<ClientChannelService>();
+builder.Services.AddScoped<IClientFileStorageService, ClientFileStorageService>();
+builder.Services.AddScoped<IClientFileSecurityService, ClientFileSecurityService>();
 builder.Services.AddScoped<DataMigrationService>();
 builder.Services.AddScoped<GlService>();
 builder.Services.AddScoped<GroupService>();
@@ -72,6 +76,7 @@ builder.Services.AddScoped<LoanService>();
 builder.Services.AddScoped<OperationsService>();
 builder.Services.AddScoped<PaymentOperationsService>();
 builder.Services.AddHostedService<EodSchedulerHostedService>();
+builder.Services.AddHostedService<ClientFileScanHostedService>();
 builder.Services.AddScoped<ILoanAccountingPostingService, LoanAccountingPostingService>();
 builder.Services.AddScoped<IFeeService, FeeService>();
 builder.Services.AddScoped<ProductService>();
@@ -101,6 +106,8 @@ builder.Services.AddScoped<ILoginAttemptService, LoginAttemptService>();
 builder.Services.AddScoped<IAuditLoggingService, AuditLoggingService>();
 builder.Services.AddScoped<IKycService, KycService>();
 builder.Services.AddScoped<ICreditBureauService, CreditBureauService>();
+builder.Services.AddScoped<IInternalCreditScoringService, InternalCreditScoringService>();
+builder.Services.AddScoped<ICreditBureauProvider, XdsCreditBureauProvider>();
 builder.Services.AddScoped<ICreditBureauProvider, HttpCreditBureauProvider>();
 if (builder.Environment.IsDevelopment() || builder.Environment.IsEnvironment("Testing"))
 {
@@ -126,6 +133,7 @@ builder.Services.AddScoped<IFxRateService, FxRateService>();
 builder.Services.AddScoped<ITreasuryPositionService, TreasuryPositionService>();
 builder.Services.AddScoped<IFxTradingService, FxTradingService>();
 builder.Services.AddScoped<IInvestmentService, InvestmentService>();
+builder.Services.AddScoped<DigitalBankingService>();
 builder.Services.AddScoped<IRiskAnalyticsService, RiskAnalyticsService>();
 builder.Services.AddHttpClient(); // For Bank of Ghana API integration
 builder.Services.Configure<FintechProviderOptions>(builder.Configuration.GetSection("FintechProviders"));
@@ -176,6 +184,8 @@ builder.Services.AddAntiforgery(options =>
 
 var issuer = builder.Configuration["JwtSettings:Issuer"] ?? "BankInsight";
 var audience = builder.Configuration["JwtSettings:Audience"] ?? "BankInsightAPI";
+var clientIssuer = builder.Configuration["JwtSettings:ClientIssuer"] ?? "BankInsightClientAuth";
+var clientAudience = builder.Configuration["JwtSettings:ClientAudience"] ?? "BankInsightClientAPI";
 
 builder.Services.AddAuthentication(options =>
 {
@@ -212,6 +222,22 @@ builder.Services.AddAuthentication(options =>
         ValidateLifetime = true,
         ClockSkew = TimeSpan.Zero
     };
+})
+.AddJwtBearer("Client", options =>
+{
+    options.RequireHttpsMetadata = !builder.Environment.IsDevelopment();
+    options.SaveToken = true;
+    options.TokenValidationParameters = new TokenValidationParameters
+    {
+        ValidateIssuerSigningKey = true,
+        IssuerSigningKey = new SymmetricSecurityKey(jwtSecretBytes),
+        ValidateIssuer = true,
+        ValidIssuer = clientIssuer,
+        ValidateAudience = true,
+        ValidAudience = clientAudience,
+        ValidateLifetime = true,
+        ClockSkew = TimeSpan.Zero
+    };
 });
 
 builder.Services.AddHttpContextAccessor();
@@ -219,7 +245,16 @@ builder.Services.AddScoped<ICurrentUserContext, CurrentUserContext>();
 builder.Services.AddSingleton<IAuthorizationPolicyProvider, PermissionPolicyProvider>();
 builder.Services.AddScoped<IAuthorizationHandler, PermissionAuthorizationHandler>();
 
-builder.Services.AddAuthorization();
+builder.Services.AddAuthorization(options =>
+{
+    options.AddPolicy("ClientCustomer", policy =>
+    {
+        policy.RequireAuthenticatedUser();
+        policy.AddAuthenticationSchemes("Client");
+        policy.RequireClaim("actor_type", "customer");
+        policy.RequireClaim("token_family", "client_channel");
+    });
+});
 builder.Services.AddControllers();
 builder.Services.AddResponseCompression(options =>
 {
@@ -268,6 +303,15 @@ builder.Services.AddSwaggerGen(c =>
 });
 
 var app = builder.Build();
+var skipAutomaticMigrations = string.Equals(
+    builder.Configuration["SKIP_DB_MIGRATIONS"] ?? Environment.GetEnvironmentVariable("SKIP_DB_MIGRATIONS"),
+    "true",
+    StringComparison.OrdinalIgnoreCase);
+var enableSchemaBootstrap = string.Equals(
+    builder.Configuration["ENABLE_SCHEMA_BOOTSTRAP"] ?? Environment.GetEnvironmentVariable("ENABLE_SCHEMA_BOOTSTRAP"),
+    "true",
+    StringComparison.OrdinalIgnoreCase);
+var allowUnsafeStartupShortcuts = app.Environment.IsDevelopment() || app.Environment.IsEnvironment("Testing");
 
 using (var scope = app.Services.CreateScope())
 {
@@ -287,11 +331,30 @@ using (var scope = app.Services.CreateScope())
     }
     else
     {
-        await db.Database.MigrateAsync();
-        await DatabaseSchemaBootstrapper.EnsureAsync(db);
+        if (skipAutomaticMigrations && !allowUnsafeStartupShortcuts)
+        {
+            throw new InvalidOperationException("SKIP_DB_MIGRATIONS is only allowed in Development or Testing environments.");
+        }
+
+        if (enableSchemaBootstrap && !allowUnsafeStartupShortcuts)
+        {
+            throw new InvalidOperationException("ENABLE_SCHEMA_BOOTSTRAP is only allowed in Development or Testing environments.");
+        }
+
+        if (!skipAutomaticMigrations)
+        {
+            await db.Database.MigrateAsync();
+        }
+
+        if (allowUnsafeStartupShortcuts || enableSchemaBootstrap)
+        {
+            await DatabaseSchemaBootstrapper.EnsureAsync(db);
+        }
+
         await DatabaseSeeder.SeedAsync(db);
 
-        if (string.Equals(builder.Configuration["Persistence:Provider"], "Postgres", StringComparison.OrdinalIgnoreCase))
+        if (!skipAutomaticMigrations &&
+            string.Equals(builder.Configuration["Persistence:Provider"], "Postgres", StringComparison.OrdinalIgnoreCase))
         {
             var hybridDb = scope.ServiceProvider.GetRequiredService<HybridTransferDbContext>();
             await hybridDb.Database.MigrateAsync();

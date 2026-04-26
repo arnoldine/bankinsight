@@ -343,7 +343,7 @@ public class GroupLendingControllerTests : IntegrationTestBase
         });
         var responseBody = await response.Content.ReadAsStringAsync();
         response.StatusCode.Should().Be(HttpStatusCode.OK, responseBody);
-        responseBody.Should().Contain("restructuredFlag", StringComparison.OrdinalIgnoreCase);
+        responseBody.ToLowerInvariant().Should().Contain("restructuredflag");
         responseBody.Should().Contain("true");
 
         var scheduleResponse = await Client.GetAsync($"/api/group-lending/loans/{scenario.FirstLoanAccount.LoanAccountId}/schedule");
@@ -599,4 +599,5 @@ public class GroupLendingControllerTests : IntegrationTestBase
         public GroupLoanAccount? FirstLoanAccount { get; set; }
     }
 }
+
 

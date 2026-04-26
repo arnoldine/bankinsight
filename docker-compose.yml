@@ -27,6 +27,8 @@ services:
       ASPNETCORE_URLS: http://+:8080
       DB_CONNECTION_STRING: Host=postgres;Database=bankinsight;Username=postgres;Password=postgres
       JWT_SECRET: bankinsight_dev_secret_must_be_at_least_32_characters_long_in_production_use_env_var
+      SEED_DEMO_DATA: "true"
+      SKIP_DB_MIGRATIONS: "true"
       Security__IpWhitelist__Enabled: "false"
     depends_on:
       postgres:
@@ -76,5 +78,3 @@ services:
 
 volumes:
   postgres_data:
-
-

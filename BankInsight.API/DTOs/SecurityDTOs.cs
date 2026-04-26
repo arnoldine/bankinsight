@@ -36,6 +36,10 @@ public class SecuritySummaryDto
     public int RestrictedDevices { get; set; }
     public int RevokedDevices { get; set; }
     public int ActiveSessions { get; set; }
+    public bool WafEnabled { get; set; }
+    public string WafMode { get; set; } = "DETECTION";
+    public int WafDetectedCount { get; set; }
+    public int WafBlockedCount { get; set; }
     public string MinimumSupportedVersion { get; set; } = "2.0.0";
     public DateTime GeneratedAt { get; set; }
 }
@@ -140,4 +144,52 @@ public class TransactionIrregularityDto
     public string? Status { get; set; }
     public DateTime TransactionDate { get; set; }
     public DateTime DetectedAt { get; set; }
+}
+
+public class WafIncidentDto
+{
+    public int AuditLogId { get; set; }
+    public string Action { get; set; } = string.Empty;
+    public string Outcome { get; set; } = string.Empty;
+    public string Mode { get; set; } = "DETECTION";
+    public string RuleCode { get; set; } = string.Empty;
+    public string Method { get; set; } = string.Empty;
+    public string RequestPath { get; set; } = string.Empty;
+    public string? IpAddress { get; set; }
+    public string? UserAgent { get; set; }
+    public string? Description { get; set; }
+    public DateTime DetectedAt { get; set; }
+}
+
+public class WafProfileDto
+{
+    public bool Enabled { get; set; }
+    public string Mode { get; set; } = "DETECTION";
+    public int MaxRequestBodyBytes { get; set; } = 262144;
+    public bool BlockSqlInjection { get; set; } = true;
+    public bool BlockXss { get; set; } = true;
+    public bool BlockPathTraversal { get; set; } = true;
+    public bool BlockBadBots { get; set; } = true;
+    public List<string> ProtectedPaths { get; set; } = new();
+    public List<string> TrustedIps { get; set; } = new();
+    public List<string> BlockedUserAgents { get; set; } = new();
+    public int DetectedCount24Hours { get; set; }
+    public int BlockedCount24Hours { get; set; }
+    public DateTime? UpdatedAt { get; set; }
+    public DateTime GeneratedAt { get; set; }
+    public IReadOnlyList<WafIncidentDto> RecentIncidents { get; set; } = Array.Empty<WafIncidentDto>();
+}
+
+public class UpdateWafProfileRequest
+{
+    public bool Enabled { get; set; }
+    public string Mode { get; set; } = "DETECTION";
+    public int MaxRequestBodyBytes { get; set; } = 262144;
+    public bool BlockSqlInjection { get; set; } = true;
+    public bool BlockXss { get; set; } = true;
+    public bool BlockPathTraversal { get; set; } = true;
+    public bool BlockBadBots { get; set; } = true;
+    public List<string>? ProtectedPaths { get; set; }
+    public List<string>? TrustedIps { get; set; }
+    public List<string>? BlockedUserAgents { get; set; }
 }

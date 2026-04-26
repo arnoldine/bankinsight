@@ -229,13 +229,37 @@ public class CreditCheckDto
     public string CustomerId { get; set; } = string.Empty;
     public string? LoanId { get; set; }
     public int Score { get; set; }
+    public int? BureauScore { get; set; }
+    public int InternalScore { get; set; }
+    public int CompositeScore { get; set; }
+    public decimal ProbabilityGood { get; set; }
     public string RiskBand { get; set; } = "UNKNOWN";
     public string RiskGrade { get; set; } = "UNKNOWN";
     public string Decision { get; set; } = "REVIEW";
     public string Recommendation { get; set; } = string.Empty;
     public string ProviderName { get; set; } = string.Empty;
     public string InquiryReference { get; set; } = string.Empty;
+    public string AssessmentSource { get; set; } = "INTERNAL_ML";
+    public string InternalDecision { get; set; } = "REVIEW";
+    public string? BureauDecision { get; set; }
+    public string ModelVersion { get; set; } = "ml-credit-v1";
+    public int TrainingSampleCount { get; set; }
+    public string? BureauStatus { get; set; }
+    public string? BureauFailureReason { get; set; }
+    public Dictionary<string, decimal> FeatureSummary { get; set; } = new();
     public DateTime CheckedAt { get; set; }
+}
+
+public class CreditScoringModelStatusDto
+{
+    public bool ModelReady { get; set; }
+    public string ModelVersion { get; set; } = "ml-credit-v1";
+    public DateTime? TrainedAtUtc { get; set; }
+    public int TrainingSampleCount { get; set; }
+    public int PositiveSampleCount { get; set; }
+    public int NegativeSampleCount { get; set; }
+    public bool HeuristicFallbackEnabled { get; set; }
+    public string StatusMessage { get; set; } = string.Empty;
 }
 
 public class GenerateLoanScheduleRequest

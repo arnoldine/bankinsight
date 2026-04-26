@@ -290,7 +290,10 @@ namespace BankInsight.API.Services
 
             foreach (var glAccount in glAccounts)
             {
-                if (!balancesByAccount.TryGetValue(glAccount.Code, out var balance) || balance == 0)
+                var hasJournalBalance = balancesByAccount.TryGetValue(glAccount.Code, out var journalBalance);
+                var balance = hasJournalBalance ? journalBalance : glAccount.Balance;
+
+                if (balance == 0)
                 {
                     continue;
                 }

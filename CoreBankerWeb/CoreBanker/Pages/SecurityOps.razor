@@ -8,11 +8,11 @@
         <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
             <div>
                 <MudText Typo="Typo.h4">Security Operations</MudText>
-                <MudText Typo="Typo.body2" Class="mud-text-secondary">Monitor alerts, devices, suspicious activity, and active sessions from the operational security control room.</MudText>
+                <MudText Typo="Typo.body2" Class="mud-text-secondary">Monitor alerts, sessions, terminal posture, and the web application firewall from one operational control room.</MudText>
             </div>
             <MudStack Row="true" Spacing="2">
                 <MudButton Variant="Variant.Outlined" Color="Color.Warning" Disabled="@_isScanning" OnClick="ScanOutdatedDevicesAsync">Scan Outdated</MudButton>
-                <MudButton Variant="Variant.Outlined" Color="Color.Secondary" OnClick="LoadWorkspaceAsync">Refresh</MudButton>
+                <MudButton Variant="Variant.Outlined" Color="Color.Secondary" Disabled="@_isSavingWaf" OnClick="LoadWorkspaceAsync">Refresh</MudButton>
             </MudStack>
         </MudStack>
     </MudPaper>
@@ -28,10 +28,12 @@
     }
 
     <MudGrid>
-        <MudItem xs="12" sm="6" md="3"><MudCard><MudCardContent><MudText Typo="Typo.subtitle2">Security Alerts</MudText><MudText Typo="Typo.h5">@(_summary?.SecurityAlertCount ?? 0)</MudText></MudCardContent></MudCard></MudItem>
-        <MudItem xs="12" sm="6" md="3"><MudCard><MudCardContent><MudText Typo="Typo.subtitle2">Failed Logins</MudText><MudText Typo="Typo.h5">@(_summary?.FailedLoginCount ?? 0)</MudText></MudCardContent></MudCard></MudItem>
-        <MudItem xs="12" sm="6" md="3"><MudCard><MudCardContent><MudText Typo="Typo.subtitle2">Active Sessions</MudText><MudText Typo="Typo.h5">@(_summary?.ActiveSessions ?? 0)</MudText></MudCardContent></MudCard></MudItem>
-        <MudItem xs="12" sm="6" md="3"><MudCard><MudCardContent><MudText Typo="Typo.subtitle2">Outdated Devices</MudText><MudText Typo="Typo.h5">@(_summary?.OutdatedDevices ?? 0)</MudText></MudCardContent></MudCard></MudItem>
+        <MudItem xs="12" sm="6" md="2"><MudCard><MudCardContent><MudText Typo="Typo.subtitle2">Security Alerts</MudText><MudText Typo="Typo.h5">@(_summary?.SecurityAlertCount ?? 0)</MudText></MudCardContent></MudCard></MudItem>
+        <MudItem xs="12" sm="6" md="2"><MudCard><MudCardContent><MudText Typo="Typo.subtitle2">Failed Logins</MudText><MudText Typo="Typo.h5">@(_summary?.FailedLoginCount ?? 0)</MudText></MudCardContent></MudCard></MudItem>
+        <MudItem xs="12" sm="6" md="2"><MudCard><MudCardContent><MudText Typo="Typo.subtitle2">Active Sessions</MudText><MudText Typo="Typo.h5">@(_summary?.ActiveSessions ?? 0)</MudText></MudCardContent></MudCard></MudItem>
+        <MudItem xs="12" sm="6" md="2"><MudCard><MudCardContent><MudText Typo="Typo.subtitle2">Outdated Devices</MudText><MudText Typo="Typo.h5">@(_summary?.OutdatedDevices ?? 0)</MudText></MudCardContent></MudCard></MudItem>
+        <MudItem xs="12" sm="6" md="2"><MudCard><MudCardContent><MudText Typo="Typo.subtitle2">WAF Detections</MudText><MudText Typo="Typo.h5">@(_summary?.WafDetectedCount ?? 0)</MudText></MudCardContent></MudCard></MudItem>
+        <MudItem xs="12" sm="6" md="2"><MudCard><MudCardContent><MudText Typo="Typo.subtitle2">WAF Blocks</MudText><MudText Typo="Typo.h5">@(_summary?.WafBlockedCount ?? 0)</MudText></MudCardContent></MudCard></MudItem>
     </MudGrid>
 
     <MudTabs Rounded="true">
@@ -87,23 +89,90 @@
                         else
                         {
                             <MudText Typo="Typo.body2">@_selectedDevice.Name</MudText>
-                            <MudText Typo="Typo.caption" Class="mud-text-secondary">@DisplayValue(_selectedDevice.BranchName ?? _selectedDevice.BranchId) • @_selectedDevice.RiskLevel</MudText>
+                            <MudText Typo="Typo.caption" Class="mud-text-secondary">@DisplayValue(_selectedDevice.BranchName ?? _selectedDevice.BranchId) | @_selectedDevice.RiskLevel</MudText>
                             <MudDivider Class="my-3" />
                             <MudText Typo="Typo.body2">Lifecycle: @_selectedDevice.LifecycleState</MudText>
                             <MudText Typo="Typo.body2">Block Reason: @DisplayValue(_selectedDevice.BlockReason)</MudText>
                             <MudText Typo="Typo.body2">Last Seen: @(_selectedDevice.LastSeenAt?.ToLocalTime().ToString("dd MMM yyyy HH:mm") ?? "Not recorded")</MudText>
 
                             <MudSelect @bind-Value="_deviceAction" Label="Action" Variant="Variant.Outlined" Class="mt-3">
-                                <MudSelectItem Value="@("FLAG")">Flag</MudSelectItem>
-                                <MudSelectItem Value="@("BLOCK")">Block</MudSelectItem>
-                                <MudSelectItem Value="@("UNBLOCK")">Unblock</MudSelectItem>
+                                <MudSelectItem Value="@("ALLOW")">Allow</MudSelectItem>
                                 <MudSelectItem Value="@("MONITOR")">Monitor</MudSelectItem>
-                                <MudSelectItem Value="@("PATCH")">Patch</MudSelectItem>
+                                <MudSelectItem Value="@("FLAG")">Flag</MudSelectItem>
+                                <MudSelectItem Value="@("RESTRICT")">Restrict</MudSelectItem>
+                                <MudSelectItem Value="@("REVOKE")">Revoke</MudSelectItem>
                             </MudSelect>
                             <MudTextField @bind-Value="_deviceReason" Label="Reason" Variant="Variant.Outlined" Class="mt-3" />
                             <MudTextField @bind-Value="_deviceSoftwareVersion" Label="Software version (optional)" Variant="Variant.Outlined" Class="mt-3" />
                             <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="mt-3" Disabled="@_isActingOnDevice" OnClick="ExecuteDeviceActionAsync">Apply Action</MudButton>
                         }
+                    </MudPaper>
+                </MudItem>
+            </MudGrid>
+        </MudTabPanel>
+
+        <MudTabPanel Text="WAF">
+            <MudGrid>
+                <MudItem xs="12" lg="5">
+                    <MudPaper Class="pa-4">
+                        <MudStack Spacing="2">
+                            <MudText Typo="Typo.subtitle1">Web Application Firewall</MudText>
+                            <MudText Typo="Typo.body2" Class="mud-text-secondary">Protect high-risk API surfaces with detection or prevention mode and review the latest blocked or detected requests.</MudText>
+
+                            <MudSwitch @bind-Value="_wafDraft.Enabled" Color="Color.Primary" Label="Enable WAF runtime enforcement" />
+                            <MudSelect @bind-Value="_wafDraft.Mode" Label="Mode" Variant="Variant.Outlined">
+                                <MudSelectItem Value="@("DETECTION")">Detection</MudSelectItem>
+                                <MudSelectItem Value="@("PREVENTION")">Prevention</MudSelectItem>
+                            </MudSelect>
+                            <MudNumericField T="int" @bind-Value="_wafDraft.MaxRequestBodyBytes" Label="Max request body bytes" Variant="Variant.Outlined" Min="1024" Max="10485760" />
+
+                            <MudSwitch @bind-Value="_wafDraft.BlockSqlInjection" Color="Color.Primary" Label="Detect SQL injection patterns" />
+                            <MudSwitch @bind-Value="_wafDraft.BlockXss" Color="Color.Primary" Label="Detect XSS patterns" />
+                            <MudSwitch @bind-Value="_wafDraft.BlockPathTraversal" Color="Color.Primary" Label="Detect path traversal patterns" />
+                            <MudSwitch @bind-Value="_wafDraft.BlockBadBots" Color="Color.Primary" Label="Detect scanner and bot user-agents" />
+
+                            <MudTextField @bind-Value="_wafProtectedPathsText" Label="Protected paths" Variant="Variant.Outlined" Lines="3" HelperText="One path prefix per line, for example /api/auth or /api/payments." />
+                            <MudTextField @bind-Value="_wafTrustedIpsText" Label="Trusted IPs" Variant="Variant.Outlined" Lines="2" HelperText="One IP address per line. Trusted IPs bypass WAF evaluation." />
+                            <MudTextField @bind-Value="_wafBlockedUserAgentsText" Label="Blocked user-agents" Variant="Variant.Outlined" Lines="3" HelperText="One signature per line, for example sqlmap or nikto." />
+
+                            <MudStack Row="true" Spacing="2" Class="mt-2">
+                                <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="@_isSavingWaf" OnClick="SaveWafProfileAsync">Save WAF Policy</MudButton>
+                                <MudButton Variant="Variant.Outlined" Color="Color.Secondary" Disabled="@_isLoading" OnClick="ReloadWafAsync">Reload</MudButton>
+                            </MudStack>
+                        </MudStack>
+                    </MudPaper>
+                </MudItem>
+                <MudItem xs="12" lg="7">
+                    <MudGrid>
+                        <MudItem xs="12" sm="6" md="4"><MudCard><MudCardContent><MudText Typo="Typo.subtitle2">Mode</MudText><MudText Typo="Typo.h6">@(_wafProfile?.Mode ?? "DETECTION")</MudText></MudCardContent></MudCard></MudItem>
+                        <MudItem xs="12" sm="6" md="4"><MudCard><MudCardContent><MudText Typo="Typo.subtitle2">Detected (24h)</MudText><MudText Typo="Typo.h6">@(_wafProfile?.DetectedCount24Hours ?? 0)</MudText></MudCardContent></MudCard></MudItem>
+                        <MudItem xs="12" sm="6" md="4"><MudCard><MudCardContent><MudText Typo="Typo.subtitle2">Blocked (24h)</MudText><MudText Typo="Typo.h6">@(_wafProfile?.BlockedCount24Hours ?? 0)</MudText></MudCardContent></MudCard></MudItem>
+                    </MudGrid>
+
+                    <MudPaper Class="pa-4 mt-4">
+                        <MudText Typo="Typo.subtitle1">Recent WAF Incidents</MudText>
+                        <MudTable T="CoreBanker.Services.WafIncidentDto" Items="@(_wafProfile?.RecentIncidents ?? Array.Empty<CoreBanker.Services.WafIncidentDto>())" Hover="true" Dense="true" Loading="@_isLoading">
+                            <HeaderContent>
+                                <MudTh>Outcome</MudTh>
+                                <MudTh>Rule</MudTh>
+                                <MudTh>Route</MudTh>
+                                <MudTh>IP</MudTh>
+                                <MudTh>Date</MudTh>
+                            </HeaderContent>
+                            <RowTemplate>
+                                <MudTd DataLabel="Outcome">@context.Outcome</MudTd>
+                                <MudTd DataLabel="Rule">@DisplayValue(context.RuleCode)</MudTd>
+                                <MudTd DataLabel="Route">
+                                    <MudText Typo="Typo.body2">@DisplayValue(context.RequestPath)</MudText>
+                                    <MudText Typo="Typo.caption" Class="mud-text-secondary">@context.Method</MudText>
+                                </MudTd>
+                                <MudTd DataLabel="IP">@DisplayValue(context.IpAddress)</MudTd>
+                                <MudTd DataLabel="Date">@context.DetectedAt.ToLocalTime().ToString("dd MMM yyyy HH:mm")</MudTd>
+                            </RowTemplate>
+                            <NoRecordsContent>
+                                <MudText Typo="Typo.body2" Class="mud-text-secondary pa-4">No WAF incidents recorded yet.</MudText>
+                            </NoRecordsContent>
+                        </MudTable>
                     </MudPaper>
                 </MudItem>
             </MudGrid>
@@ -180,6 +249,11 @@
     private List<CoreBanker.Services.TransactionIrregularityDto> _irregularities = new();
     private List<CoreBanker.Services.SecuritySessionDto> _sessions = new();
     private CoreBanker.Services.SecurityDeviceDto? _selectedDevice;
+    private CoreBanker.Services.WafProfileDto? _wafProfile;
+    private CoreBanker.Services.UpdateWafProfileRequest _wafDraft = new();
+    private string _wafProtectedPathsText = string.Empty;
+    private string _wafTrustedIpsText = string.Empty;
+    private string _wafBlockedUserAgentsText = string.Empty;
     private string _deviceAction = "FLAG";
     private string _deviceReason = string.Empty;
     private string _deviceSoftwareVersion = string.Empty;
@@ -189,6 +263,7 @@
     private bool _isLoading;
     private bool _isScanning;
     private bool _isActingOnDevice;
+    private bool _isSavingWaf;
 
     protected override async Task OnInitializedAsync()
     {
@@ -208,8 +283,9 @@
             var failedLoginsTask = SecurityService.GetFailedLoginsAsync();
             var irregularitiesTask = SecurityService.GetIrregularTransactionsAsync();
             var sessionsTask = SecurityService.GetSessionsAsync();
+            var wafTask = SecurityService.GetWafProfileAsync();
 
-            await Task.WhenAll(summaryTask, alertsTask, devicesTask, failedLoginsTask, irregularitiesTask, sessionsTask);
+            await Task.WhenAll(summaryTask, alertsTask, devicesTask, failedLoginsTask, irregularitiesTask, sessionsTask, wafTask);
 
             _summary = summaryTask.Result;
             _alerts = alertsTask.Result;
@@ -217,10 +293,16 @@
             _failedLogins = failedLoginsTask.Result;
             _irregularities = irregularitiesTask.Result;
             _sessions = sessionsTask.Result;
+            _wafProfile = wafTask.Result;
 
             if (_selectedDevice is not null)
             {
                 _selectedDevice = _devices.FirstOrDefault(device => device.Id == _selectedDevice.Id);
+            }
+
+            if (_wafProfile is not null)
+            {
+                ApplyWafProfile(_wafProfile);
             }
         }
         catch (CoreBanker.Services.ApiClientException ex)
@@ -230,6 +312,77 @@
         finally
         {
             _isLoading = false;
+        }
+    }
+
+    private async Task ReloadWafAsync()
+    {
+        try
+        {
+            _wafProfile = await SecurityService.GetWafProfileAsync();
+            if (_wafProfile is not null)
+            {
+                ApplyWafProfile(_wafProfile);
+            }
+        }
+        catch (CoreBanker.Services.ApiClientException ex)
+        {
+            _workspaceSuccess = false;
+            _workspaceMessage = ex.Message;
+        }
+    }
+
+    private void ApplyWafProfile(CoreBanker.Services.WafProfileDto profile)
+    {
+        _wafDraft = new CoreBanker.Services.UpdateWafProfileRequest
+        {
+            Enabled = profile.Enabled,
+            Mode = profile.Mode,
+            MaxRequestBodyBytes = profile.MaxRequestBodyBytes,
+            BlockSqlInjection = profile.BlockSqlInjection,
+            BlockXss = profile.BlockXss,
+            BlockPathTraversal = profile.BlockPathTraversal,
+            BlockBadBots = profile.BlockBadBots,
+            ProtectedPaths = profile.ProtectedPaths.ToList(),
+            TrustedIps = profile.TrustedIps.ToList(),
+            BlockedUserAgents = profile.BlockedUserAgents.ToList(),
+        };
+
+        _wafProtectedPathsText = string.Join(Environment.NewLine, _wafDraft.ProtectedPaths);
+        _wafTrustedIpsText = string.Join(Environment.NewLine, _wafDraft.TrustedIps);
+        _wafBlockedUserAgentsText = string.Join(Environment.NewLine, _wafDraft.BlockedUserAgents);
+    }
+
+    private async Task SaveWafProfileAsync()
+    {
+        _isSavingWaf = true;
+        _workspaceMessage = string.Empty;
+
+        try
+        {
+            _wafDraft.ProtectedPaths = ParseLines(_wafProtectedPathsText);
+            _wafDraft.TrustedIps = ParseLines(_wafTrustedIpsText);
+            _wafDraft.BlockedUserAgents = ParseLines(_wafBlockedUserAgentsText);
+
+            var updated = await SecurityService.UpdateWafProfileAsync(_wafDraft);
+            if (updated is not null)
+            {
+                _wafProfile = updated;
+                ApplyWafProfile(updated);
+            }
+
+            _workspaceSuccess = true;
+            _workspaceMessage = "WAF policy saved successfully.";
+            await LoadWorkspaceAsync();
+        }
+        catch (CoreBanker.Services.ApiClientException ex)
+        {
+            _workspaceSuccess = false;
+            _workspaceMessage = ex.Message;
+        }
+        finally
+        {
+            _isSavingWaf = false;
         }
     }
 
@@ -294,6 +447,14 @@
         {
             _isActingOnDevice = false;
         }
+    }
+
+    private static List<string> ParseLines(string value)
+    {
+        return value
+            .Split(new[] { "\r\n", "\n" }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
     }
 
     private static string DisplayValue(string? value)

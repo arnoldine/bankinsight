@@ -290,6 +290,14 @@ public class LoanController : ControllerBase
         return Ok(result);
     }
 
+    [HttpGet("credit-scoring/status")]
+    [HasPermission(BankInsight.API.Security.AppPermissions.Loans.View)]
+    public async Task<IActionResult> GetCreditScoringStatus()
+    {
+        var result = await _loanService.GetCreditScoringModelStatusAsync();
+        return Ok(result);
+    }
+
     [HttpGet("{id}/schedule")]
     [HasPermission(BankInsight.API.Security.AppPermissions.Loans.View)]
     public async Task<IActionResult> GetLoanSchedule(string id)

@@ -53,6 +53,10 @@ namespace BankInsight.API.Migrations
                         .HasColumnType("character varying(50)")
                         .HasColumnName("customer_id");
 
+                    b.Property<bool>("IsConfidential")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_confidential");
+
                     b.Property<DateTime?>("LastTransDate")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("last_trans_date");
@@ -60,6 +64,11 @@ namespace BankInsight.API.Migrations
                     b.Property<decimal>("LienAmount")
                         .HasColumnType("numeric")
                         .HasColumnName("lien_amount");
+
+                    b.Property<string>("OwnerStaffId")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("owner_staff_id");
 
                     b.Property<string>("ProductCode")
                         .HasMaxLength(50)
@@ -83,6 +92,8 @@ namespace BankInsight.API.Migrations
                     b.HasIndex("BranchId");
 
                     b.HasIndex("CustomerId");
+
+                    b.HasIndex("OwnerStaffId");
 
                     b.HasIndex("ProductCode");
 
@@ -512,6 +523,154 @@ namespace BankInsight.API.Migrations
                     b.ToTable("branch_vaults");
                 });
 
+            modelBuilder.Entity("BankInsight.API.Entities.BulkPaymentBatch", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("id");
+
+                    b.Property<string>("BatchReference")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("batch_reference");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("Currency")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)")
+                        .HasColumnName("currency");
+
+                    b.Property<int>("FailedCount")
+                        .HasColumnType("integer")
+                        .HasColumnName("failed_count");
+
+                    b.Property<int>("ItemCount")
+                        .HasColumnType("integer")
+                        .HasColumnName("item_count");
+
+                    b.Property<string>("Narration")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("narration");
+
+                    b.Property<decimal>("ProcessedAmount")
+                        .HasColumnType("numeric")
+                        .HasColumnName("processed_amount");
+
+                    b.Property<DateTime?>("ProcessedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("processed_at");
+
+                    b.Property<int>("ProcessedCount")
+                        .HasColumnType("integer")
+                        .HasColumnName("processed_count");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("status");
+
+                    b.Property<string>("SubmittedBy")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("submitted_by");
+
+                    b.Property<decimal>("TotalAmount")
+                        .HasColumnType("numeric")
+                        .HasColumnName("total_amount");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BatchReference")
+                        .IsUnique();
+
+                    b.ToTable("bulk_payment_batches");
+                });
+
+            modelBuilder.Entity("BankInsight.API.Entities.BulkPaymentItem", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("id");
+
+                    b.Property<string>("AccountId")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("account_id");
+
+                    b.Property<decimal>("Amount")
+                        .HasColumnType("numeric")
+                        .HasColumnName("amount");
+
+                    b.Property<string>("BatchId")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("batch_id");
+
+                    b.Property<string>("ClientReference")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("client_reference");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("ErrorMessage")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)")
+                        .HasColumnName("error_message");
+
+                    b.Property<string>("Narration")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("narration");
+
+                    b.Property<string>("PostedTransactionId")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("posted_transaction_id");
+
+                    b.Property<DateTime?>("ProcessedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("processed_at");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("status");
+
+                    b.Property<string>("TellerId")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("teller_id");
+
+                    b.Property<string>("TransactionType")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("transaction_type");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AccountId");
+
+                    b.HasIndex("BatchId", "Status");
+
+                    b.ToTable("bulk_payment_items");
+                });
+
             modelBuilder.Entity("BankInsight.API.Entities.CashIncident", b =>
                 {
                     b.Property<string>("Id")
@@ -596,6 +755,553 @@ namespace BankInsight.API.Migrations
                     b.HasIndex("ResolvedBy");
 
                     b.ToTable("cash_incidents");
+                });
+
+            modelBuilder.Entity("BankInsight.API.Entities.ChequeBookInventory", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("id");
+
+                    b.Property<string>("AccountId")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("account_id");
+
+                    b.Property<int>("AvailableLeafCount")
+                        .HasColumnType("integer")
+                        .HasColumnName("available_leaf_count");
+
+                    b.Property<string>("BookReference")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("book_reference");
+
+                    b.Property<string>("BranchId")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("branch_id");
+
+                    b.Property<int>("CancelledLeafCount")
+                        .HasColumnType("integer")
+                        .HasColumnName("cancelled_leaf_count");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CustomerId")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("customer_id");
+
+                    b.Property<long>("EndSerialNumber")
+                        .HasColumnType("bigint")
+                        .HasColumnName("end_serial_number");
+
+                    b.Property<DateTime?>("IssuedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("issued_at");
+
+                    b.Property<string>("IssuedBy")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("issued_by");
+
+                    b.Property<int>("LeafCount")
+                        .HasColumnType("integer")
+                        .HasColumnName("leaf_count");
+
+                    b.Property<string>("Remarks")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("remarks");
+
+                    b.Property<string>("SeriesPrefix")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("series_prefix");
+
+                    b.Property<long>("StartSerialNumber")
+                        .HasColumnType("bigint")
+                        .HasColumnName("start_serial_number");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("status");
+
+                    b.Property<int>("UsedLeafCount")
+                        .HasColumnType("integer")
+                        .HasColumnName("used_leaf_count");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AccountId");
+
+                    b.HasIndex("BookReference")
+                        .IsUnique();
+
+                    b.HasIndex("CustomerId");
+
+                    b.HasIndex("Status", "BranchId");
+
+                    b.ToTable("cheque_book_inventories");
+                });
+
+            modelBuilder.Entity("BankInsight.API.Entities.ChequeBookLeaf", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("id");
+
+                    b.Property<string>("AccountId")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("account_id");
+
+                    b.Property<string>("BookId")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("book_id");
+
+                    b.Property<string>("CancelReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("cancel_reason");
+
+                    b.Property<string>("ChequeNumber")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("cheque_number");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<long>("SerialNumber")
+                        .HasColumnType("bigint")
+                        .HasColumnName("serial_number");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("status");
+
+                    b.Property<DateTime?>("UsedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("used_at");
+
+                    b.Property<string>("UsedTransactionId")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("used_transaction_id");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AccountId");
+
+                    b.HasIndex("ChequeNumber")
+                        .IsUnique();
+
+                    b.HasIndex("BookId", "Status");
+
+                    b.ToTable("cheque_book_leaves");
+                });
+
+            modelBuilder.Entity("BankInsight.API.Entities.ChequeClearingItem", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("id");
+
+                    b.Property<string>("AccountId")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("account_id");
+
+                    b.Property<decimal>("Amount")
+                        .HasColumnType("numeric")
+                        .HasColumnName("amount");
+
+                    b.Property<string>("BogRegulatoryClass")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("bog_regulatory_class");
+
+                    b.Property<string>("ChequeNumber")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("cheque_number");
+
+                    b.Property<DateTime?>("ClearedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("cleared_at");
+
+                    b.Property<string>("ClearingChannel")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("clearing_channel");
+
+                    b.Property<DateOnly>("ClearingDate")
+                        .HasColumnType("date")
+                        .HasColumnName("clearing_date");
+
+                    b.Property<string>("Currency")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)")
+                        .HasColumnName("currency");
+
+                    b.Property<string>("DraweeBankCode")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("drawee_bank_code");
+
+                    b.Property<string>("DrawerAccountNumber")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("drawer_account_number");
+
+                    b.Property<string>("DrawerName")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("drawer_name");
+
+                    b.Property<string>("FailureReason")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)")
+                        .HasColumnName("failure_reason");
+
+                    b.Property<int>("HoldDays")
+                        .HasColumnType("integer")
+                        .HasColumnName("hold_days");
+
+                    b.Property<bool>("IsOtherBankCheque")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_other_bank_cheque");
+
+                    b.Property<DateTime>("LodgedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("lodged_at");
+
+                    b.Property<string>("LodgedBy")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("lodged_by");
+
+                    b.Property<string>("Narration")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("narration");
+
+                    b.Property<string>("PostedTransactionId")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("posted_transaction_id");
+
+                    b.Property<string>("PresentingBankCode")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("presenting_bank_code");
+
+                    b.Property<string>("ReturnReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("return_reason");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("status");
+
+                    b.Property<string>("TransactionType")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("transaction_type");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AccountId");
+
+                    b.HasIndex("ChequeNumber");
+
+                    b.HasIndex("Status", "ClearingDate");
+
+                    b.ToTable("cheque_clearing_items");
+                });
+
+            modelBuilder.Entity("BankInsight.API.Entities.ClientChannelSession", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("id");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CustomerCredentialId")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("customer_credential_id");
+
+                    b.Property<string>("CustomerId")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("customer_id");
+
+                    b.Property<DateTime>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("expires_at");
+
+                    b.Property<string>("IpAddress")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("ip_address");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_active");
+
+                    b.Property<DateTime>("LastActivity")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("last_activity");
+
+                    b.Property<DateTime?>("LogoutAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("logout_at");
+
+                    b.Property<string>("RefreshToken")
+                        .HasColumnType("text")
+                        .HasColumnName("refresh_token");
+
+                    b.Property<string>("Token")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("token");
+
+                    b.Property<string>("UserAgent")
+                        .HasColumnType("text")
+                        .HasColumnName("user_agent");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CustomerCredentialId");
+
+                    b.HasIndex("CustomerId", "IsActive", "LastActivity");
+
+                    b.ToTable("client_channel_sessions");
+                });
+
+            modelBuilder.Entity("BankInsight.API.Entities.ClientComplaint", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("id");
+
+                    b.Property<string>("Category")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("category");
+
+                    b.Property<DateTime?>("ClosedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("closed_at");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CustomerId")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("customer_id");
+
+                    b.Property<string>("Details")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("details");
+
+                    b.Property<string>("OwnerTeam")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("owner_team");
+
+                    b.Property<string>("Reference")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("reference");
+
+                    b.Property<DateTime>("SlaDueAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("sla_due_at");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("status");
+
+                    b.Property<string>("SubmittedByUserId")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("submitted_by_user_id");
+
+                    b.Property<string>("Summary")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasColumnName("summary");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Reference")
+                        .IsUnique();
+
+                    b.HasIndex("CustomerId", "Status", "UpdatedAt");
+
+                    b.ToTable("client_complaints");
+                });
+
+            modelBuilder.Entity("BankInsight.API.Entities.ClientComplaintAttachment", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("id");
+
+                    b.Property<string>("ComplaintId")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("complaint_id");
+
+                    b.Property<string>("ContentType")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("content_type");
+
+                    b.Property<string>("DataUrl")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("data_url");
+
+                    b.Property<string>("FileName")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasColumnName("file_name");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("status");
+
+                    b.Property<DateTime>("UploadedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("uploaded_at");
+
+                    b.Property<string>("UploadedBy")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("uploaded_by");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ComplaintId", "UploadedAt");
+
+                    b.ToTable("client_complaint_attachments");
+                });
+
+            modelBuilder.Entity("BankInsight.API.Entities.ClientComplaintEvent", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("id");
+
+                    b.Property<string>("ActorId")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("actor_id");
+
+                    b.Property<string>("ActorName")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("actor_name");
+
+                    b.Property<string>("ComplaintId")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("complaint_id");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("description");
+
+                    b.Property<string>("EventType")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("event_type");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)")
+                        .HasColumnName("title");
+
+                    b.Property<string>("Visibility")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("visibility");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ComplaintId", "CreatedAt");
+
+                    b.ToTable("client_complaint_events");
                 });
 
             modelBuilder.Entity("BankInsight.API.Entities.CreditBureauCheck", b =>
@@ -835,6 +1541,124 @@ namespace BankInsight.API.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("customers");
+                });
+
+            modelBuilder.Entity("BankInsight.API.Entities.CustomerCredential", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("id");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CustomerId")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("customer_id");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_active");
+
+                    b.Property<DateTime?>("LastLoginAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("last_login_at");
+
+                    b.Property<string>("LoginEmail")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("login_email");
+
+                    b.Property<bool>("MfaEnabled")
+                        .HasColumnType("boolean")
+                        .HasColumnName("mfa_enabled");
+
+                    b.Property<string>("PasswordHash")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasColumnName("password_hash");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CustomerId");
+
+                    b.HasIndex("LoginEmail")
+                        .IsUnique();
+
+                    b.ToTable("customer_credentials");
+                });
+
+            modelBuilder.Entity("BankInsight.API.Entities.CustomerMediaAsset", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("id");
+
+                    b.Property<string>("ContentType")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("content_type");
+
+                    b.Property<string>("CustomerId")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("customer_id");
+
+                    b.Property<string>("DataUrl")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("data_url");
+
+                    b.Property<string>("FileName")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasColumnName("file_name");
+
+                    b.Property<long?>("FileSizeBytes")
+                        .HasColumnType("bigint")
+                        .HasColumnName("file_size_bytes");
+
+                    b.Property<string>("MediaSide")
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)")
+                        .HasColumnName("media_side");
+
+                    b.Property<string>("MediaType")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("media_type");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("status");
+
+                    b.Property<DateTime>("UploadedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("uploaded_at");
+
+                    b.Property<string>("UploadedBy")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("uploaded_by");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CustomerId", "MediaType", "MediaSide", "UploadedAt");
+
+                    b.ToTable("customer_media_assets");
                 });
 
             modelBuilder.Entity("BankInsight.API.Entities.DataExtract", b =>
@@ -2267,6 +3091,10 @@ namespace BankInsight.API.Migrations
                         .HasColumnType("character varying(50)")
                         .HasColumnName("investment_type");
 
+                    b.Property<bool>("IsConfidential")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_confidential");
+
                     b.Property<DateTime?>("LastAccrualDate")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("last_accrual_date");
@@ -2288,6 +3116,11 @@ namespace BankInsight.API.Migrations
                         .HasMaxLength(1000)
                         .HasColumnType("character varying(1000)")
                         .HasColumnName("notes");
+
+                    b.Property<string>("OwnerStaffId")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("owner_staff_id");
 
                     b.Property<DateTime>("PlacementDate")
                         .HasColumnType("timestamp with time zone")
@@ -2337,6 +3170,8 @@ namespace BankInsight.API.Migrations
                     b.HasIndex("ApprovedBy");
 
                     b.HasIndex("InitiatedBy");
+
+                    b.HasIndex("OwnerStaffId");
 
                     b.HasIndex("RolloverTo");
 
@@ -2503,6 +3338,11 @@ namespace BankInsight.API.Migrations
                         .HasColumnType("character varying(50)")
                         .HasColumnName("checker_id");
 
+                    b.Property<string>("CollateralAccountId")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("collateral_account_id");
+
                     b.Property<string>("CollateralType")
                         .HasMaxLength(50)
                         .HasColumnType("character varying(50)")
@@ -2536,6 +3376,10 @@ namespace BankInsight.API.Migrations
                         .HasColumnType("character varying(30)")
                         .HasColumnName("interest_method");
 
+                    b.Property<bool>("IsConfidential")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_confidential");
+
                     b.Property<string>("LoanProductId")
                         .HasMaxLength(50)
                         .HasColumnType("character varying(50)")
@@ -2549,6 +3393,11 @@ namespace BankInsight.API.Migrations
                     b.Property<decimal?>("OutstandingBalance")
                         .HasColumnType("numeric")
                         .HasColumnName("outstanding_balance");
+
+                    b.Property<string>("OwnerStaffId")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("owner_staff_id");
 
                     b.Property<string>("ParBucket")
                         .IsRequired()
@@ -2581,6 +3430,11 @@ namespace BankInsight.API.Migrations
                         .HasColumnType("character varying(20)")
                         .HasColumnName("schedule_type");
 
+                    b.Property<string>("ServicingAccountId")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("servicing_account_id");
+
                     b.Property<string>("Status")
                         .IsRequired()
                         .HasMaxLength(20)
@@ -2593,13 +3447,19 @@ namespace BankInsight.API.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("CollateralAccountId");
+
                     b.HasIndex("CustomerId");
 
                     b.HasIndex("GroupId");
 
                     b.HasIndex("LoanProductId");
 
+                    b.HasIndex("OwnerStaffId");
+
                     b.HasIndex("ProductCode");
+
+                    b.HasIndex("ServicingAccountId");
 
                     b.ToTable("loans");
                 });
@@ -3980,6 +4840,94 @@ namespace BankInsight.API.Migrations
                     b.ToTable("products");
                 });
 
+            modelBuilder.Entity("BankInsight.API.Entities.ProductChargeDefinition", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("ApplyOn")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("apply_on");
+
+                    b.Property<string>("CalculationType")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("calculation_type");
+
+                    b.Property<string>("ChargeType")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("charge_type");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("code");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<decimal?>("FlatAmount")
+                        .HasColumnType("numeric")
+                        .HasColumnName("flat_amount");
+
+                    b.Property<string>("IncomeGlCode")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("income_gl_code");
+
+                    b.Property<decimal?>("MaximumAmount")
+                        .HasColumnType("numeric")
+                        .HasColumnName("maximum_amount");
+
+                    b.Property<decimal?>("MinimumAmount")
+                        .HasColumnType("numeric")
+                        .HasColumnName("minimum_amount");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("name");
+
+                    b.Property<string>("ProductId")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("product_id");
+
+                    b.Property<decimal?>("Rate")
+                        .HasColumnType("numeric")
+                        .HasColumnName("rate");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("status");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ProductId", "Code")
+                        .IsUnique();
+
+                    b.ToTable("product_charge_definitions");
+                });
+
             modelBuilder.Entity("BankInsight.API.Entities.ProductEligibilityRule", b =>
                 {
                     b.Property<string>("ProductId")
@@ -4302,6 +5250,77 @@ namespace BankInsight.API.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("report_definitions");
+                });
+
+            modelBuilder.Entity("BankInsight.API.Entities.ReportFavorite", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("ReportCode")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("report_code");
+
+                    b.Property<string>("StaffId")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("staff_id");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("report_favorites");
+                });
+
+            modelBuilder.Entity("BankInsight.API.Entities.ReportFilterPreset", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("ParametersJson")
+                        .IsRequired()
+                        .HasColumnType("jsonb")
+                        .HasColumnName("parameters_json");
+
+                    b.Property<string>("PresetName")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)")
+                        .HasColumnName("preset_name");
+
+                    b.Property<string>("ReportCode")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("report_code");
+
+                    b.Property<string>("StaffId")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("staff_id");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("report_filter_presets");
                 });
 
             modelBuilder.Entity("BankInsight.API.Entities.ReportParameter", b =>
@@ -5155,8 +6174,7 @@ namespace BankInsight.API.Migrations
                         .HasColumnName("logout_at");
 
                     b.Property<string>("RefreshToken")
-                        .HasMaxLength(500)
-                        .HasColumnType("character varying(500)")
+                        .HasColumnType("text")
                         .HasColumnName("refresh_token");
 
                     b.Property<string>("StaffId")
@@ -5167,13 +6185,11 @@ namespace BankInsight.API.Migrations
 
                     b.Property<string>("Token")
                         .IsRequired()
-                        .HasMaxLength(2000)
-                        .HasColumnType("character varying(2000)")
+                        .HasColumnType("text")
                         .HasColumnName("token");
 
                     b.Property<string>("UserAgent")
-                        .HasMaxLength(500)
-                        .HasColumnType("character varying(500)")
+                        .HasColumnType("text")
                         .HasColumnName("user_agent");
 
                     b.HasKey("Id");
@@ -5329,6 +6345,10 @@ namespace BankInsight.API.Migrations
                         .WithMany()
                         .HasForeignKey("CustomerId");
 
+                    b.HasOne("BankInsight.API.Entities.Staff", "OwnerStaff")
+                        .WithMany()
+                        .HasForeignKey("OwnerStaffId");
+
                     b.HasOne("BankInsight.API.Entities.Product", "Product")
                         .WithMany()
                         .HasForeignKey("ProductCode");
@@ -5336,6 +6356,8 @@ namespace BankInsight.API.Migrations
                     b.Navigation("Branch");
 
                     b.Navigation("Customer");
+
+                    b.Navigation("OwnerStaff");
 
                     b.Navigation("Product");
                 });
@@ -5420,6 +6442,25 @@ namespace BankInsight.API.Migrations
                     b.Navigation("LastCountByStaff");
                 });
 
+            modelBuilder.Entity("BankInsight.API.Entities.BulkPaymentItem", b =>
+                {
+                    b.HasOne("BankInsight.API.Entities.Account", "Account")
+                        .WithMany()
+                        .HasForeignKey("AccountId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("BankInsight.API.Entities.BulkPaymentBatch", "Batch")
+                        .WithMany("Items")
+                        .HasForeignKey("BatchId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Account");
+
+                    b.Navigation("Batch");
+                });
+
             modelBuilder.Entity("BankInsight.API.Entities.CashIncident", b =>
                 {
                     b.HasOne("BankInsight.API.Entities.Branch", "Branch")
@@ -5443,6 +6484,101 @@ namespace BankInsight.API.Migrations
                     b.Navigation("ResolvedByStaff");
                 });
 
+            modelBuilder.Entity("BankInsight.API.Entities.ChequeBookInventory", b =>
+                {
+                    b.HasOne("BankInsight.API.Entities.Account", "Account")
+                        .WithMany()
+                        .HasForeignKey("AccountId");
+
+                    b.HasOne("BankInsight.API.Entities.Customer", "Customer")
+                        .WithMany()
+                        .HasForeignKey("CustomerId");
+
+                    b.Navigation("Account");
+
+                    b.Navigation("Customer");
+                });
+
+            modelBuilder.Entity("BankInsight.API.Entities.ChequeBookLeaf", b =>
+                {
+                    b.HasOne("BankInsight.API.Entities.Account", "Account")
+                        .WithMany()
+                        .HasForeignKey("AccountId");
+
+                    b.HasOne("BankInsight.API.Entities.ChequeBookInventory", "Book")
+                        .WithMany("Leaves")
+                        .HasForeignKey("BookId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Account");
+
+                    b.Navigation("Book");
+                });
+
+            modelBuilder.Entity("BankInsight.API.Entities.ChequeClearingItem", b =>
+                {
+                    b.HasOne("BankInsight.API.Entities.Account", "Account")
+                        .WithMany()
+                        .HasForeignKey("AccountId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Account");
+                });
+
+            modelBuilder.Entity("BankInsight.API.Entities.ClientChannelSession", b =>
+                {
+                    b.HasOne("BankInsight.API.Entities.CustomerCredential", "CustomerCredential")
+                        .WithMany()
+                        .HasForeignKey("CustomerCredentialId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("BankInsight.API.Entities.Customer", "Customer")
+                        .WithMany()
+                        .HasForeignKey("CustomerId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Customer");
+
+                    b.Navigation("CustomerCredential");
+                });
+
+            modelBuilder.Entity("BankInsight.API.Entities.ClientComplaint", b =>
+                {
+                    b.HasOne("BankInsight.API.Entities.Customer", "Customer")
+                        .WithMany()
+                        .HasForeignKey("CustomerId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Customer");
+                });
+
+            modelBuilder.Entity("BankInsight.API.Entities.ClientComplaintAttachment", b =>
+                {
+                    b.HasOne("BankInsight.API.Entities.ClientComplaint", "Complaint")
+                        .WithMany("Attachments")
+                        .HasForeignKey("ComplaintId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Complaint");
+                });
+
+            modelBuilder.Entity("BankInsight.API.Entities.ClientComplaintEvent", b =>
+                {
+                    b.HasOne("BankInsight.API.Entities.ClientComplaint", "Complaint")
+                        .WithMany("Events")
+                        .HasForeignKey("ComplaintId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Complaint");
+                });
+
             modelBuilder.Entity("BankInsight.API.Entities.CreditBureauCheck", b =>
                 {
                     b.HasOne("BankInsight.API.Entities.Loan", "Loan")
@@ -5451,6 +6587,28 @@ namespace BankInsight.API.Migrations
                         .OnDelete(DeleteBehavior.SetNull);
 
                     b.Navigation("Loan");
+                });
+
+            modelBuilder.Entity("BankInsight.API.Entities.CustomerCredential", b =>
+                {
+                    b.HasOne("BankInsight.API.Entities.Customer", "Customer")
+                        .WithMany()
+                        .HasForeignKey("CustomerId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Customer");
+                });
+
+            modelBuilder.Entity("BankInsight.API.Entities.CustomerMediaAsset", b =>
+                {
+                    b.HasOne("BankInsight.API.Entities.Customer", "Customer")
+                        .WithMany("MediaAssets")
+                        .HasForeignKey("CustomerId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Customer");
                 });
 
             modelBuilder.Entity("BankInsight.API.Entities.FxTrade", b =>
@@ -5656,6 +6814,10 @@ namespace BankInsight.API.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.HasOne("BankInsight.API.Entities.Staff", "OwnerStaff")
+                        .WithMany()
+                        .HasForeignKey("OwnerStaffId");
+
                     b.HasOne("BankInsight.API.Entities.Investment", "RolloverInvestment")
                         .WithMany()
                         .HasForeignKey("RolloverTo");
@@ -5663,6 +6825,8 @@ namespace BankInsight.API.Migrations
                     b.Navigation("Approver");
 
                     b.Navigation("Initiator");
+
+                    b.Navigation("OwnerStaff");
 
                     b.Navigation("RolloverInvestment");
                 });
@@ -5693,6 +6857,10 @@ namespace BankInsight.API.Migrations
 
             modelBuilder.Entity("BankInsight.API.Entities.Loan", b =>
                 {
+                    b.HasOne("BankInsight.API.Entities.Account", "CollateralAccount")
+                        .WithMany()
+                        .HasForeignKey("CollateralAccountId");
+
                     b.HasOne("BankInsight.API.Entities.Customer", "Customer")
                         .WithMany()
                         .HasForeignKey("CustomerId");
@@ -5706,9 +6874,19 @@ namespace BankInsight.API.Migrations
                         .HasForeignKey("LoanProductId")
                         .OnDelete(DeleteBehavior.Restrict);
 
+                    b.HasOne("BankInsight.API.Entities.Staff", "OwnerStaff")
+                        .WithMany()
+                        .HasForeignKey("OwnerStaffId");
+
                     b.HasOne("BankInsight.API.Entities.Product", "Product")
                         .WithMany()
                         .HasForeignKey("ProductCode");
+
+                    b.HasOne("BankInsight.API.Entities.Account", "ServicingAccount")
+                        .WithMany()
+                        .HasForeignKey("ServicingAccountId");
+
+                    b.Navigation("CollateralAccount");
 
                     b.Navigation("Customer");
 
@@ -5716,7 +6894,11 @@ namespace BankInsight.API.Migrations
 
                     b.Navigation("LoanProduct");
 
+                    b.Navigation("OwnerStaff");
+
                     b.Navigation("Product");
+
+                    b.Navigation("ServicingAccount");
                 });
 
             modelBuilder.Entity("BankInsight.API.Entities.LoanAccount", b =>
@@ -5897,6 +7079,17 @@ namespace BankInsight.API.Migrations
                         .IsRequired();
 
                     b.Navigation("ProcessDefinitionVersion");
+                });
+
+            modelBuilder.Entity("BankInsight.API.Entities.ProductChargeDefinition", b =>
+                {
+                    b.HasOne("BankInsight.API.Entities.Product", "Product")
+                        .WithMany("Charges")
+                        .HasForeignKey("ProductId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Product");
                 });
 
             modelBuilder.Entity("BankInsight.API.Entities.ProductEligibilityRule", b =>
@@ -6090,6 +7283,28 @@ namespace BankInsight.API.Migrations
                     b.Navigation("Ledger");
                 });
 
+            modelBuilder.Entity("BankInsight.API.Entities.BulkPaymentBatch", b =>
+                {
+                    b.Navigation("Items");
+                });
+
+            modelBuilder.Entity("BankInsight.API.Entities.ChequeBookInventory", b =>
+                {
+                    b.Navigation("Leaves");
+                });
+
+            modelBuilder.Entity("BankInsight.API.Entities.ClientComplaint", b =>
+                {
+                    b.Navigation("Attachments");
+
+                    b.Navigation("Events");
+                });
+
+            modelBuilder.Entity("BankInsight.API.Entities.Customer", b =>
+                {
+                    b.Navigation("MediaAssets");
+                });
+
             modelBuilder.Entity("BankInsight.API.Entities.Group", b =>
                 {
                     b.Navigation("Applications");
@@ -6152,6 +7367,8 @@ namespace BankInsight.API.Migrations
 
             modelBuilder.Entity("BankInsight.API.Entities.Product", b =>
                 {
+                    b.Navigation("Charges");
+
                     b.Navigation("EligibilityRule");
 
                     b.Navigation("GroupRule");

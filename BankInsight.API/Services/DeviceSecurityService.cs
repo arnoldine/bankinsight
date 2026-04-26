@@ -514,6 +514,10 @@ public class DeviceSecurityService : IDeviceSecurityService
         var failedLoginCount = await _context.LoginAttempts.CountAsync(attempt => !attempt.Success && attempt.AttemptedAt >= since);
         var securityAlertCount = await _context.AuditLogs.CountAsync(log => log.Action.StartsWith("SECURITY_ALERT_") && log.CreatedAt >= since);
         var largeTransactionAlertCount = await _context.AuditLogs.CountAsync(log => log.Action == "SECURITY_ALERT_LARGE_TRANSACTION" && log.CreatedAt >= since);
+        var wafDetectedCount = await _context.AuditLogs.CountAsync(log => log.Action == "WAF_DETECTED" && log.CreatedAt >= since);
+        var wafBlockedCount = await _context.AuditLogs.CountAsync(log => log.Action == "WAF_BLOCKED" && log.CreatedAt >= since);
+        var wafModeConfig = await _context.SystemConfigs.AsNoTracking().FirstOrDefaultAsync(config => config.Key == "security:waf:mode");
+        var wafEnabledConfig = await _context.SystemConfigs.AsNoTracking().FirstOrDefaultAsync(config => config.Key == "security:waf:enabled");
         var minimumVersion = await GetMinimumSupportedVersionAsync();
         var deviceList = devices.Select(entry => entry.Device).ToList();
 
@@ -535,6 +539,10 @@ public class DeviceSecurityService : IDeviceSecurityService
             RestrictedDevices = deviceList.Count(device => device.LifecycleState == "RESTRICTED" || device.Status is "BLOCKED" or "ISOLATED" or "RESTRICTED"),
             RevokedDevices = deviceList.Count(device => device.LifecycleState == "REVOKED" || device.Status == "REVOKED"),
             ActiveSessions = await _context.UserSessions.CountAsync(session => session.IsActive && session.ExpiresAt > DateTime.UtcNow),
+            WafEnabled = bool.TryParse(wafEnabledConfig?.Value, out var wafEnabled) && wafEnabled,
+            WafMode = string.IsNullOrWhiteSpace(wafModeConfig?.Value) ? "DETECTION" : wafModeConfig!.Value,
+            WafDetectedCount = wafDetectedCount,
+            WafBlockedCount = wafBlockedCount,
             MinimumSupportedVersion = minimumVersion,
             GeneratedAt = DateTime.UtcNow,
         };
