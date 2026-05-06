@@ -49,11 +49,21 @@ const mapApprovalStatus = (status?: string | null): ApprovalRequest['status'] =>
   return 'PENDING';
 };
 
+const mapAgingBand = (createdAt?: string | null): ApprovalRequest['agingBand'] => {
+  const created = createdAt ? new Date(createdAt).getTime() : NaN;
+  if (!Number.isFinite(created)) return 'FRESH';
+  const hours = (Date.now() - created) / (1000 * 60 * 60);
+  if (hours > 72) return 'OVERDUE';
+  if (hours > 24) return 'AGING';
+  return 'FRESH';
+};
+
 const mapApproval = (approval: ApprovalApiModel): ApprovalRequest => ({
   id: approval.id,
   type: mapApprovalType(approval.entityType),
   requesterName: approval.requesterId || 'System',
   requestDate: approval.createdAt,
+  updatedAt: approval.updatedAt,
   description: approval.loanDetails
     ? `${approval.loanDetails.productName || approval.loanDetails.productCode || 'Loan'} for ${approval.loanDetails.customerName || approval.loanDetails.customerId}`
     : approval.workflowName
@@ -63,6 +73,8 @@ const mapApproval = (approval: ApprovalApiModel): ApprovalRequest => ({
   status: mapApprovalStatus(approval.status),
   remarks: approval.remarks || undefined,
   referenceNo: approval.referenceNo || undefined,
+  agingHours: Number.isFinite(new Date(approval.createdAt).getTime()) ? Math.max(0, Math.round(((Date.now() - new Date(approval.createdAt).getTime()) / (1000 * 60 * 60)) * 10) / 10) : undefined,
+  agingBand: mapAgingBand(approval.createdAt),
   payload: {
     entityType: approval.entityType,
     entityId: approval.entityId,

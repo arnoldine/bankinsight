@@ -3,6 +3,7 @@
 @inject CoreBanker.Auth.IAuthStateProvider AuthStateProvider
 @inject CoreBanker.Auth.AuthService AuthService
 @inject CoreBanker.State.AppState AppState
+@inject CoreBanker.Services.WorkspacePreferenceService WorkspacePreferenceService
 @inject NavigationManager Navigation
 
 <MudThemeProvider />
@@ -80,6 +81,18 @@
                         <MudText Typo="Typo.body1" Class="mt-1">@CurrentSubtitle</MudText>
                     </div>
                     <MudStack Row="true" Spacing="1" Class="mt-2 mt-md-0">
+                        <MudButton Variant="Variant.Outlined" Color="Color.Default" StartIcon="@Icons.Material.Filled.Star" OnClick="ToggleFavoriteAsync">
+                            @(IsCurrentRouteFavorite ? "Favorited" : "Favorite")
+                        </MudButton>
+                        <MudButton Variant="Variant.Outlined" Color="Color.Default" StartIcon="@Icons.Material.Filled.BookmarkAdd" OnClick="SaveCurrentViewAsync">
+                            Save View
+                        </MudButton>
+                        @foreach (var view in SavedViews.Take(3))
+                        {
+                            <MudButton Variant="Variant.Text" Color="Color.Default" OnClick="@(() => NavigateTo(view.Route ?? $"/{view.WorkspaceKey}"))">
+                                @view.ViewName
+                            </MudButton>
+                        }
                         @foreach (var shortcut in ShortcutRoutes)
                         {
                             <MudButton Variant="Variant.Outlined" Color="Color.Default" StartIcon="@shortcut.Icon" Class="corebanker-shortcut" OnClick="@(() => NavigateTo(shortcut.Route))">
@@ -97,6 +110,8 @@
 
 @code {
     private bool _drawerOpen = true;
+    private List<CoreBanker.Services.WorkspaceFavoriteVm> FavoriteWorkspaces { get; set; } = new();
+    private List<CoreBanker.Services.WorkspaceSavedViewVm> SavedViews { get; set; } = new();
 
     private CoreBanker.Navigation.AppRouteDefinition? CurrentRoute =>
         CoreBanker.Navigation.AppRouteRegistry.GetByUri(Navigation.Uri);
@@ -104,13 +119,20 @@
     private string CurrentTitle => CurrentRoute?.Title ?? "CoreBanker Workspace";
     private string CurrentSubtitle => CurrentRoute?.Subtitle ?? "Operate the banking platform through a role-aware workspace shell.";
     private string CurrentSectionLabel => CurrentRoute?.Group ?? "Workspace";
+    private bool IsCurrentRouteFavorite => CurrentRoute is not null && FavoriteWorkspaces.Any(item => string.Equals(item.Route, CurrentRoute.Route, StringComparison.OrdinalIgnoreCase) || string.Equals(item.WorkspaceKey, CurrentRoute.Route.Trim('/'), StringComparison.OrdinalIgnoreCase));
     private IReadOnlyList<CoreBanker.Navigation.AppRouteDefinition> ShortcutRoutes =>
-        CoreBanker.Navigation.AppRouteRegistry.GetShortcutRoutes(AuthStateProvider.Permissions);
+        FavoriteWorkspaces.Count > 0
+            ? CoreBanker.Navigation.AppRouteRegistry.GetAccessibleRoutes(AuthStateProvider.Permissions)
+                .Where(route => FavoriteWorkspaces.Any(favorite => string.Equals(favorite.Route, route.Route, StringComparison.OrdinalIgnoreCase) || string.Equals(favorite.WorkspaceKey, route.Route.Trim('/'), StringComparison.OrdinalIgnoreCase)))
+                .Take(6)
+                .ToList()
+            : CoreBanker.Navigation.AppRouteRegistry.GetShortcutRoutes(AuthStateProvider.Permissions);
 
-    protected override void OnInitialized()
+    protected override async Task OnInitializedAsync()
     {
         AppState.Changed += OnAppStateChanged;
         Navigation.LocationChanged += OnLocationChanged;
+        await LoadWorkspacePreferencesAsync();
     }
 
     private void ToggleDrawer()
@@ -138,6 +160,53 @@
     private void DismissWorkspaceMessage()
     {
         AppState.ClearWorkspaceMessage();
+    }
+
+    private async Task LoadWorkspacePreferencesAsync()
+    {
+        try
+        {
+            var summary = await WorkspacePreferenceService.GetSummaryAsync();
+            FavoriteWorkspaces = summary.Favorites;
+            SavedViews = summary.SavedViews;
+        }
+        catch
+        {
+            FavoriteWorkspaces = new();
+            SavedViews = new();
+        }
+    }
+
+    private async Task ToggleFavoriteAsync()
+    {
+        if (CurrentRoute is null)
+        {
+            return;
+        }
+
+        if (IsCurrentRouteFavorite)
+        {
+            await WorkspacePreferenceService.RemoveFavoriteAsync(CurrentRoute.Route.Trim('/'));
+        }
+        else
+        {
+            await WorkspacePreferenceService.SaveFavoriteAsync(CurrentRoute.Route.Trim('/'), CurrentRoute.Route);
+        }
+
+        await LoadWorkspacePreferencesAsync();
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task SaveCurrentViewAsync()
+    {
+        if (CurrentRoute is null)
+        {
+            return;
+        }
+
+        await WorkspacePreferenceService.SaveViewAsync(CurrentRoute.Route.Trim('/'), CurrentRoute.Title, CurrentRoute.Route);
+        await LoadWorkspacePreferencesAsync();
+        await InvokeAsync(StateHasChanged);
     }
 
     private void OnAppStateChanged()

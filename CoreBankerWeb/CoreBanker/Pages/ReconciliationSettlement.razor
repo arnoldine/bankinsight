@@ -1,0 +1,208 @@
+@page "/reconciliation-settlement"
+@inject CoreBanker.Services.PlatformEnhancementService PlatformService
+
+<PageTitle>Reconciliation and Settlement</PageTitle>
+
+<MudStack Spacing="3">
+    <MudPaper Class="pa-4">
+        <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+            <div>
+                <MudText Typo="Typo.overline">Reconciliation and Settlement</MudText>
+                <MudText Typo="Typo.h5">Break management desk</MudText>
+                <MudText Typo="Typo.body2" Class="mud-text-secondary">Track treasury, branch transfer, and cash-control exceptions with governed retry and settlement controls.</MudText>
+            </div>
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="LoadAsync">Refresh</MudButton>
+        </MudStack>
+    </MudPaper>
+
+    @if (_isLoading)
+    {
+        <MudProgressLinear Indeterminate="true" />
+    }
+    else if (!string.IsNullOrWhiteSpace(_error))
+    {
+        <MudAlert Severity="Severity.Error">@_error</MudAlert>
+    }
+    else if (_summary is not null)
+    {
+        <MudGrid>
+            @foreach (var metric in _summary.Metrics)
+            {
+                <MudItem xs="12" md="3">
+                    <MudPaper Class="pa-4">
+                        <MudText Typo="Typo.caption">@metric.Label</MudText>
+                        <MudText Typo="Typo.h6">@metric.Value</MudText>
+                    </MudPaper>
+                </MudItem>
+            }
+        </MudGrid>
+
+        <MudGrid>
+            <MudItem xs="12" lg="7">
+                <MudPaper Class="pa-4">
+                    <MudText Typo="Typo.h6">Open Exceptions</MudText>
+                    <MudTable Items="_summary.Exceptions" Dense="true" Hover="true">
+                        <HeaderContent>
+                            <MudTh>Category</MudTh>
+                            <MudTh>Reference</MudTh>
+                            <MudTh>Workflow</MudTh>
+                            <MudTh>Status</MudTh>
+                            <MudTh>Amount</MudTh>
+                            <MudTh>Retries</MudTh>
+                            <MudTh>Detail</MudTh>
+                            <MudTh></MudTh>
+                        </HeaderContent>
+                        <RowTemplate>
+                            <MudTd>@context.Category</MudTd>
+                            <MudTd>@context.Reference</MudTd>
+                            <MudTd>@(context.WorkflowStage ?? "OPEN")</MudTd>
+                            <MudTd>@context.Status</MudTd>
+                            <MudTd>@FormatMoney(context.Amount, context.Currency)</MudTd>
+                            <MudTd>@context.RetryCount</MudTd>
+                            <MudTd>
+                                <MudText Typo="Typo.body2">@context.Detail</MudText>
+                                <MudText Typo="Typo.caption" Class="mud-text-secondary">
+                                    Last attempt: @FormatDateTime(context.LastAttemptAt) / Resolution: @(context.ResolutionCode ?? "Pending")
+                                </MudText>
+                            </MudTd>
+                            <MudTd>
+                                <MudStack Row="true" Spacing="1">
+                                    @if (!string.Equals(context.Status, "RESOLVED", StringComparison.OrdinalIgnoreCase))
+                                    {
+                                        <MudButton Variant="Variant.Outlined" Size="Size.Small" OnClick="@(() => RetryAsync(context.Id))">Retry</MudButton>
+                                        <MudButton Variant="Variant.Text" Size="Size.Small" OnClick="@(() => ResolveAsync(context.Id))">Resolve</MudButton>
+                                    }
+                                </MudStack>
+                            </MudTd>
+                        </RowTemplate>
+                    </MudTable>
+                </MudPaper>
+            </MudItem>
+
+            <MudItem xs="12" lg="5">
+                <MudPaper Class="pa-4">
+                    <MudText Typo="Typo.h6">Settlement Instruction</MudText>
+                    <MudSelect T="string" Label="Reconciliation Exception" @bind-Value="_settlementRequest.ReconciliationExceptionId" Variant="Variant.Outlined" Class="mt-2">
+                        @foreach (var item in _summary.Exceptions)
+                        {
+                            <MudSelectItem T="string" Value="@item.Id">@($"{item.Reference} / {item.Category}")</MudSelectItem>
+                        }
+                    </MudSelect>
+                    <MudSelect T="string" Label="Instruction Type" @bind-Value="_settlementRequest.InstructionType" Variant="Variant.Outlined" Class="mt-2">
+                        <MudSelectItem T="string" Value="@("MANUAL_SETTLEMENT")">Manual settlement</MudSelectItem>
+                        <MudSelectItem T="string" Value="@("NOSTRO_FUNDING")">Nostro funding</MudSelectItem>
+                        <MudSelectItem T="string" Value="@("REVERSAL_POSTING")">Reversal posting</MudSelectItem>
+                        <MudSelectItem T="string" Value="@("COUNTERPARTY_FOLLOW_UP")">Counterparty follow-up</MudSelectItem>
+                    </MudSelect>
+                    <MudNumericField T="decimal" @bind-Value="_settlementRequest.Amount" Label="Amount" Variant="Variant.Outlined" Class="mt-2" />
+                    <MudTextField T="string" @bind-Value="_settlementRequest.SettlementAccount" Label="Settlement Account" Variant="Variant.Outlined" Class="mt-2" />
+                    <MudTextField T="string" @bind-Value="_settlementRequest.Counterparty" Label="Counterparty" Variant="Variant.Outlined" Class="mt-2" />
+                    <MudDatePicker @bind-Date="_settlementRequest.DueAt" Label="Due Date" Variant="Variant.Outlined" Class="mt-2" />
+                    <MudTextField T="string" @bind-Value="_settlementRequest.Notes" Label="Notes" Variant="Variant.Outlined" Lines="3" Class="mt-2" />
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="mt-3" OnClick="CreateSettlementInstructionAsync">Create Settlement Instruction</MudButton>
+                </MudPaper>
+            </MudItem>
+        </MudGrid>
+
+        <MudPaper Class="pa-4">
+            <MudText Typo="Typo.h6">Settlement Queue</MudText>
+            <MudTable Items="_summary.SettlementInstructions" Dense="true" Hover="true">
+                <HeaderContent>
+                    <MudTh>Type</MudTh>
+                    <MudTh>Status</MudTh>
+                    <MudTh>Amount</MudTh>
+                    <MudTh>Settlement Account</MudTh>
+                    <MudTh>Counterparty</MudTh>
+                    <MudTh>Due</MudTh>
+                </HeaderContent>
+                <RowTemplate>
+                    <MudTd>@context.InstructionType</MudTd>
+                    <MudTd>@context.Status</MudTd>
+                    <MudTd>@FormatMoney(context.Amount, context.Currency)</MudTd>
+                    <MudTd>@(context.SettlementAccount ?? "Not supplied")</MudTd>
+                    <MudTd>@(context.Counterparty ?? "Internal")</MudTd>
+                    <MudTd>@FormatDateTime(context.DueAt)</MudTd>
+                </RowTemplate>
+                <NoRecordsContent>
+                    <MudText Typo="Typo.body2" Class="mud-text-secondary">No settlement instructions created yet.</MudText>
+                </NoRecordsContent>
+            </MudTable>
+        </MudPaper>
+    }
+</MudStack>
+
+@code {
+    private CoreBanker.Services.ReconciliationHubSummaryVm? _summary;
+    private bool _isLoading = true;
+    private string? _error;
+    private CoreBanker.Services.CreateSettlementInstructionRequestVm _settlementRequest = new()
+    {
+        Currency = "GHS",
+        InstructionType = "MANUAL_SETTLEMENT"
+    };
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _isLoading = true;
+        _error = null;
+        try
+        {
+            _summary = await PlatformService.GetReconciliationSummaryAsync();
+            if (_summary is not null && string.IsNullOrWhiteSpace(_settlementRequest.ReconciliationExceptionId))
+            {
+                _settlementRequest.ReconciliationExceptionId = _summary.Exceptions.FirstOrDefault()?.Id ?? string.Empty;
+            }
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private async Task ResolveAsync(string id)
+    {
+        await PlatformService.UpdateReconciliationExceptionAsync(id, new CoreBanker.Services.UpdateReconciliationExceptionRequestVm
+        {
+            Status = "RESOLVED",
+            WorkflowStage = "CLOSED",
+            ResolutionCode = "MANUAL_CLEAR",
+            Detail = "Resolved from CoreBanker reconciliation desk."
+        });
+        await LoadAsync();
+    }
+
+    private async Task RetryAsync(string id)
+    {
+        await PlatformService.RetryReconciliationExceptionAsync(id, new CoreBanker.Services.RetryReconciliationExceptionRequestVm
+        {
+            Detail = "Retry initiated from CoreBanker reconciliation desk."
+        });
+        await LoadAsync();
+    }
+
+    private async Task CreateSettlementInstructionAsync()
+    {
+        await PlatformService.CreateSettlementInstructionAsync(_settlementRequest);
+        _settlementRequest.Amount = 0;
+        _settlementRequest.SettlementAccount = null;
+        _settlementRequest.Counterparty = null;
+        _settlementRequest.DueAt = null;
+        _settlementRequest.Notes = null;
+        await LoadAsync();
+    }
+
+    private static string FormatMoney(decimal amount, string currency)
+        => amount.ToString("N2") + $" {currency}";
+
+    private static string FormatDateTime(DateTime? value)
+        => value?.ToString("dd MMM yyyy HH:mm") ?? "Not set";
+}

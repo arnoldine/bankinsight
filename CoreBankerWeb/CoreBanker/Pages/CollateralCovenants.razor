@@ -1,0 +1,109 @@
+@page "/collateral-covenants"
+@inject CoreBanker.Services.PlatformEnhancementService PlatformService
+
+<PageTitle>Collateral and Covenants</PageTitle>
+
+<MudStack Spacing="3">
+    <MudPaper Class="pa-4">
+        <MudText Typo="Typo.overline">Collateral and Covenant Management</MudText>
+        <MudText Typo="Typo.h5">Security perfection and covenant oversight</MudText>
+        <MudText Typo="Typo.body2" Class="mud-text-secondary">Track collateral valuation expiry, perfection status, custody, and borrower covenant compliance.</MudText>
+    </MudPaper>
+
+    @if (_isLoading)
+    {
+        <MudProgressLinear Indeterminate="true" />
+    }
+    else if (!string.IsNullOrWhiteSpace(_error))
+    {
+        <MudAlert Severity="Severity.Error">@_error</MudAlert>
+    }
+    else if (_summary is not null)
+    {
+        <MudGrid>
+            <MudItem xs="12" md="6"><MudPaper Class="pa-4"><MudText Typo="Typo.caption">Expiring Valuations (30d)</MudText><MudText Typo="Typo.h6">@_summary.ExpiringValuationsCount</MudText></MudPaper></MudItem>
+            <MudItem xs="12" md="6"><MudPaper Class="pa-4"><MudText Typo="Typo.caption">Overdue Covenants</MudText><MudText Typo="Typo.h6">@_summary.OverdueCovenantsCount</MudText></MudPaper></MudItem>
+        </MudGrid>
+
+        <MudPaper Class="pa-4">
+            <MudText Typo="Typo.h6">Collateral Register</MudText>
+            <MudTable Items="_summary.CollateralItems" Dense="true">
+                <HeaderContent>
+                    <MudTh>Customer</MudTh><MudTh>Loan</MudTh><MudTh>Type</MudTh><MudTh>Valuation</MudTh><MudTh>Expiry</MudTh><MudTh>Perfection</MudTh>
+                </HeaderContent>
+                <RowTemplate>
+                    <MudTd>@context.CustomerName</MudTd>
+                    <MudTd>@context.LoanId</MudTd>
+                    <MudTd>@context.CollateralType</MudTd>
+                    <MudTd>@FormatMoney(context.CurrentValuation)</MudTd>
+                    <MudTd>@(context.ValuationExpiryDate?.ToString("dd MMM yyyy") ?? "-")</MudTd>
+                    <MudTd>@context.PerfectionStatus</MudTd>
+                </RowTemplate>
+            </MudTable>
+        </MudPaper>
+
+        <MudPaper Class="pa-4">
+            <MudText Typo="Typo.h6">Covenants</MudText>
+            <MudTable Items="_summary.Covenants" Dense="true">
+                <HeaderContent>
+                    <MudTh>Loan</MudTh><MudTh>Name</MudTh><MudTh>Status</MudTh><MudTh>Due</MudTh><MudTh></MudTh>
+                </HeaderContent>
+                <RowTemplate>
+                    <MudTd>@context.LoanId</MudTd>
+                    <MudTd>@context.Name</MudTd>
+                    <MudTd>@context.Status</MudTd>
+                    <MudTd>@(context.DueDate?.ToString("dd MMM yyyy") ?? "-")</MudTd>
+                    <MudTd>
+                        @if (!string.Equals(context.Status, "SATISFIED", StringComparison.OrdinalIgnoreCase))
+                        {
+                            <MudButton Variant="Variant.Text" OnClick="@(() => MarkReviewedAsync(context.Id))">Mark Reviewed</MudButton>
+                        }
+                    </MudTd>
+                </RowTemplate>
+            </MudTable>
+        </MudPaper>
+    }
+</MudStack>
+
+@code {
+    private CoreBanker.Services.CollateralManagementSummaryVm? _summary;
+    private bool _isLoading = true;
+    private string? _error;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _isLoading = true;
+        _error = null;
+        try
+        {
+            _summary = await PlatformService.GetCollateralSummaryAsync();
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private async Task MarkReviewedAsync(string id)
+    {
+        await PlatformService.UpdateCovenantAsync(id, new CoreBanker.Services.UpdateCovenantRecordRequestVm
+        {
+            Status = "SATISFIED",
+            LastReviewedAt = DateTime.UtcNow,
+            Detail = "Reviewed from CoreBanker collateral workspace."
+        });
+        await LoadAsync();
+    }
+
+    private static string FormatMoney(decimal amount)
+        => amount.ToString("C", System.Globalization.CultureInfo.GetCultureInfo("en-GH"));
+}

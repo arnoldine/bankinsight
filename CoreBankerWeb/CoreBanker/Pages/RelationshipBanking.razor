@@ -1,0 +1,231 @@
+@page "/relationship-banking"
+@inject CoreBanker.Services.PlatformEnhancementService PlatformService
+
+<PageTitle>Relationship Banking</PageTitle>
+
+<MudStack Spacing="3">
+    <MudPaper Class="pa-4">
+        <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+            <div>
+                <MudText Typo="Typo.overline">Relationship Banking</MudText>
+                <MudText Typo="Typo.h5">Customer relationship command center</MudText>
+                <MudText Typo="Typo.body2" Class="mud-text-secondary">Review ownership, profitability, and service pressure across priority customers.</MudText>
+            </div>
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="LoadAsync">Refresh</MudButton>
+        </MudStack>
+    </MudPaper>
+
+    @if (_isLoading)
+    {
+        <MudProgressLinear Indeterminate="true" />
+    }
+    else if (!string.IsNullOrWhiteSpace(_error))
+    {
+        <MudAlert Severity="Severity.Error">@_error</MudAlert>
+    }
+    else if (_summary is not null)
+    {
+        <MudGrid>
+            @foreach (var metric in _summary.Metrics)
+            {
+                <MudItem xs="12" md="3">
+                    <MudPaper Class="pa-4">
+                        <MudText Typo="Typo.caption">@metric.Label</MudText>
+                        <MudText Typo="Typo.h6">@metric.Value</MudText>
+                        @if (!string.IsNullOrWhiteSpace(metric.Subtitle))
+                        {
+                            <MudText Typo="Typo.caption" Class="mud-text-secondary">@metric.Subtitle</MudText>
+                        }
+                    </MudPaper>
+                </MudItem>
+            }
+        </MudGrid>
+
+        <MudGrid>
+            <MudItem xs="12" lg="7">
+                <MudPaper Class="pa-4">
+                    <MudText Typo="Typo.h6">Top Relationships</MudText>
+                    <MudTable Items="_summary.TopRelationships" Dense="true" Hover="true">
+                        <HeaderContent>
+                            <MudTh>Customer</MudTh><MudTh>Owner</MudTh><MudTh>Segment</MudTh><MudTh>Deposits</MudTh><MudTh>Exposure</MudTh><MudTh>Revenue</MudTh><MudTh>Value</MudTh><MudTh>Actions</MudTh>
+                        </HeaderContent>
+                        <RowTemplate>
+                            <MudTd>
+                                <MudText Typo="Typo.body2">@context.CustomerName</MudText>
+                                <MudText Typo="Typo.caption" Class="mud-text-secondary">@context.CustomerId</MudText>
+                            </MudTd>
+                            <MudTd>@context.RelationshipOwner</MudTd>
+                            <MudTd>@context.Segment</MudTd>
+                            <MudTd>@FormatMoney(context.DepositBalance)</MudTd>
+                            <MudTd>@FormatMoney(context.LoanExposure)</MudTd>
+                            <MudTd>@FormatMoney(context.EstimatedAnnualRevenue)</MudTd>
+                            <MudTd>@FormatMoney(context.EstimatedRelationshipValue)</MudTd>
+                            <MudTd>
+                                <MudStack Spacing="1">
+                                    <MudSelect T="string" Dense="true" Value="@(GetOwnerDraft(context))" ValueChanged="@(value => OnOwnerChanged(context.CustomerId, value))">
+                                        <MudSelectItem T="string" Value="@string.Empty">Unassigned</MudSelectItem>
+                                        @foreach (var staff in _summary.AssignableStaff)
+                                        {
+                                            <MudSelectItem T="string" Value="@staff.UserId">@staff.Name</MudSelectItem>
+                                        }
+                                    </MudSelect>
+                                    <MudStack Row="true" Spacing="1">
+                                        <MudButton Variant="Variant.Outlined" Size="Size.Small" OnClick="@(() => AssignOwnerAsync(context))">Assign</MudButton>
+                                        <MudButton Variant="Variant.Text" Size="Size.Small" OnClick="@(() => LoadDetailAsync(context.CustomerId))">Detail</MudButton>
+                                    </MudStack>
+                                </MudStack>
+                            </MudTd>
+                        </RowTemplate>
+                    </MudTable>
+                </MudPaper>
+            </MudItem>
+            <MudItem xs="12" lg="5">
+                <MudPaper Class="pa-4">
+                    <MudText Typo="Typo.h6">Manager Performance</MudText>
+                    <MudTable Items="_summary.ManagerPerformance" Dense="true" Hover="true">
+                        <HeaderContent>
+                            <MudTh>Owner</MudTh><MudTh>Customers</MudTh><MudTh>Revenue</MudTh><MudTh>Risk</MudTh>
+                        </HeaderContent>
+                        <RowTemplate>
+                            <MudTd>@context.RelationshipOwner</MudTd>
+                            <MudTd>@context.CustomerCount</MudTd>
+                            <MudTd>@FormatMoney(context.EstimatedAnnualRevenue)</MudTd>
+                            <MudTd>@context.HighRiskRelationships / @context.OpenComplaintCount</MudTd>
+                        </RowTemplate>
+                    </MudTable>
+                </MudPaper>
+            </MudItem>
+        </MudGrid>
+
+        <MudGrid>
+            <MudItem xs="12" lg="6">
+                <MudPaper Class="pa-4">
+                    <MudText Typo="Typo.h6">Relationship Detail</MudText>
+                    @if (_detailLoading)
+                    {
+                        <MudProgressLinear Indeterminate="true" Class="mt-3" />
+                    }
+                    else if (_detail is null)
+                    {
+                        <MudText Typo="Typo.body2" Class="mt-3 mud-text-secondary">Select a relationship to see portfolio detail.</MudText>
+                    }
+                    else
+                    {
+                        <MudText Typo="Typo.subtitle1" Class="mt-3">@_detail.CustomerName</MudText>
+                        <MudText Typo="Typo.caption" Class="mud-text-secondary">@_detail.CustomerId • @_detail.RelationshipOwner • @_detail.RiskSummary</MudText>
+                        <MudTable Items="_detail.ProductBreakdown" Dense="true" Hover="true" Class="mt-3">
+                            <HeaderContent>
+                                <MudTh>Category</MudTh><MudTh>Count</MudTh><MudTh>Balance</MudTh><MudTh>Contribution</MudTh>
+                            </HeaderContent>
+                            <RowTemplate>
+                                <MudTd>@context.Category</MudTd>
+                                <MudTd>@context.Count</MudTd>
+                                <MudTd>@FormatMoney(context.Balance)</MudTd>
+                                <MudTd>@FormatMoney(context.Contribution)</MudTd>
+                            </RowTemplate>
+                        </MudTable>
+                    }
+                </MudPaper>
+            </MudItem>
+            <MudItem xs="12" lg="6">
+                <MudPaper Class="pa-4">
+                    <MudText Typo="Typo.h6">@(_detail is null ? "Recent Engagement Timeline" : "Portfolio Engagements")</MudText>
+                    <MudTimeline Class="mt-4">
+                        @foreach (var item in (_detail?.RecentEngagements ?? _summary.RecentEngagements))
+                        {
+                            <MudTimelineItem Color="@GetSeverityColor(item.Severity)">
+                                <ItemContent>
+                                    <MudText Typo="Typo.subtitle2">@item.Title</MudText>
+                                    <MudText Typo="Typo.caption">@item.CustomerName • @item.Source</MudText>
+                                    <MudText Typo="Typo.body2">@item.Detail</MudText>
+                                    <MudText Typo="Typo.caption" Class="mud-text-secondary">@item.OccurredAt.ToLocalTime().ToString("dd MMM yyyy HH:mm")</MudText>
+                                </ItemContent>
+                            </MudTimelineItem>
+                        }
+                    </MudTimeline>
+                </MudPaper>
+            </MudItem>
+        </MudGrid>
+    }
+</MudStack>
+
+@code {
+    private CoreBanker.Services.RelationshipBankingSummaryVm? _summary;
+    private CoreBanker.Services.RelationshipPortfolioDetailVm? _detail;
+    private readonly Dictionary<string, string?> _ownerDrafts = new(StringComparer.OrdinalIgnoreCase);
+    private bool _isLoading = true;
+    private bool _detailLoading;
+    private string? _error;
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _isLoading = true;
+        _error = null;
+        try
+        {
+            _summary = await PlatformService.GetRelationshipBankingSummaryAsync();
+            if (_summary is not null)
+            {
+                foreach (var item in _summary.TopRelationships)
+                {
+                    _ownerDrafts[item.CustomerId] = item.RelationshipOwnerUserId;
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private async Task LoadDetailAsync(string customerId)
+    {
+        _detailLoading = true;
+        try
+        {
+            _detail = await PlatformService.GetRelationshipPortfolioDetailAsync(customerId);
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _detailLoading = false;
+        }
+    }
+
+    private string GetOwnerDraft(CoreBanker.Services.RelationshipCustomerItemVm item)
+        => _ownerDrafts.TryGetValue(item.CustomerId, out var value) ? value ?? string.Empty : item.RelationshipOwnerUserId ?? string.Empty;
+
+    private void OnOwnerChanged(string customerId, string value)
+        => _ownerDrafts[customerId] = value;
+
+    private async Task AssignOwnerAsync(CoreBanker.Services.RelationshipCustomerItemVm item)
+    {
+        await PlatformService.AssignRelationshipOwnerAsync(new CoreBanker.Services.AssignRelationshipOwnerRequestVm
+        {
+            CustomerId = item.CustomerId,
+            OwnerUserId = GetOwnerDraft(item),
+            AssignmentNote = "Relationship owner updated from CoreBanker."
+        });
+        await LoadAsync();
+        await LoadDetailAsync(item.CustomerId);
+    }
+
+    private static string FormatMoney(decimal amount) => CoreBanker.Utilities.CurrencyFormatter.Format(amount);
+
+    private static Color GetSeverityColor(string severity)
+        => severity.ToUpperInvariant() switch
+        {
+            "HIGH" => Color.Error,
+            "WARN" => Color.Warning,
+            _ => Color.Info
+        };
+}

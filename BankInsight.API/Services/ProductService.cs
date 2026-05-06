@@ -49,7 +49,11 @@ public class ProductService
                 MinAmount = p.MinAmount,
                 MaxAmount = p.MaxAmount,
                 DefaultTerm = p.DefaultTerm,
-                Status = p.Status
+                Status = p.Status,
+                LifecycleStatus = p.LifecycleStatus,
+                VersionNumber = p.VersionNumber,
+                EffectiveFrom = p.EffectiveFrom,
+                RetiredAt = p.RetiredAt
             })
             .ToListAsync();
     }
@@ -71,6 +75,8 @@ public class ProductService
             MaxTerm = request.MaxTerm,
             DefaultTerm = request.DefaultTerm,
             Status = string.IsNullOrEmpty(request.Status) ? "ACTIVE" : request.Status,
+            LifecycleStatus = "DRAFT",
+            VersionNumber = 1,
             LendingMethodology = string.IsNullOrWhiteSpace(request.LendingMethodology) ? "INDIVIDUAL" : request.LendingMethodology!,
             IsGroupLoanEnabled = request.IsGroupLoanEnabled,
             SupportsJointLiability = request.SupportsJointLiability,
@@ -136,6 +142,12 @@ public class ProductService
         product.MaxTerm = request.MaxTerm;
         product.DefaultTerm = request.DefaultTerm;
         product.Status = request.Status ?? product.Status;
+        if (!string.Equals(product.LifecycleStatus, "DRAFT", StringComparison.OrdinalIgnoreCase))
+        {
+            product.VersionNumber += 1;
+            product.LifecycleStatus = "DRAFT";
+        }
+
         product.LendingMethodology = string.IsNullOrWhiteSpace(request.LendingMethodology) ? product.LendingMethodology : request.LendingMethodology!;
         product.IsGroupLoanEnabled = request.IsGroupLoanEnabled;
         product.SupportsJointLiability = request.SupportsJointLiability;
@@ -171,6 +183,96 @@ public class ProductService
         await _context.SaveChangesAsync();
 
         return product;
+    }
+
+    public async Task<Product?> UpdateLifecycleAsync(string id, ProductLifecycleUpdateRequest request)
+    {
+        var product = await _context.Products.FirstOrDefaultAsync(p => p.Id == id);
+        if (product == null)
+        {
+            return null;
+        }
+
+        var nextStatus = string.IsNullOrWhiteSpace(request.LifecycleStatus)
+            ? product.LifecycleStatus
+            : request.LifecycleStatus.Trim().ToUpperInvariant();
+
+        product.LifecycleStatus = nextStatus;
+        if (nextStatus == "ACTIVE")
+        {
+            product.EffectiveFrom = request.EffectiveFrom ?? DateTime.UtcNow;
+            product.Status = "ACTIVE";
+        }
+        else if (nextStatus == "RETIRED")
+        {
+            product.RetiredAt = DateTime.UtcNow;
+            product.Status = "INACTIVE";
+        }
+        else if (nextStatus == "PENDING_APPROVAL")
+        {
+            product.Status = "PENDING";
+        }
+
+        if (!string.IsNullOrWhiteSpace(request.Notes))
+        {
+            product.LastSimulationJson = JsonSerializer.Serialize(new
+            {
+                action = "LIFECYCLE_UPDATE",
+                request.Notes,
+                updatedAt = DateTime.UtcNow,
+                lifecycleStatus = nextStatus
+            });
+        }
+
+        await _context.SaveChangesAsync();
+        return product;
+    }
+
+    public async Task<ProductSimulationResultDto?> SimulateProductAsync(string id, ProductSimulationRequest request)
+    {
+        var product = await _context.Products.AsNoTracking().FirstOrDefaultAsync(p => p.Id == id);
+        if (product == null)
+        {
+            return null;
+        }
+
+        var annualRate = request.AnnualRateOverride ?? product.InterestRate ?? 0m;
+        var termMonths = request.TermMonths ?? product.DefaultTerm ?? product.MinTerm ?? 12;
+        var amount = request.Amount;
+        var type = product.Type?.ToUpperInvariant() ?? "SAVINGS";
+
+        decimal projectedInterest;
+        decimal projectedMaturityValue;
+        decimal? projectedInstallment = null;
+        string summary;
+
+        if (type.Contains("LOAN"))
+        {
+            projectedInterest = Math.Round(amount * (annualRate / 100m) * (termMonths / 12m), 2);
+            projectedMaturityValue = amount + projectedInterest;
+            projectedInstallment = termMonths <= 0 ? projectedMaturityValue : Math.Round(projectedMaturityValue / termMonths, 2);
+            summary = $"Estimated loan repayment over {termMonths} month(s) is {projectedMaturityValue:N2} with a monthly installment of {projectedInstallment:N2}.";
+        }
+        else
+        {
+            projectedInterest = Math.Round(amount * (annualRate / 100m) * (termMonths / 12m), 2);
+            projectedMaturityValue = amount + projectedInterest;
+            summary = $"Estimated maturity value over {termMonths} month(s) is {projectedMaturityValue:N2}.";
+        }
+
+        return new ProductSimulationResultDto
+        {
+            ProductId = product.Id,
+            ProductName = product.Name,
+            ProductType = product.Type ?? string.Empty,
+            Amount = amount,
+            TermMonths = termMonths,
+            AnnualRate = annualRate,
+            ProjectedInterest = projectedInterest,
+            ProjectedMaturityValue = projectedMaturityValue,
+            ProjectedInstallment = projectedInstallment,
+            Summary = summary
+        };
     }
 
     private void UpsertRules(string productId, CreateProductRequest request)

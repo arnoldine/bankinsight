@@ -31,6 +31,8 @@ namespace CoreBanker.Services
                 EntityId = approval.EntityId ?? string.Empty,
                 WorkflowName = approval.WorkflowName ?? string.Empty,
                 Remarks = approval.Remarks ?? string.Empty,
+                PayloadJson = approval.PayloadJson ?? string.Empty,
+                CurrentStep = approval.CurrentStep ?? 0,
                 CreatedAt = approval.CreatedAt,
                 UpdatedAt = approval.UpdatedAt,
                 LoanDetails = approval.LoanDetails is null ? null : new LoanApprovalDetailsDto
@@ -77,6 +79,8 @@ namespace CoreBanker.Services
             public string? WorkflowName { get; set; }
             public string? ReferenceNo { get; set; }
             public string? Remarks { get; set; }
+            public string? PayloadJson { get; set; }
+            public int? CurrentStep { get; set; }
             public DateTime CreatedAt { get; set; }
             public DateTime UpdatedAt { get; set; }
             public LoanApprovalDetailsApiModel? LoanDetails { get; set; }
@@ -111,6 +115,8 @@ namespace CoreBanker.Services
         public string EntityId { get; set; } = string.Empty;
         public string WorkflowName { get; set; } = string.Empty;
         public string Remarks { get; set; } = string.Empty;
+        public string PayloadJson { get; set; } = string.Empty;
+        public int CurrentStep { get; set; }
         public DateTime CreatedAt { get; set; }
         public DateTime UpdatedAt { get; set; }
         public LoanApprovalDetailsDto? LoanDetails { get; set; }

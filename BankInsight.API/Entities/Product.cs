@@ -55,6 +55,22 @@ public class Product
     [MaxLength(20)]
     public string Status { get; set; } = "ACTIVE";
 
+    [Column("lifecycle_status")]
+    [MaxLength(30)]
+    public string LifecycleStatus { get; set; } = "DRAFT";
+
+    [Column("version_number")]
+    public int VersionNumber { get; set; } = 1;
+
+    [Column("effective_from")]
+    public DateTime? EffectiveFrom { get; set; }
+
+    [Column("retired_at")]
+    public DateTime? RetiredAt { get; set; }
+
+    [Column("last_simulation_json")]
+    public string? LastSimulationJson { get; set; }
+
     [Column("lending_methodology")]
     [MaxLength(30)]
     public string LendingMethodology { get; set; } = "INDIVIDUAL";

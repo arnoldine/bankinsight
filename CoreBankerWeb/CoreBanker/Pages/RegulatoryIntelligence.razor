@@ -1,0 +1,250 @@
+@page "/regulatory-intelligence"
+@inject CoreBanker.Services.PlatformEnhancementService PlatformService
+
+<PageTitle>Regulatory Intelligence</PageTitle>
+
+<MudStack Spacing="3">
+    <MudPaper Class="pa-4">
+        <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+            <div>
+                <MudText Typo="Typo.overline">Regulatory Intelligence</MudText>
+                <MudText Typo="Typo.h5">ORASS readiness and variance workbench</MudText>
+                <MudText Typo="Typo.body2" Class="mud-text-secondary">Monitor readiness, queue health, acknowledgements, assignment state, and unresolved regulatory variances.</MudText>
+            </div>
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="LoadAsync">Refresh</MudButton>
+        </MudStack>
+    </MudPaper>
+
+    @if (_isLoading)
+    {
+        <MudProgressLinear Indeterminate="true" />
+    }
+    else if (!string.IsNullOrWhiteSpace(_error))
+    {
+        <MudAlert Severity="Severity.Error">@_error</MudAlert>
+    }
+    else if (_summary is not null)
+    {
+        <MudGrid>
+            @foreach (var metric in _summary.Metrics)
+            {
+                <MudItem xs="12" md="3">
+                    <MudPaper Class="pa-4">
+                        <MudText Typo="Typo.caption">@metric.Label</MudText>
+                        <MudText Typo="Typo.h6">@metric.Value</MudText>
+                    </MudPaper>
+                </MudItem>
+            }
+        </MudGrid>
+
+        <MudGrid>
+            <MudItem xs="12" lg="4">
+                <MudPaper Class="pa-4">
+                    <MudText Typo="Typo.h6">Readiness Profile</MudText>
+                    <MudText Typo="Typo.body2">Configured: @(_summary.Readiness.ProfileConfigured ? "Yes" : "No")</MudText>
+                    <MudText Typo="Typo.body2">Ready: @(_summary.Readiness.ReadyForSubmission ? "Yes" : "No")</MudText>
+                    <MudText Typo="Typo.body2">Mode: @_summary.Readiness.SubmissionMode</MudText>
+                    <MudText Typo="Typo.body2">Report Code: @_summary.Readiness.SourceReportCode</MudText>
+                    <MudText Typo="Typo.body2">Last Prepared: @(_summary.Readiness.LastPreparedReturnDate ?? "Not available")</MudText>
+                    <MudText Typo="Typo.body2">Last Submission: @(_summary.Readiness.LastSubmissionAt ?? "Not available")</MudText>
+                    @if (_summary.Readiness.MissingRequirements.Any())
+                    {
+                        <MudAlert Severity="Severity.Warning" Class="mt-3">
+                            @foreach (var item in _summary.Readiness.MissingRequirements)
+                            {
+                                <MudText Typo="Typo.body2">@item</MudText>
+                            }
+                        </MudAlert>
+                    }
+                </MudPaper>
+            </MudItem>
+            <MudItem xs="12" lg="8">
+                <MudPaper Class="pa-4">
+                    <MudText Typo="Typo.h6">Variance Desk</MudText>
+                    <MudTable Items="_summary.Variances" Dense="true" Hover="true">
+                        <HeaderContent>
+                            <MudTh>Return</MudTh><MudTh>Severity</MudTh><MudTh>Status</MudTh><MudTh>Owner</MudTh><MudTh>Action</MudTh>
+                        </HeaderContent>
+                        <RowTemplate>
+                            <MudTd>
+                                <MudText Typo="Typo.body2">@context.Title</MudText>
+                                <MudText Typo="Typo.caption" Class="mud-text-secondary">@context.ReturnType • @context.Reference</MudText>
+                            </MudTd>
+                            <MudTd>@context.Severity</MudTd>
+                            <MudTd>@context.ResolutionStatus</MudTd>
+                            <MudTd>@(string.IsNullOrWhiteSpace(context.OwnerName) ? "Unassigned" : context.OwnerName)</MudTd>
+                            <MudTd>
+                                <MudStack Spacing="1">
+                                    <MudSelect T="string" Dense="true" Value="@(GetVarianceOwnerDraft(context))" ValueChanged="@(value => OnVarianceOwnerChanged(context.Reference, value))">
+                                        <MudSelectItem T="string" Value="@string.Empty">Unassigned</MudSelectItem>
+                                        @foreach (var staff in _assignableStaff)
+                                        {
+                                            <MudSelectItem T="string" Value="@staff.UserId">@staff.Name</MudSelectItem>
+                                        }
+                                    </MudSelect>
+                                    <MudStack Row="true" Spacing="1">
+                                        <MudButton Variant="Variant.Outlined" Size="Size.Small" OnClick="@(() => AssignVarianceAsync(context))">Assign</MudButton>
+                                        @if (string.Equals(context.ResolutionStatus, "RESOLVED", StringComparison.OrdinalIgnoreCase))
+                                        {
+                                            <MudButton Variant="Variant.Outlined" Color="Color.Warning" Size="Size.Small" OnClick="@(() => ReopenVarianceAsync(context))">Reopen</MudButton>
+                                        }
+                                        else
+                                        {
+                                            <MudButton Variant="Variant.Filled" Color="Color.Success" Size="Size.Small" OnClick="@(() => ResolveVarianceAsync(context))">Resolve</MudButton>
+                                        }
+                                    </MudStack>
+                                </MudStack>
+                            </MudTd>
+                        </RowTemplate>
+                    </MudTable>
+                </MudPaper>
+            </MudItem>
+        </MudGrid>
+
+        <MudGrid>
+            <MudItem xs="12" lg="6">
+                <MudPaper Class="pa-4">
+                    <MudText Typo="Typo.h6">Variance History</MudText>
+                    @if (_summary.Variances.Any(item => item.Events.Any()))
+                    {
+                        <MudTimeline Class="mt-4">
+                            @foreach (var item in _summary.Variances.Where(item => item.Events.Any()).Take(4))
+                            {
+                                @foreach (var entry in item.Events.Take(3))
+                                {
+                                    <MudTimelineItem Color="@GetSeverityColor(item.Severity)">
+                                        <ItemContent>
+                                            <MudText Typo="Typo.subtitle2">@item.ReturnType • @entry.EventType</MudText>
+                                            <MudText Typo="Typo.caption">@((entry.PerformedByName ?? "System")) • @entry.CreatedAt.ToLocalTime().ToString("dd MMM yyyy HH:mm")</MudText>
+                                            <MudText Typo="Typo.body2">@entry.Detail</MudText>
+                                        </ItemContent>
+                                    </MudTimelineItem>
+                                }
+                            }
+                        </MudTimeline>
+                    }
+                    else
+                    {
+                        <MudText Typo="Typo.body2" Class="mt-3 mud-text-secondary">No variance history yet.</MudText>
+                    }
+                </MudPaper>
+            </MudItem>
+            <MudItem xs="12" lg="6">
+                <MudPaper Class="pa-4">
+                    <MudText Typo="Typo.h6">Submission Queue</MudText>
+                    <MudTable Items="_summary.Queue" Dense="true" Hover="true">
+                        <HeaderContent>
+                            <MudTh>Return</MudTh><MudTh>Date</MudTh><MudTh>Status</MudTh><MudTh>Records</MudTh>
+                        </HeaderContent>
+                        <RowTemplate>
+                            <MudTd>@context.ReturnType</MudTd>
+                            <MudTd>@context.ReturnDate</MudTd>
+                            <MudTd>@context.SubmissionStatus</MudTd>
+                            <MudTd>@context.TotalRecords</MudTd>
+                        </RowTemplate>
+                    </MudTable>
+                </MudPaper>
+            </MudItem>
+        </MudGrid>
+
+        <MudPaper Class="pa-4">
+            <MudText Typo="Typo.h6">Submission History</MudText>
+            <MudTable Items="_summary.History" Dense="true" Hover="true">
+                <HeaderContent>
+                    <MudTh>Return</MudTh><MudTh>Submitted By</MudTh><MudTh>Transport</MudTh><MudTh>Ack Status</MudTh><MudTh>Reference</MudTh>
+                </HeaderContent>
+                <RowTemplate>
+                    <MudTd>@context.ReturnType</MudTd>
+                    <MudTd>@context.SubmittedBy</MudTd>
+                    <MudTd>@context.TransportStatus</MudTd>
+                    <MudTd>@context.AcknowledgementStatus</MudTd>
+                    <MudTd>@(string.IsNullOrWhiteSpace(context.BogReferenceNumber) ? "Pending" : context.BogReferenceNumber)</MudTd>
+                </RowTemplate>
+            </MudTable>
+        </MudPaper>
+    }
+</MudStack>
+
+@code {
+    private CoreBanker.Services.RegulatoryIntelligenceSummaryVm? _summary;
+    private List<CoreBanker.Services.AssignableStaffItemVm> _assignableStaff = new();
+    private readonly Dictionary<string, string?> _ownerDrafts = new(StringComparer.OrdinalIgnoreCase);
+    private bool _isLoading = true;
+    private string? _error;
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _isLoading = true;
+        _error = null;
+        try
+        {
+            _summary = await PlatformService.GetRegulatoryIntelligenceSummaryAsync();
+            _assignableStaff = await PlatformService.GetAssignableStaffAsync() ?? new();
+            if (_summary is not null)
+            {
+                foreach (var item in _summary.Variances)
+                {
+                    _ownerDrafts[item.Reference] = item.OwnerUserId;
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private string GetVarianceOwnerDraft(CoreBanker.Services.RegulatoryVarianceItemVm variance)
+        => _ownerDrafts.TryGetValue(variance.Reference, out var value) ? value ?? string.Empty : variance.OwnerUserId ?? string.Empty;
+
+    private void OnVarianceOwnerChanged(string reference, string value)
+        => _ownerDrafts[reference] = value;
+
+    private async Task AssignVarianceAsync(CoreBanker.Services.RegulatoryVarianceItemVm variance)
+    {
+        await PlatformService.AssignRegulatoryVarianceAsync(new CoreBanker.Services.AssignRegulatoryVarianceRequestVm
+        {
+            Reference = variance.Reference,
+            ReturnType = variance.ReturnType,
+            OwnerUserId = GetVarianceOwnerDraft(variance),
+            AssignmentNote = "Variance assignment updated from CoreBanker."
+        });
+        await LoadAsync();
+    }
+
+    private async Task ResolveVarianceAsync(CoreBanker.Services.RegulatoryVarianceItemVm variance)
+    {
+        await PlatformService.ResolveRegulatoryVarianceAsync(new CoreBanker.Services.ResolveRegulatoryVarianceRequestVm
+        {
+            Reference = variance.Reference,
+            ReturnType = variance.ReturnType,
+            ResolutionNote = $"Resolved from CoreBanker on {DateTime.Now:g}."
+        });
+        await LoadAsync();
+    }
+
+    private async Task ReopenVarianceAsync(CoreBanker.Services.RegulatoryVarianceItemVm variance)
+    {
+        await PlatformService.ReopenRegulatoryVarianceAsync(new CoreBanker.Services.ResolveRegulatoryVarianceRequestVm
+        {
+            Reference = variance.Reference,
+            ReturnType = variance.ReturnType,
+            ResolutionNote = $"Reopened from CoreBanker on {DateTime.Now:g}."
+        });
+        await LoadAsync();
+    }
+
+    private static Color GetSeverityColor(string severity)
+        => severity.ToUpperInvariant() switch
+        {
+            "HIGH" => Color.Error,
+            "WARN" => Color.Warning,
+            _ => Color.Info
+        };
+}

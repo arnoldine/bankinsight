@@ -205,6 +205,17 @@ export const API_ENDPOINTS = {
     loanStatement: (loanId: string) => `/digital-banking/loans/${loanId}/statement`,
     loanSchedule: (loanId: string) => `/digital-banking/loans/${loanId}/schedule`,
   },
+  microfinance: {
+    summary: '/microfinance/summary',
+    searchCustomers: '/microfinance/customers/search',
+    searchAccounts: '/microfinance/accounts/search',
+    loanPolicies: '/microfinance/loan-policies',
+    upsertAssignment: '/microfinance/assignments',
+    openBatch: '/microfinance/batches',
+    recordCollection: (batchId: string) => `/microfinance/batches/${batchId}/collections`,
+    submitBatch: (batchId: string) => `/microfinance/batches/${batchId}/submit`,
+    settleBatch: (batchId: string) => `/microfinance/batches/${batchId}/settle`,
+  },
   fees: {
     list: '/fees',
     apply: '/fees/apply',
@@ -257,6 +268,21 @@ export const API_ENDPOINTS = {
     kyc: (id: string) => `/customers/${id}/kyc`,
   },
 
+  customer360: {
+    get: (id: string) => `/customer360/${id}`,
+  },
+  supervisory: {
+    relationshipBanking: '/supervisory/relationship-banking',
+    relationshipPortfolio: (customerId: string) => `/supervisory/relationship-banking/${customerId}`,
+    relationshipStaffDirectory: '/supervisory/relationship-banking/staff-directory',
+    assignRelationshipOwner: '/supervisory/relationship-banking/assign-owner',
+    digitalChannelOperations: '/supervisory/digital-channel-operations',
+    regulatoryIntelligence: '/supervisory/regulatory-intelligence',
+    resolveVariance: '/supervisory/regulatory-intelligence/variances/resolve',
+    reopenVariance: '/supervisory/regulatory-intelligence/variances/reopen',
+    assignVariance: '/supervisory/regulatory-intelligence/variances/assign',
+  },
+
   clientKycOps: {
     queue: '/client-kyc-ops/queue',
     review: (kycCaseId: string) => `/client-kyc-ops/${kycCaseId}/review`,
@@ -271,6 +297,36 @@ export const API_ENDPOINTS = {
   operations: {
     eodStatus: '/operations/eod/status',
     runEodStep: '/operations/eod/run-step',
+  },
+
+  operationsControl: {
+    summary: '/operations-control/summary',
+  },
+  reconciliationHub: {
+    summary: '/reconciliation-hub/summary',
+    updateException: (id: string) => `/reconciliation-hub/exceptions/${id}`,
+    retryException: (id: string) => `/reconciliation-hub/exceptions/${id}/retry`,
+    createSettlementInstruction: '/reconciliation-hub/settlement-instructions',
+  },
+  collateralManagement: {
+    summary: '/collateral-management/summary',
+    updateCollateral: (id: string) => `/collateral-management/collateral/${id}`,
+    updateCovenant: (id: string) => `/collateral-management/covenants/${id}`,
+  },
+  developerPortal: {
+    summary: '/developer-portal/summary',
+    createPartnerApplication: '/developer-portal/partner-applications',
+    updatePartnerApplication: (id: string) => `/developer-portal/partner-applications/${id}`,
+    rotateSandboxKey: (id: string) => `/developer-portal/partner-applications/${id}/rotate-sandbox-key`,
+    promotePartnerApplication: (id: string) => `/developer-portal/partner-applications/${id}/promote`,
+    createWebhookSubscription: '/developer-portal/webhook-subscriptions',
+    replayWebhook: '/developer-portal/webhook-subscriptions/replay',
+  },
+  workspacePreferences: {
+    summary: '/workspace-preferences',
+    favorite: (workspaceKey: string) => `/workspace-preferences/favorites/${workspaceKey}`,
+    views: '/workspace-preferences/views',
+    view: (id: string) => `/workspace-preferences/views/${id}`,
   },
 
   audit: {
@@ -311,6 +367,8 @@ export const API_ENDPOINTS = {
     create: '/products',
     get: (id: string) => `/products/${id}`,
     update: (id: string) => `/products/${id}`,
+    lifecycle: (id: string) => `/products/${id}/lifecycle`,
+    simulate: (id: string) => `/products/${id}/simulate`,
   },
 
 
@@ -371,6 +429,12 @@ export const API_ENDPOINTS = {
     chequeBook: (id: string) => `/payments/cheque-books/${id}`,
     chequeBookStock: '/payments/cheque-books/stock',
     chequeBookIssue: (id: string) => `/payments/cheque-books/${id}/issue`,
+  },
+
+  collections: {
+    cases: '/collections/cases',
+    updateCase: (id: string) => `/collections/cases/${id}`,
+    executeAction: (id: string) => `/collections/cases/${id}/actions`,
   },
 
   privilegeLeases: {

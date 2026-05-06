@@ -71,6 +71,8 @@ public class DigitalBankingService
                 MinAmount = p.MinAmount,
                 MaxAmount = p.MaxAmount,
                 DefaultTerm = p.DefaultTerm,
+                RequiresCompulsorySavings = p.RequiresCompulsorySavings,
+                MinimumSavingsToLoanRatio = p.MinimumSavingsToLoanRatio,
                 Status = p.Status
             })
             .ToListAsync(cancellationToken);
@@ -356,6 +358,19 @@ public class DigitalBankingService
             }
         }
 
+        var compulsorySavings = request.Principal.HasValue && !string.IsNullOrWhiteSpace(request.LoanProductId)
+            ? await _loanService.EvaluateCompulsorySavingsAsync(request.CustomerId, request.LoanProductId, request.Principal.Value, cancellationToken)
+            : new CompulsorySavingsAssessmentDto
+            {
+                IsEligible = true,
+                Recommendation = "Compulsory savings check will run when both principal and loan product are selected."
+            };
+
+        if (compulsorySavings.RequiresCompulsorySavings && !compulsorySavings.IsEligible)
+        {
+            reasons.Add(compulsorySavings.Recommendation);
+        }
+
         var creditCheck = await _loanService.CheckCreditAsync(new CheckCreditRequest
         {
             CustomerId = request.CustomerId,
@@ -371,7 +386,8 @@ public class DigitalBankingService
         {
             IsEligible = reasons.Count == 0 && !string.Equals(creditCheck.Decision, "FAIL", StringComparison.OrdinalIgnoreCase),
             Reasons = reasons,
-            CreditCheck = creditCheck
+            CreditCheck = creditCheck,
+            CompulsorySavings = compulsorySavings
         };
     }
 

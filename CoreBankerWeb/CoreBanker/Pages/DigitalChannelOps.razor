@@ -1,0 +1,139 @@
+@page "/digital-channel-ops"
+@inject CoreBanker.Services.PlatformEnhancementService PlatformService
+
+<PageTitle>Digital Channel Operations</PageTitle>
+
+<MudStack Spacing="3">
+    <MudPaper Class="pa-4">
+        <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+            <div>
+                <MudText Typo="Typo.overline">Digital Channel Operations</MudText>
+                <MudText Typo="Typo.h5">Channel health and service operations</MudText>
+                <MudText Typo="Typo.body2" Class="mud-text-secondary">Supervise sessions, complaints, KYC refresh workload, and digital usage patterns.</MudText>
+            </div>
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="LoadAsync">Refresh</MudButton>
+        </MudStack>
+    </MudPaper>
+
+    @if (_isLoading)
+    {
+        <MudProgressLinear Indeterminate="true" />
+    }
+    else if (!string.IsNullOrWhiteSpace(_error))
+    {
+        <MudAlert Severity="Severity.Error">@_error</MudAlert>
+    }
+    else if (_summary is not null)
+    {
+        <MudGrid>
+            @foreach (var metric in _summary.Metrics)
+            {
+                <MudItem xs="12" md="3">
+                    <MudPaper Class="pa-4">
+                        <MudText Typo="Typo.caption">@metric.Label</MudText>
+                        <MudText Typo="Typo.h6">@metric.Value</MudText>
+                        @if (!string.IsNullOrWhiteSpace(metric.Subtitle))
+                        {
+                            <MudText Typo="Typo.caption" Class="mud-text-secondary">@metric.Subtitle</MudText>
+                        }
+                    </MudPaper>
+                </MudItem>
+            }
+        </MudGrid>
+
+        <MudGrid>
+            <MudItem xs="12" lg="4">
+                <MudPaper Class="pa-4">
+                    <MudText Typo="Typo.h6">Channel Mix</MudText>
+                    <MudTable Items="_summary.ChannelMetrics" Dense="true" Hover="true">
+                        <HeaderContent>
+                            <MudTh>Channel</MudTh><MudTh>Count</MudTh><MudTh>Volume</MudTh><MudTh>%</MudTh>
+                        </HeaderContent>
+                        <RowTemplate>
+                            <MudTd>@context.ChannelName</MudTd>
+                            <MudTd>@context.TransactionCount</MudTd>
+                            <MudTd>@FormatMoney(context.TransactionVolume)</MudTd>
+                            <MudTd>@context.PercentageOfTotal.ToString("N1")%</MudTd>
+                        </RowTemplate>
+                    </MudTable>
+                </MudPaper>
+            </MudItem>
+            <MudItem xs="12" lg="4">
+                <MudPaper Class="pa-4">
+                    <MudText Typo="Typo.h6">Session Risk</MudText>
+                    <MudTable Items="_summary.SessionRiskItems" Dense="true" Hover="true">
+                        <HeaderContent>
+                            <MudTh>Customer</MudTh><MudTh>IP</MudTh><MudTh>Last Activity</MudTh><MudTh>Risk</MudTh>
+                        </HeaderContent>
+                        <RowTemplate>
+                            <MudTd>@context.CustomerName</MudTd>
+                            <MudTd>@context.IpAddress</MudTd>
+                            <MudTd>@context.LastActivity.ToLocalTime().ToString("dd MMM HH:mm")</MudTd>
+                            <MudTd>@context.RiskLabel</MudTd>
+                        </RowTemplate>
+                    </MudTable>
+                </MudPaper>
+            </MudItem>
+            <MudItem xs="12" lg="4">
+                <MudPaper Class="pa-4">
+                    <MudText Typo="Typo.h6">Complaint Queue</MudText>
+                    <MudTable Items="_summary.ComplaintQueue" Dense="true" Hover="true">
+                        <HeaderContent>
+                            <MudTh>Reference</MudTh><MudTh>Customer</MudTh><MudTh>Status</MudTh><MudTh>SLA</MudTh>
+                        </HeaderContent>
+                        <RowTemplate>
+                            <MudTd>@context.Reference</MudTd>
+                            <MudTd>@context.CustomerName</MudTd>
+                            <MudTd>@context.Status</MudTd>
+                            <MudTd>@context.SlaDueAt.ToLocalTime().ToString("dd MMM HH:mm")</MudTd>
+                        </RowTemplate>
+                    </MudTable>
+                </MudPaper>
+            </MudItem>
+        </MudGrid>
+
+        <MudPaper Class="pa-4">
+            <MudText Typo="Typo.h6">KYC Refresh Queue</MudText>
+            <MudTable Items="_summary.KycQueue" Dense="true" Hover="true">
+                <HeaderContent>
+                    <MudTh>Reference</MudTh><MudTh>Customer</MudTh><MudTh>Status</MudTh><MudTh>Reason</MudTh><MudTh>Submitted</MudTh>
+                </HeaderContent>
+                <RowTemplate>
+                    <MudTd>@context.Reference</MudTd>
+                    <MudTd>@context.CustomerName</MudTd>
+                    <MudTd>@context.Status</MudTd>
+                    <MudTd>@context.Reason</MudTd>
+                    <MudTd>@context.SubmittedAt.ToLocalTime().ToString("dd MMM yyyy HH:mm")</MudTd>
+                </RowTemplate>
+            </MudTable>
+        </MudPaper>
+    }
+</MudStack>
+
+@code {
+    private CoreBanker.Services.DigitalChannelOperationsSummaryVm? _summary;
+    private bool _isLoading = true;
+    private string? _error;
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _isLoading = true;
+        _error = null;
+        try
+        {
+            _summary = await PlatformService.GetDigitalChannelOperationsSummaryAsync();
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private static string FormatMoney(decimal amount) => CoreBanker.Utilities.CurrencyFormatter.Format(amount);
+}

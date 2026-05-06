@@ -11,6 +11,37 @@ interface ApprovalInboxProps {
 
 const money = (value: number) => value.toLocaleString('en-US', { style: 'currency', currency: 'GHS' });
 
+const parsePayloadPreview = (payloadJson?: string) => {
+    if (!payloadJson) return [] as Array<{ key: string; value: string }>;
+
+    try {
+        const parsed = JSON.parse(payloadJson);
+        if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+            return [];
+        }
+
+        return Object.entries(parsed)
+            .slice(0, 6)
+            .map(([key, value]) => ({
+                key,
+                value: typeof value === 'object' ? JSON.stringify(value) : String(value),
+            }));
+    } catch {
+        return [];
+    }
+};
+
+const approvalAgeLabel = (request: ApprovalRequest) => {
+    if (request.agingHours === undefined) return 'Age unavailable';
+    return `${request.agingHours.toFixed(1)}h old`;
+};
+
+const agingBadgeClass = (band?: ApprovalRequest['agingBand']) => {
+    if (band === 'OVERDUE') return 'bg-rose-100 text-rose-700';
+    if (band === 'AGING') return 'bg-amber-100 text-amber-700';
+    return 'bg-emerald-100 text-emerald-700';
+};
+
 const ApprovalInbox: React.FC<ApprovalInboxProps> = ({ requests, currentUser, onApprove, onReject }) => {
     const [searchQuery, setSearchQuery] = useState('');
     const [typeFilter, setTypeFilter] = useState('ALL');
@@ -51,6 +82,7 @@ const ApprovalInbox: React.FC<ApprovalInboxProps> = ({ requests, currentUser, on
     const highValuePending = pendingRequests.filter(
         (request) => Number(request.amount || request.payload?.loanDetails?.principal || 0) >= 50000,
     ).length;
+    const criticalPending = pendingRequests.filter((request) => request.agingBand === 'OVERDUE').length;
 
     return (
         <div className="flex flex-col h-full rounded-[28px] border border-slate-200 bg-[linear-gradient(180deg,#f8fafc,#eef2f7)] overflow-hidden">
@@ -63,7 +95,7 @@ const ApprovalInbox: React.FC<ApprovalInboxProps> = ({ requests, currentUser, on
                         </h1>
                         <p className="text-slate-500 text-sm mt-1">Maker-checker authorization queue for credit, transactions, and operational exceptions.</p>
                     </div>
-                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-4">
                         <div className="rounded-2xl border border-blue-100 bg-blue-50 px-4 py-3">
                             <p className="text-xs uppercase tracking-[0.18em] text-blue-600">Pending</p>
                             <p className="mt-1 text-2xl font-bold text-slate-900">{pendingRequests.length}</p>
@@ -75,6 +107,10 @@ const ApprovalInbox: React.FC<ApprovalInboxProps> = ({ requests, currentUser, on
                         <div className="rounded-2xl border border-rose-100 bg-rose-50 px-4 py-3">
                             <p className="text-xs uppercase tracking-[0.18em] text-rose-600">High Value</p>
                             <p className="mt-1 text-2xl font-bold text-slate-900">{highValuePending}</p>
+                        </div>
+                        <div className="rounded-2xl border border-fuchsia-100 bg-fuchsia-50 px-4 py-3">
+                            <p className="text-xs uppercase tracking-[0.18em] text-fuchsia-600">Over 72h</p>
+                            <p className="mt-1 text-2xl font-bold text-slate-900">{criticalPending}</p>
                         </div>
                     </div>
                 </div>
@@ -133,6 +169,7 @@ const ApprovalInbox: React.FC<ApprovalInboxProps> = ({ requests, currentUser, on
                             )}
                             {renderedRequests.map(req => {
                                 const loanDetails = req.payload.loanDetails;
+                                const payloadPreview = parsePayloadPreview(req.payload.payloadJson);
                                 return (
                                     <div key={req.id} className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5 hover:shadow-md transition-shadow">
                                         <div className="flex justify-between items-start mb-3 gap-3">
@@ -145,9 +182,14 @@ const ApprovalInbox: React.FC<ApprovalInboxProps> = ({ requests, currentUser, on
                                                     <span className="text-xs text-gray-500 font-mono">{req.id}</span>
                                                 </div>
                                             </div>
-                                            <span className="bg-yellow-100 text-yellow-800 text-xs px-2 py-1 rounded font-bold flex items-center gap-1 whitespace-nowrap">
-                                                <Clock size={12} /> Pending
-                                            </span>
+                                            <div className="flex flex-col items-end gap-2">
+                                                <span className="bg-yellow-100 text-yellow-800 text-xs px-2 py-1 rounded font-bold flex items-center gap-1 whitespace-nowrap">
+                                                    <Clock size={12} /> Pending
+                                                </span>
+                                                <span className={`text-[10px] px-2 py-1 rounded font-bold uppercase ${agingBadgeClass(req.agingBand)}`}>
+                                                    {approvalAgeLabel(req)}
+                                                </span>
+                                            </div>
                                         </div>
 
                                         <p className="text-sm text-gray-700 mb-4">{req.description}</p>
@@ -206,9 +248,27 @@ const ApprovalInbox: React.FC<ApprovalInboxProps> = ({ requests, currentUser, on
                                                 <User size={12}/> Request by: <span className="font-bold text-gray-700">{req.requesterName}</span>
                                             </div>
                                             <div className="text-right md:text-left">Raised: {new Date(req.requestDate).toLocaleString()}</div>
+                                            <div>Workflow: <span className="font-bold text-gray-700">{req.payload.workflowName || 'Default approval flow'}</span></div>
+                                            <div className="text-right md:text-left">Step: <span className="font-bold text-gray-700">{req.payload.currentStep ?? 0}</span></div>
                                             {loanDetails?.appliedAt && <div>Applied: {new Date(loanDetails.appliedAt).toLocaleString()}</div>}
                                             {loanDetails?.status && <div className="text-right md:text-left">Loan Status: <span className="font-bold text-gray-700">{loanDetails.status}</span></div>}
                                         </div>
+
+                                        {(req.remarks || payloadPreview.length > 0) && (
+                                            <div className="mb-4 rounded-xl border border-slate-200 bg-slate-50 p-4">
+                                                <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Request change preview</p>
+                                                {req.remarks && <p className="mt-2 text-sm text-slate-700">{req.remarks}</p>}
+                                                {payloadPreview.length > 0 && (
+                                                    <div className="mt-3 grid grid-cols-1 gap-2 md:grid-cols-2">
+                                                        {payloadPreview.map((item) => (
+                                                            <div key={`${req.id}-${item.key}`} className="rounded-lg bg-white px-3 py-2 text-xs text-slate-600">
+                                                                <span className="font-semibold text-slate-800">{item.key}:</span> {item.value}
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        )}
 
                                         {req.amount !== undefined && (
                                             <div className="mb-4">
@@ -265,6 +325,11 @@ const ApprovalInbox: React.FC<ApprovalInboxProps> = ({ requests, currentUser, on
                                                 }`}>
                                                     {req.status}
                                                 </span>
+                                                <div className="mt-2">
+                                                    <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase ${agingBadgeClass(req.agingBand)}`}>
+                                                        {approvalAgeLabel(req)}
+                                                    </span>
+                                                </div>
                                             </td>
                                         </tr>
                                     ))}

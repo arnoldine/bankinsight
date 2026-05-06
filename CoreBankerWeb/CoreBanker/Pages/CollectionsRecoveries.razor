@@ -1,0 +1,188 @@
+@page "/collections-recoveries"
+@inject CoreBanker.Services.PlatformEnhancementService PlatformService
+
+<PageTitle>Collections and Recoveries</PageTitle>
+
+<MudStack Spacing="3">
+    <MudPaper Class="pa-4">
+        <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+            <div>
+                <MudText Typo="Typo.overline">Collections and Recoveries</MudText>
+                <MudText Typo="Typo.h5">Delinquency workbench</MudText>
+                <MudText Typo="Typo.body2" Class="mud-text-secondary">Follow up delinquent facilities, log recovery activity, and keep collection decisions auditable.</MudText>
+            </div>
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="LoadAsync">Refresh</MudButton>
+        </MudStack>
+    </MudPaper>
+
+    @if (_isLoading)
+    {
+        <MudProgressLinear Indeterminate="true" Color="Color.Primary" />
+    }
+    else if (!string.IsNullOrWhiteSpace(_error))
+    {
+        <MudAlert Severity="Severity.Error">@_error</MudAlert>
+    }
+    else
+    {
+        <MudGrid>
+            <MudItem xs="12" lg="5">
+                <MudPaper Class="pa-4">
+                    <MudText Typo="Typo.h6">Open Cases</MudText>
+                    <MudTable Items="_cases" Dense="true" Hover="true">
+                        <HeaderContent>
+                            <MudTh>Customer</MudTh><MudTh>Days</MudTh><MudTh>Priority</MudTh><MudTh>Arrears</MudTh><MudTh></MudTh>
+                        </HeaderContent>
+                        <RowTemplate>
+                            <MudTd>@context.CustomerName</MudTd>
+                            <MudTd>@context.DelinquencyDays</MudTd>
+                            <MudTd>@context.Priority</MudTd>
+                            <MudTd>@FormatMoney(context.AmountInArrears)</MudTd>
+                            <MudTd><MudButton Variant="Variant.Text" OnClick="@(() => SelectCase(context))">Open</MudButton></MudTd>
+                        </RowTemplate>
+                    </MudTable>
+                </MudPaper>
+            </MudItem>
+
+            <MudItem xs="12" lg="7">
+                <MudPaper Class="pa-4">
+                    @if (_selectedCase is null)
+                    {
+                        <MudText Typo="Typo.body2" Class="mud-text-secondary">Select a case to review and log follow-up activity.</MudText>
+                    }
+                    else
+                    {
+                        <MudText Typo="Typo.h6">@_selectedCase.CustomerName</MudText>
+                        <MudText Typo="Typo.body2" Class="mud-text-secondary">@_selectedCase.LoanId | @_selectedCase.RecoveryStage</MudText>
+                        <MudText Typo="Typo.body2">Outstanding: @FormatMoney(_selectedCase.OutstandingBalance)</MudText>
+                        <MudText Typo="Typo.body2">Arrears: @FormatMoney(_selectedCase.AmountInArrears)</MudText>
+                        <MudText Typo="Typo.body2">Strategy: @_selectedCase.RecoveryStrategy</MudText>
+                        <MudText Typo="Typo.body2">Legal Status: @_selectedCase.LegalStatus</MudText>
+                        <MudText Typo="Typo.body2">Approval Status: @_selectedCase.ApprovalStatus</MudText>
+                        <MudText Typo="Typo.body2">Assigned Agency: @_selectedCase.AssignedAgency</MudText>
+                        <MudText Typo="Typo.body2">Repossession: @_selectedCase.RepossessionStatus</MudText>
+
+                        <MudTextField T="string" @bind-Value="_followUpNote" Label="Recovery Note" Lines="4" Variant="Variant.Outlined" Class="mt-4" />
+                        <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="mt-3" OnClick="LogFollowUpAsync">Log Follow-Up</MudButton>
+
+                        <MudDivider Class="my-4" />
+                        <MudText Typo="Typo.subtitle1">Recovery Action</MudText>
+                        <MudSelect T="string" @bind-Value="_actionType" Label="Action Type" Variant="Variant.Outlined" Class="mt-2">
+                            <MudSelectItem T="string" Value="@("PROMISE_TO_PAY")">Promise to Pay</MudSelectItem>
+                            <MudSelectItem T="string" Value="@("SETTLEMENT_OFFER")">Settlement Offer</MudSelectItem>
+                            <MudSelectItem T="string" Value="@("LEGAL_REFERRAL")">Legal Referral</MudSelectItem>
+                            <MudSelectItem T="string" Value="@("REPOSSESSION_REVIEW")">Repossession Review</MudSelectItem>
+                            <MudSelectItem T="string" Value="@("WRITE_OFF_RECOMMENDATION")">Write-Off Recommendation</MudSelectItem>
+                            <MudSelectItem T="string" Value="@("ASSIGN_AGENCY")">Assign Agency</MudSelectItem>
+                        </MudSelect>
+                        <MudNumericField T="decimal?" @bind-Value="_actionAmount" Label="Action Amount" Variant="Variant.Outlined" Class="mt-2" />
+                        <MudTextField T="string" @bind-Value="_assignedAgency" Label="Agency" Variant="Variant.Outlined" Class="mt-2" />
+                        <MudButton Variant="Variant.Filled" Color="Color.Warning" Class="mt-3" OnClick="RunActionAsync">Run Action</MudButton>
+
+                        <MudDivider Class="my-4" />
+                        <MudText Typo="Typo.subtitle1">Recent Activity</MudText>
+                        <MudList T="string" Dense="true">
+                            @foreach (var item in _selectedCase.Events)
+                            {
+                                <MudListItem T="string">
+                                    <MudStack>
+                                        <MudText Typo="Typo.subtitle2">@item.EventType</MudText>
+                                        <MudText Typo="Typo.body2">@item.Detail</MudText>
+                                        <MudText Typo="Typo.caption" Class="mud-text-secondary">@item.CreatedAt.ToString("g")</MudText>
+                                    </MudStack>
+                                </MudListItem>
+                            }
+                        </MudList>
+                    }
+                </MudPaper>
+            </MudItem>
+        </MudGrid>
+    }
+</MudStack>
+
+@code {
+    private List<CoreBanker.Services.CollectionCaseVm> _cases = new();
+    private CoreBanker.Services.CollectionCaseVm? _selectedCase;
+    private bool _isLoading = true;
+    private string? _error;
+    private string _followUpNote = string.Empty;
+    private string _actionType = "PROMISE_TO_PAY";
+    private decimal? _actionAmount;
+    private string _assignedAgency = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _isLoading = true;
+        _error = null;
+        try
+        {
+            _cases = await PlatformService.GetCollectionCasesAsync() ?? new();
+            _selectedCase ??= _cases.FirstOrDefault();
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private void SelectCase(CoreBanker.Services.CollectionCaseVm item)
+    {
+        _selectedCase = item;
+    }
+
+    private async Task LogFollowUpAsync()
+    {
+        if (_selectedCase is null)
+        {
+            return;
+        }
+
+        await PlatformService.UpdateCollectionCaseAsync(_selectedCase.Id, new CoreBanker.Services.UpdateCollectionCaseRequestVm
+        {
+            EventType = "FOLLOW_UP",
+            Detail = string.IsNullOrWhiteSpace(_followUpNote) ? "Follow-up captured from CoreBanker." : _followUpNote,
+            Status = _selectedCase.Status,
+            Priority = _selectedCase.Priority,
+            RecoveryStage = _selectedCase.RecoveryStage,
+            Notes = _followUpNote
+        });
+
+        _followUpNote = string.Empty;
+        await LoadAsync();
+    }
+
+    private async Task RunActionAsync()
+    {
+        if (_selectedCase is null)
+        {
+            return;
+        }
+
+        await PlatformService.ExecuteCollectionActionAsync(_selectedCase.Id, new CoreBanker.Services.ExecuteCollectionActionRequestVm
+        {
+            ActionType = _actionType,
+            Detail = string.IsNullOrWhiteSpace(_followUpNote) ? $"Recovery action {_actionType} initiated from CoreBanker." : _followUpNote,
+            PromiseToPayAmount = _actionType == "PROMISE_TO_PAY" ? _actionAmount : null,
+            SettlementAmount = _actionType == "SETTLEMENT_OFFER" ? _actionAmount : null,
+            AssignedAgency = _actionType == "ASSIGN_AGENCY" ? _assignedAgency : null,
+            WriteOffReason = _actionType == "WRITE_OFF_RECOMMENDATION" ? _followUpNote : null
+        });
+
+        _actionAmount = null;
+        _assignedAgency = string.Empty;
+        _followUpNote = string.Empty;
+        await LoadAsync();
+    }
+
+    private static string FormatMoney(decimal amount)
+        => amount.ToString("C", System.Globalization.CultureInfo.GetCultureInfo("en-GH"));
+}

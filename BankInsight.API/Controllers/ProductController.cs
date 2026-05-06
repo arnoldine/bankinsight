@@ -43,4 +43,22 @@ public class ProductController : ControllerBase
         if (product == null) return NotFound(new { message = "Product not found" });
         return Ok(product);
     }
+
+    [HttpPut("{id}/lifecycle")]
+    [RequirePermission("MANAGE_PRODUCTS")]
+    public async Task<IActionResult> UpdateLifecycle(string id, [FromBody] ProductLifecycleUpdateRequest request)
+    {
+        var product = await _productService.UpdateLifecycleAsync(id, request);
+        if (product == null) return NotFound(new { message = "Product not found" });
+        return Ok(product);
+    }
+
+    [HttpPost("{id}/simulate")]
+    [RequirePermission("VIEW_PRODUCTS")]
+    public async Task<IActionResult> SimulateProduct(string id, [FromBody] ProductSimulationRequest request)
+    {
+        var result = await _productService.SimulateProductAsync(id, request);
+        if (result == null) return NotFound(new { message = "Product not found" });
+        return Ok(result);
+    }
 }

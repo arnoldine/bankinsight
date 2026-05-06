@@ -1,0 +1,166 @@
+@page "/customer-360"
+@inject CoreBanker.Services.PlatformEnhancementService PlatformService
+@inject CoreBanker.Services.ClientService ClientService
+
+<PageTitle>Customer 360</PageTitle>
+
+<MudStack Spacing="3">
+    <MudPaper Class="pa-4">
+        <MudText Typo="Typo.overline">Customer 360</MudText>
+        <MudText Typo="Typo.h5">Relationship and exposure view</MudText>
+        <MudText Typo="Typo.body2" Class="mud-text-secondary">Bring KYC, deposits, lending, investments, and recent activity into one operator view.</MudText>
+    </MudPaper>
+
+    <MudPaper Class="pa-4">
+        <MudStack Row="true" Spacing="2" AlignItems="AlignItems.End">
+            <MudAutocomplete T="CoreBanker.Services.ClientDto"
+                             Label="Customer"
+                             Variant="Variant.Outlined"
+                             Dense="true"
+                             SearchFunc="SearchClientsAsync"
+                             ToStringFunc="@(client => client is null ? string.Empty : $"{client.Name} ({client.Id})")"
+                             ValueChanged="HandleCustomerChanged" />
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="@string.IsNullOrWhiteSpace(_selectedCustomerId)" OnClick="LoadAsync">Open 360 View</MudButton>
+        </MudStack>
+    </MudPaper>
+
+    @if (_isLoading)
+    {
+        <MudProgressLinear Indeterminate="true" Color="Color.Primary" />
+    }
+    else if (!string.IsNullOrWhiteSpace(_error))
+    {
+        <MudAlert Severity="Severity.Error">@_error</MudAlert>
+    }
+    else if (_model is not null)
+    {
+        <MudGrid>
+            <MudItem xs="12" md="3"><MudPaper Class="pa-4"><MudText Typo="Typo.caption">Deposit Balances</MudText><MudText Typo="Typo.h6">@FormatMoney(_model.FinancialSummary.TotalBalances, _model.FinancialSummary.PrimaryCurrency)</MudText></MudPaper></MudItem>
+            <MudItem xs="12" md="3"><MudPaper Class="pa-4"><MudText Typo="Typo.caption">Loan Exposure</MudText><MudText Typo="Typo.h6">@FormatMoney(_model.FinancialSummary.TotalOutstandingLoans, _model.FinancialSummary.PrimaryCurrency)</MudText></MudPaper></MudItem>
+            <MudItem xs="12" md="3"><MudPaper Class="pa-4"><MudText Typo="Typo.caption">90-Day Deposits</MudText><MudText Typo="Typo.h6">@FormatMoney(_model.FinancialSummary.TotalDeposits90Days, _model.FinancialSummary.PrimaryCurrency)</MudText></MudPaper></MudItem>
+            <MudItem xs="12" md="3"><MudPaper Class="pa-4"><MudText Typo="Typo.caption">90-Day Withdrawals</MudText><MudText Typo="Typo.h6">@FormatMoney(_model.FinancialSummary.TotalWithdrawals90Days, _model.FinancialSummary.PrimaryCurrency)</MudText></MudPaper></MudItem>
+            <MudItem xs="12" md="3"><MudPaper Class="pa-4"><MudText Typo="Typo.caption">Est. Annual Revenue</MudText><MudText Typo="Typo.h6">@FormatMoney(_model.FinancialSummary.EstimatedAnnualRevenue, _model.FinancialSummary.PrimaryCurrency)</MudText></MudPaper></MudItem>
+            <MudItem xs="12" md="3"><MudPaper Class="pa-4"><MudText Typo="Typo.caption">Relationship Owner</MudText><MudText Typo="Typo.h6">@_model.FinancialSummary.RelationshipOwner</MudText></MudPaper></MudItem>
+        </MudGrid>
+
+        <MudGrid>
+            <MudItem xs="12" lg="7">
+                <MudPaper Class="pa-4">
+                    <MudText Typo="Typo.h6">Profile</MudText>
+                    <MudText Typo="Typo.subtitle2">@_model.Profile.Name</MudText>
+                    <MudText Typo="Typo.body2" Class="mud-text-secondary">@_model.Profile.Id</MudText>
+                    <MudText Typo="Typo.body2">KYC: @_model.Profile.KycLevel | Risk: @_model.Profile.RiskRating</MudText>
+                    <MudText Typo="Typo.body2">Ready for loan origination: @(_model.Profile.KycReadiness.IsReadyForLoanOrigination ? "Yes" : "No")</MudText>
+                </MudPaper>
+
+                <MudPaper Class="pa-4 mt-4">
+                    <MudText Typo="Typo.h6">Accounts</MudText>
+                    <MudTable Items="_model.Accounts" Dense="true">
+                        <HeaderContent>
+                            <MudTh>Account</MudTh><MudTh>Product</MudTh><MudTh>Status</MudTh><MudTh>Balance</MudTh>
+                        </HeaderContent>
+                        <RowTemplate>
+                            <MudTd>@context.Id</MudTd>
+                            <MudTd>@context.ProductCode</MudTd>
+                            <MudTd>@context.Status</MudTd>
+                            <MudTd>@FormatMoney(context.Balance, context.Currency)</MudTd>
+                        </RowTemplate>
+                    </MudTable>
+                </MudPaper>
+
+                <MudPaper Class="pa-4 mt-4">
+                    <MudText Typo="Typo.h6">Loans</MudText>
+                    <MudTable Items="_model.Loans" Dense="true">
+                        <HeaderContent>
+                            <MudTh>Loan</MudTh><MudTh>Product</MudTh><MudTh>Status</MudTh><MudTh>Outstanding</MudTh><MudTh>PAR</MudTh>
+                        </HeaderContent>
+                        <RowTemplate>
+                            <MudTd>@context.Id</MudTd>
+                            <MudTd>@context.ProductCode</MudTd>
+                            <MudTd>@context.Status</MudTd>
+                            <MudTd>@FormatMoney(context.OutstandingBalance, _model.FinancialSummary.PrimaryCurrency)</MudTd>
+                            <MudTd>@context.ParBucket</MudTd>
+                        </RowTemplate>
+                    </MudTable>
+                </MudPaper>
+            </MudItem>
+
+            <MudItem xs="12" lg="5">
+                <MudPaper Class="pa-4">
+                    <MudText Typo="Typo.h6">Recent Transactions</MudText>
+                    <MudList T="string" Dense="true">
+                        @foreach (var transaction in _model.RecentTransactions)
+                        {
+                            <MudListItem T="string">
+                                <MudStack>
+                                    <MudText Typo="Typo.subtitle2">@transaction.Type - @FormatMoney(transaction.Amount, transaction.Currency)</MudText>
+                                    <MudText Typo="Typo.body2" Class="mud-text-secondary">@transaction.AccountId</MudText>
+                                </MudStack>
+                            </MudListItem>
+                        }
+                    </MudList>
+                </MudPaper>
+
+                <MudPaper Class="pa-4 mt-4">
+                    <MudText Typo="Typo.h6">Engagement Timeline</MudText>
+                    <MudTimeline Dense="true">
+                        @foreach (var item in _model.EngagementTimeline)
+                        {
+                            <MudTimelineItem Color="Color.Primary">
+                                <ItemContent>
+                                    <MudText Typo="Typo.subtitle2">@item.Title</MudText>
+                                    <MudText Typo="Typo.body2">@item.Detail</MudText>
+                                    <MudText Typo="Typo.caption" Class="mud-text-secondary">@item.At.ToString("g")</MudText>
+                                </ItemContent>
+                            </MudTimelineItem>
+                        }
+                    </MudTimeline>
+                </MudPaper>
+            </MudItem>
+        </MudGrid>
+    }
+</MudStack>
+
+@code {
+    private string? _selectedCustomerId;
+    private CoreBanker.Services.Customer360Vm? _model;
+    private bool _isLoading;
+    private string? _error;
+
+    private async Task<IEnumerable<CoreBanker.Services.ClientDto>> SearchClientsAsync(string search, CancellationToken cancellationToken)
+    {
+        return await ClientService.SearchClientsAsync(search, 20, cancellationToken);
+    }
+
+    private Task HandleCustomerChanged(CoreBanker.Services.ClientDto? client)
+    {
+        _selectedCustomerId = client?.Id;
+        return Task.CompletedTask;
+    }
+
+    private async Task LoadAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_selectedCustomerId))
+        {
+            return;
+        }
+
+        _isLoading = true;
+        _error = null;
+        try
+        {
+            _model = await PlatformService.GetCustomer360Async(_selectedCustomerId);
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private static string FormatMoney(decimal amount, string currency)
+        => string.Format(System.Globalization.CultureInfo.GetCultureInfo("en-GH"), "{0:C}", amount).Replace("GH₵", currency == "GHS" ? "GH₵" : currency + " ");
+}

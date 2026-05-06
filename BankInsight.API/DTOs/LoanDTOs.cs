@@ -250,6 +250,19 @@ public class CreditCheckDto
     public DateTime CheckedAt { get; set; }
 }
 
+public class CompulsorySavingsAssessmentDto
+{
+    public bool RequiresCompulsorySavings { get; set; }
+    public bool IsEligible { get; set; }
+    public decimal PrincipalAmount { get; set; }
+    public decimal MinimumSavingsRatio { get; set; }
+    public decimal RequiredSavingsBalance { get; set; }
+    public decimal AvailableSavingsBalance { get; set; }
+    public decimal Shortfall { get; set; }
+    public string Recommendation { get; set; } = string.Empty;
+    public List<string> EligibleAccountIds { get; set; } = new();
+}
+
 public class CreditScoringModelStatusDto
 {
     public bool ModelReady { get; set; }

@@ -1,0 +1,290 @@
+@page "/developer-portal"
+@inject CoreBanker.Services.PlatformEnhancementService PlatformService
+
+<PageTitle>Developer Portal</PageTitle>
+
+<MudStack Spacing="3">
+    <MudPaper Class="pa-4">
+        <MudText Typo="Typo.overline">Developer Portal</MudText>
+        <MudText Typo="Typo.h5">API productization and partner onboarding</MudText>
+        <MudText Typo="Typo.body2" Class="mud-text-secondary">Manage published APIs, partner applications, credential lifecycle, and webhook delivery governance from one operational workspace.</MudText>
+    </MudPaper>
+
+    @if (_isLoading)
+    {
+        <MudProgressLinear Indeterminate="true" Color="Color.Primary" />
+    }
+    else if (!string.IsNullOrWhiteSpace(_error))
+    {
+        <MudAlert Severity="Severity.Error">@_error</MudAlert>
+    }
+    else if (_summary is not null)
+    {
+        <MudGrid>
+            @foreach (var metric in _summary.Metrics)
+            {
+                <MudItem xs="12" sm="6" lg="3">
+                    <MudPaper Class="pa-4">
+                        <MudText Typo="Typo.caption">@metric.Label</MudText>
+                        <MudText Typo="Typo.h5">@metric.Value</MudText>
+                    </MudPaper>
+                </MudItem>
+            }
+        </MudGrid>
+
+        <MudGrid>
+            <MudItem xs="12" lg="7">
+                <MudPaper Class="pa-4">
+                    <MudText Typo="Typo.h6">Published API Products</MudText>
+                    <MudTable Items="_summary.Products" Dense="true" Hover="true">
+                        <HeaderContent>
+                            <MudTh>Name</MudTh><MudTh>Path</MudTh><MudTh>Rate Limit</MudTh><MudTh>Version</MudTh>
+                        </HeaderContent>
+                        <RowTemplate>
+                            <MudTd>@context.Name</MudTd>
+                            <MudTd>@context.BasePath</MudTd>
+                            <MudTd>@context.RateLimitPerMinute/min</MudTd>
+                            <MudTd>@context.Version</MudTd>
+                        </RowTemplate>
+                    </MudTable>
+                </MudPaper>
+            </MudItem>
+            <MudItem xs="12" lg="5">
+                <MudPaper Class="pa-4">
+                    <MudText Typo="Typo.h6">Register Partner App</MudText>
+                    <MudTextField T="string" @bind-Value="_appRequest.Name" Label="Application Name" Variant="Variant.Outlined" Class="mt-2" />
+                    <MudTextField T="string" @bind-Value="_appRequest.PartnerName" Label="Partner Name" Variant="Variant.Outlined" Class="mt-2" />
+                    <MudTextField T="string" @bind-Value="_appRequest.ContactEmail" Label="Contact Email" Variant="Variant.Outlined" Class="mt-2" />
+                    <MudTextField T="string" @bind-Value="_appRequest.CallbackUrl" Label="Callback URL" Variant="Variant.Outlined" Class="mt-2" />
+                    <MudPaper Outlined="true" Class="pa-3 mt-2">
+                        <MudText Typo="Typo.caption">API Products</MudText>
+                        @foreach (var product in _summary.Products)
+                        {
+                            <MudCheckBox T="bool"
+                                         Label="@product.Name"
+                                         Value="@_selectedProductIds.Contains(product.Id)"
+                                         ValueChanged="@(isChecked => ToggleProduct(product.Id, isChecked))" />
+                        }
+                    </MudPaper>
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="mt-3" OnClick="CreatePartnerAppAsync">Create Partner App</MudButton>
+                </MudPaper>
+            </MudItem>
+        </MudGrid>
+
+        <MudGrid>
+            <MudItem xs="12" lg="6">
+                <MudPaper Class="pa-4">
+                    <MudText Typo="Typo.h6">Partner Applications</MudText>
+                    <MudTable Items="_summary.PartnerApplications" Dense="true" Hover="true">
+                        <HeaderContent>
+                            <MudTh>Partner</MudTh>
+                            <MudTh>Environment</MudTh>
+                            <MudTh>Sandbox Key</MudTh>
+                            <MudTh>Production Key</MudTh>
+                            <MudTh></MudTh>
+                        </HeaderContent>
+                        <RowTemplate>
+                            <MudTd>
+                                <MudText Typo="Typo.body2">@context.PartnerName</MudText>
+                                <MudText Typo="Typo.caption" Class="mud-text-secondary">@context.Name</MudText>
+                            </MudTd>
+                            <MudTd>@context.Environment</MudTd>
+                            <MudTd>@context.SandboxKeyPreview</MudTd>
+                            <MudTd>
+                                <MudText Typo="Typo.body2">@(context.ProductionKeyPreview ?? "Not activated")</MudText>
+                                <MudText Typo="Typo.caption" Class="mud-text-secondary">Activated: @FormatDateTime(context.ProductionKeyActivatedAt)</MudText>
+                            </MudTd>
+                            <MudTd>
+                                <MudStack Row="true" Spacing="1">
+                                    <MudButton Variant="Variant.Text" OnClick="@(() => RotateSandboxKeyAsync(context.Id))">Rotate</MudButton>
+                                    @if (!string.Equals(context.Environment, "PRODUCTION", StringComparison.OrdinalIgnoreCase))
+                                    {
+                                        <MudButton Variant="Variant.Outlined" OnClick="@(() => PromoteAppAsync(context.Id))">Promote</MudButton>
+                                    }
+                                </MudStack>
+                            </MudTd>
+                        </RowTemplate>
+                    </MudTable>
+                </MudPaper>
+            </MudItem>
+            <MudItem xs="12" lg="6">
+                <MudPaper Class="pa-4">
+                    <MudText Typo="Typo.h6">Webhook Controls</MudText>
+                    <MudSelect T="string" Label="Partner Application" @bind-Value="_webhookRequest.PartnerApplicationId" Variant="Variant.Outlined" Class="mt-2">
+                        @foreach (var app in _summary.PartnerApplications)
+                        {
+                            <MudSelectItem T="string" Value="@app.Id">@($"{app.PartnerName} / {app.Name}")</MudSelectItem>
+                        }
+                    </MudSelect>
+                    <MudSelect T="string" Label="Event" @bind-Value="_webhookRequest.EventName" Variant="Variant.Outlined" Class="mt-2">
+                        @foreach (var item in _summary.EventCatalog)
+                        {
+                            <MudSelectItem T="string" Value="@item.EventName">@item.EventName</MudSelectItem>
+                        }
+                    </MudSelect>
+                    <MudTextField T="string" @bind-Value="_webhookRequest.TargetUrl" Label="Target URL" Variant="Variant.Outlined" Class="mt-2" />
+                    <MudButton Variant="Variant.Filled" Color="Color.Secondary" Class="mt-3" OnClick="CreateWebhookAsync">Create Webhook</MudButton>
+
+                    <MudDivider Class="my-4" />
+
+                    <MudText Typo="Typo.subtitle2">Replay failed delivery</MudText>
+                    <MudSelect T="string" Label="Webhook Subscription" @bind-Value="_replayRequest.WebhookSubscriptionId" Variant="Variant.Outlined" Class="mt-2">
+                        @foreach (var subscription in _summary.WebhookSubscriptions)
+                        {
+                            <MudSelectItem T="string" Value="@subscription.Id">@($"{subscription.PartnerApplicationName} / {subscription.EventName}")</MudSelectItem>
+                        }
+                    </MudSelect>
+                    <MudSelect T="string" Label="Event" @bind-Value="_replayRequest.EventName" Variant="Variant.Outlined" Class="mt-2">
+                        @foreach (var item in _summary.EventCatalog)
+                        {
+                            <MudSelectItem T="string" Value="@item.EventName">@item.EventName</MudSelectItem>
+                        }
+                    </MudSelect>
+                    <MudButton Variant="Variant.Outlined" Color="Color.Primary" Class="mt-3" OnClick="ReplayWebhookAsync">Replay Webhook</MudButton>
+                </MudPaper>
+            </MudItem>
+        </MudGrid>
+
+        <MudGrid>
+            <MudItem xs="12" lg="6">
+                <MudPaper Class="pa-4">
+                    <MudText Typo="Typo.h6">Webhook Subscriptions</MudText>
+                    <MudTable Items="_summary.WebhookSubscriptions" Dense="true" Hover="true">
+                        <HeaderContent>
+                            <MudTh>Event</MudTh><MudTh>Target</MudTh><MudTh>Status</MudTh><MudTh>Last Delivery</MudTh>
+                        </HeaderContent>
+                        <RowTemplate>
+                            <MudTd>
+                                <MudText Typo="Typo.body2">@context.EventName</MudText>
+                                <MudText Typo="Typo.caption" Class="mud-text-secondary">@context.PartnerApplicationName</MudText>
+                            </MudTd>
+                            <MudTd>@context.TargetUrl</MudTd>
+                            <MudTd>@context.Status</MudTd>
+                            <MudTd>@FormatDateTime(context.LastDeliveryAt) / @(context.LastDeliveryStatus ?? "No delivery yet")</MudTd>
+                        </RowTemplate>
+                    </MudTable>
+                </MudPaper>
+            </MudItem>
+            <MudItem xs="12" lg="6">
+                <MudPaper Class="pa-4">
+                    <MudText Typo="Typo.h6">Delivery Logs</MudText>
+                    <MudTable Items="_summary.DeliveryLogs" Dense="true" Hover="true">
+                        <HeaderContent>
+                            <MudTh>Event</MudTh><MudTh>Status</MudTh><MudTh>Attempt</MudTh><MudTh>Response</MudTh><MudTh>Delivered</MudTh>
+                        </HeaderContent>
+                        <RowTemplate>
+                            <MudTd>@context.EventName</MudTd>
+                            <MudTd>@context.DeliveryStatus</MudTd>
+                            <MudTd>@context.AttemptNumber</MudTd>
+                            <MudTd>@(context.ResponseCode?.ToString() ?? "N/A")</MudTd>
+                            <MudTd>
+                                <MudText Typo="Typo.body2">@FormatDateTime(context.DeliveredAt)</MudText>
+                                @if (!string.IsNullOrWhiteSpace(context.FailureReason))
+                                {
+                                    <MudText Typo="Typo.caption" Color="Color.Error">@context.FailureReason</MudText>
+                                }
+                            </MudTd>
+                        </RowTemplate>
+                    </MudTable>
+                </MudPaper>
+            </MudItem>
+        </MudGrid>
+    }
+</MudStack>
+
+@code {
+    private CoreBanker.Services.DeveloperPortalSummaryVm? _summary;
+    private bool _isLoading = true;
+    private string? _error;
+    private CoreBanker.Services.CreatePartnerApplicationRequestVm _appRequest = new();
+    private HashSet<string> _selectedProductIds = new();
+    private CoreBanker.Services.CreateWebhookSubscriptionRequestVm _webhookRequest = new();
+    private CoreBanker.Services.ReplayWebhookRequestVm _replayRequest = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _isLoading = true;
+        _error = null;
+        try
+        {
+            _summary = await PlatformService.GetDeveloperPortalSummaryAsync();
+            _webhookRequest.PartnerApplicationId = string.IsNullOrWhiteSpace(_webhookRequest.PartnerApplicationId)
+                ? _summary?.PartnerApplications.FirstOrDefault()?.Id ?? string.Empty
+                : _webhookRequest.PartnerApplicationId;
+            _webhookRequest.EventName = string.IsNullOrWhiteSpace(_webhookRequest.EventName)
+                ? _summary?.EventCatalog.FirstOrDefault()?.EventName ?? string.Empty
+                : _webhookRequest.EventName;
+            _replayRequest.WebhookSubscriptionId = string.IsNullOrWhiteSpace(_replayRequest.WebhookSubscriptionId)
+                ? _summary?.WebhookSubscriptions.FirstOrDefault()?.Id ?? string.Empty
+                : _replayRequest.WebhookSubscriptionId;
+            _replayRequest.EventName = string.IsNullOrWhiteSpace(_replayRequest.EventName)
+                ? _summary?.WebhookSubscriptions.FirstOrDefault()?.EventName ?? _summary?.EventCatalog.FirstOrDefault()?.EventName ?? string.Empty
+                : _replayRequest.EventName;
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private async Task CreatePartnerAppAsync()
+    {
+        _appRequest.ApiProductIds = _selectedProductIds.ToList();
+        await PlatformService.CreatePartnerApplicationAsync(_appRequest);
+        _appRequest = new();
+        _selectedProductIds.Clear();
+        await LoadAsync();
+    }
+
+    private void ToggleProduct(string productId, bool isChecked)
+    {
+        if (isChecked)
+        {
+            _selectedProductIds.Add(productId);
+        }
+        else
+        {
+            _selectedProductIds.Remove(productId);
+        }
+    }
+
+    private async Task RotateSandboxKeyAsync(string id)
+    {
+        await PlatformService.RotatePartnerSandboxKeyAsync(id);
+        await LoadAsync();
+    }
+
+    private async Task PromoteAppAsync(string id)
+    {
+        await PlatformService.PromotePartnerApplicationAsync(id, new CoreBanker.Services.PromotePartnerApplicationRequestVm
+        {
+            Environment = "PRODUCTION"
+        });
+        await LoadAsync();
+    }
+
+    private async Task CreateWebhookAsync()
+    {
+        await PlatformService.CreateWebhookSubscriptionAsync(_webhookRequest);
+        _webhookRequest.TargetUrl = string.Empty;
+        await LoadAsync();
+    }
+
+    private async Task ReplayWebhookAsync()
+    {
+        await PlatformService.ReplayWebhookAsync(_replayRequest);
+        await LoadAsync();
+    }
+
+    private static string FormatDateTime(DateTime? value)
+        => value?.ToString("dd MMM yyyy HH:mm") ?? "Not set";
+}

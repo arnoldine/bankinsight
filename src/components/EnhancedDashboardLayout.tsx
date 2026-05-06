@@ -83,6 +83,18 @@ import FxTradingDesk from '../../components/FxTradingDesk';
 import FintechPlatformHub from './FintechPlatformHub';
 import ClientKycReviewQueue from './ClientKycReviewQueue';
 import DigitalBankingHub from './DigitalBankingHub';
+import OperationsControlCenterHub from './OperationsControlCenterHub';
+import Customer360Hub from './Customer360Hub';
+import CollectionsRecoveriesHub from './CollectionsRecoveriesHub';
+import ProductFactoryHub from './ProductFactoryHub';
+import ReconciliationSettlementHub from './ReconciliationSettlementHub';
+import CollateralCovenantHub from './CollateralCovenantHub';
+import DeveloperPortalHub from './DeveloperPortalHub';
+import RelationshipBankingHub from './RelationshipBankingHub';
+import DigitalChannelOperationsHub from './DigitalChannelOperationsHub';
+import RegulatoryIntelligenceHub from './RegulatoryIntelligenceHub';
+import MicrofinanceOperationsHub from './MicrofinanceOperationsHub';
+import { workspacePreferencesService, type WorkspaceFavorite, type WorkspaceSavedView } from '../services/workspacePreferencesService';
 
 interface MenuItem {
   id: string;
@@ -171,6 +183,8 @@ export default function EnhancedDashboardLayout({
   const [menuItems, setMenuItems] = useState<AppMenuItem[]>([]);
   const [roles, setRoles] = useState<Role[]>([]);
   const [isLoadingData, setIsLoadingData] = useState(false);
+  const [workspaceFavorites, setWorkspaceFavorites] = useState<WorkspaceFavorite[]>([]);
+  const [savedWorkspaceViews, setSavedWorkspaceViews] = useState<WorkspaceSavedView[]>([]);
   const environmentLabel = (import.meta.env.MODE || 'production').toUpperCase();
   const apiBaseUrl = import.meta.env.VITE_API_URL || 'http://localhost:5176/api';
   const commandDate = new Date().toLocaleDateString('en-US', {
@@ -404,6 +418,20 @@ export default function EnhancedDashboardLayout({
 
     fetchData();
   }, [userPermissions, getLoans, getGlAccounts, getJournalEntries, getProducts, getInvestments, getFixedDeposits, getAuditLogs]);
+
+  useEffect(() => {
+    const loadWorkspacePreferences = async () => {
+      try {
+        const summary = await workspacePreferencesService.getSummary();
+        setWorkspaceFavorites(summary.favorites || []);
+        setSavedWorkspaceViews(summary.savedViews || []);
+      } catch (err) {
+        console.error('Failed to load workspace preferences:', err);
+      }
+    };
+
+    loadWorkspacePreferences();
+  }, []);
 
   useEffect(() => {
     if (activeTab !== 'group-lending') {
@@ -825,6 +853,12 @@ export default function EnhancedDashboardLayout({
           permission: Permissions.GroupLending.View,
         },
         {
+          id: 'microfinance-operations',
+          label: 'Microfinance Ops',
+          icon: <Briefcase size={18} />,
+          permission: Permissions.Transactions.Post,
+        },
+        {
           id: 'teller',
           label: 'Teller',
           icon: <Landmark size={18} />,
@@ -847,6 +881,18 @@ export default function EnhancedDashboardLayout({
           label: 'Digital Banking',
           icon: <Activity size={18} />,
           permission: Permissions.Accounts.View,
+        },
+        {
+          id: 'customer-360',
+          label: 'Customer 360',
+          icon: <Users size={18} />,
+          permission: Permissions.Customers.View,
+        },
+        {
+          id: 'relationship-banking',
+          label: 'Relationship Banking',
+          icon: <Headphones size={18} />,
+          permission: Permissions.Customers.View,
         },
         {
           id: 'bankingos',
@@ -874,6 +920,18 @@ export default function EnhancedDashboardLayout({
           label: 'Approvals',
           icon: <CheckCircle size={18} />,
           permission: Permissions.Loans.Approve,
+        },
+        {
+          id: 'collections-recoveries',
+          label: 'Collections',
+          icon: <ClipboardList size={18} />,
+          permission: Permissions.Loans.View,
+        },
+        {
+          id: 'collateral-covenants',
+          label: 'Collateral',
+          icon: <Shield size={18} />,
+          permission: Permissions.Loans.View,
         },
       ],
     },
@@ -929,6 +987,7 @@ export default function EnhancedDashboardLayout({
           icon: <Settings2 size={18} />,
           permission: Permissions.Accounts.View,
           subItems: [
+            { id: 'operations-control', label: 'Control Center', icon: <LayoutDashboard size={16} />, permission: Permissions.Accounts.View },
             { id: 'operations-fees', label: 'Fees', icon: <DollarSign size={16} />, permission: Permissions.Accounts.View },
             { id: 'operations-penalties', label: 'Penalties', icon: <AlertCircle size={16} />, permission: Permissions.Accounts.View },
             { id: 'operations-npl', label: 'NPL Management', icon: <TrendingDown size={16} />, permission: Permissions.Accounts.View },
@@ -953,6 +1012,18 @@ export default function EnhancedDashboardLayout({
           icon: <FileText size={18} />,
           permission: Permissions.Reports.View,
         },
+        {
+          id: 'reconciliation-settlement',
+          label: 'Reconciliation',
+          icon: <CheckCircle size={18} />,
+          permission: Permissions.GeneralLedger.View,
+        },
+        {
+          id: 'digital-channel-ops',
+          label: 'Digital Channel Ops',
+          icon: <Headphones size={18} />,
+          permission: Permissions.Audit.View,
+        },
       ],
     },
 
@@ -964,12 +1035,28 @@ export default function EnhancedDashboardLayout({
           label: 'Products',
           icon: <Package size={18} />,
           permission: Permissions.Roles.View,
+          subItems: [
+            { id: 'products', label: 'Catalog', icon: <Package size={16} />, permission: Permissions.Roles.View },
+            { id: 'product-factory', label: 'Factory', icon: <Zap size={16} />, permission: Permissions.Roles.View },
+          ],
         },
         {
           id: 'settings',
           label: 'Settings',
           icon: <SettingsIcon size={18} />,
           permission: Permissions.Roles.View,
+        },
+        {
+          id: 'developer-portal',
+          label: 'Developer Portal',
+          icon: <Boxes size={18} />,
+          permission: Permissions.Roles.View,
+        },
+        {
+          id: 'regulatory-intelligence',
+          label: 'Regulatory Intelligence',
+          icon: <FileCheck size={18} />,
+          permission: Permissions.Reports.View,
         },
         {
           id: 'eod',
@@ -1080,11 +1167,59 @@ export default function EnhancedDashboardLayout({
       ...group.items.flatMap((item) => item.subItems || []),
     ]);
 
+    const favoriteIds = workspaceFavorites
+      .sort((left, right) => Number(right.isPinned) - Number(left.isPinned))
+      .map((item) => item.workspaceKey);
+
+    const resolvedFavorites = favoriteIds
+      .map((id) => allItems.find((item) => item.id === id))
+      .filter(Boolean) as MenuItem[];
+
+    if (resolvedFavorites.length > 0) {
+      return resolvedFavorites.slice(0, 5);
+    }
+
     return preferredIds
       .map((id) => allItems.find((item) => item.id === id))
       .filter(Boolean)
       .slice(0, 5) as MenuItem[];
-  }, [filteredMenuGroups]);
+  }, [filteredMenuGroups, workspaceFavorites]);
+
+  const isCurrentWorkspaceFavorite = useMemo(
+    () => workspaceFavorites.some((item) => item.workspaceKey === activeTab),
+    [workspaceFavorites, activeTab],
+  );
+
+  const toggleCurrentWorkspaceFavorite = async () => {
+    try {
+      if (isCurrentWorkspaceFavorite) {
+        await workspacePreferencesService.removeFavorite(activeTab);
+        setWorkspaceFavorites((current) => current.filter((item) => item.workspaceKey !== activeTab));
+        return;
+      }
+
+      await workspacePreferencesService.saveFavorite(activeTab, { route: `/${activeTab}` });
+      setWorkspaceFavorites((current) => [
+        ...current.filter((item) => item.workspaceKey !== activeTab),
+        { workspaceKey: activeTab, route: `/${activeTab}`, isPinned: false },
+      ]);
+    } catch (err) {
+      console.error('Failed to update workspace favorite:', err);
+    }
+  };
+
+  const saveCurrentWorkspaceView = async () => {
+    try {
+      const view = await workspacePreferencesService.saveView({
+        workspaceKey: activeTab,
+        viewName: `${activeMenuMeta.label} View`,
+        route: `/${activeTab}`,
+      });
+      setSavedWorkspaceViews((current) => [view, ...current].slice(0, 8));
+    } catch (err) {
+      console.error('Failed to save workspace view:', err);
+    }
+  };
 
   const commandStatusCards = useMemo(() => ([
     {
@@ -1544,6 +1679,12 @@ export default function EnhancedDashboardLayout({
           </ProtectedRoute>
         );
       case 'operations':
+      case 'operations-control':
+        return (
+          <ProtectedRoute requiredPermission={Permissions.Accounts.View} userPermissions={userPermissions}>
+            <OperationsControlCenterHub onNavigate={navigateTo} />
+          </ProtectedRoute>
+        );
       case 'operations-fees':
         return (
           <ProtectedRoute requiredPermission={Permissions.Accounts.View} userPermissions={userPermissions}>
@@ -1602,6 +1743,24 @@ export default function EnhancedDashboardLayout({
               onRefreshAccounts={loadRetailAccounts}
               onRefreshLoans={loadLoans}
             />
+          </ProtectedRoute>
+        );
+      case 'customer-360':
+        return (
+          <ProtectedRoute requiredPermission={Permissions.Customers.View} userPermissions={userPermissions}>
+            <Customer360Hub customers={customers.map((customer) => ({ id: customer.id, name: customer.name }))} />
+          </ProtectedRoute>
+        );
+      case 'relationship-banking':
+        return (
+          <ProtectedRoute requiredPermission={Permissions.Customers.View} userPermissions={userPermissions}>
+            <RelationshipBankingHub />
+          </ProtectedRoute>
+        );
+      case 'microfinance-operations':
+        return (
+          <ProtectedRoute requiredPermission={Permissions.Transactions.Post} userPermissions={userPermissions}>
+            <MicrofinanceOperationsHub />
           </ProtectedRoute>
         );
       case 'reporting':
@@ -1668,6 +1827,48 @@ export default function EnhancedDashboardLayout({
           onCreateProduct={handleCreateProduct} 
           onUpdateProduct={handleUpdateProduct} 
         />;
+      case 'product-factory':
+        return (
+          <ProtectedRoute requiredPermission={Permissions.Roles.View} userPermissions={userPermissions}>
+            <ProductFactoryHub products={products} />
+          </ProtectedRoute>
+        );
+      case 'collections-recoveries':
+        return (
+          <ProtectedRoute requiredPermission={Permissions.Loans.View} userPermissions={userPermissions}>
+            <CollectionsRecoveriesHub />
+          </ProtectedRoute>
+        );
+      case 'collateral-covenants':
+        return (
+          <ProtectedRoute requiredPermission={Permissions.Loans.View} userPermissions={userPermissions}>
+            <CollateralCovenantHub />
+          </ProtectedRoute>
+        );
+      case 'reconciliation-settlement':
+        return (
+          <ProtectedRoute requiredPermission={Permissions.GeneralLedger.View} userPermissions={userPermissions}>
+            <ReconciliationSettlementHub />
+          </ProtectedRoute>
+        );
+      case 'digital-channel-ops':
+        return (
+          <ProtectedRoute requiredPermission={Permissions.Audit.View} userPermissions={userPermissions}>
+            <DigitalChannelOperationsHub />
+          </ProtectedRoute>
+        );
+      case 'developer-portal':
+        return (
+          <ProtectedRoute requiredPermission={Permissions.Roles.View} userPermissions={userPermissions}>
+            <DeveloperPortalHub />
+          </ProtectedRoute>
+        );
+      case 'regulatory-intelligence':
+        return (
+          <ProtectedRoute requiredPermission={Permissions.Reports.View} userPermissions={userPermissions}>
+            <RegulatoryIntelligenceHub />
+          </ProtectedRoute>
+        );
       case 'eod':
         return <EodConsole 
           businessDate={new Date().toISOString().split('T')[0]} 
@@ -1885,6 +2086,32 @@ export default function EnhancedDashboardLayout({
                   </button>
                 ))}
               </div>
+              <div className="hidden xl:flex flex-wrap items-center gap-2">
+                {savedWorkspaceViews.slice(0, 3).map((view) => (
+                  <button
+                    key={view.id}
+                    onClick={() => handleMenuClick(view.workspaceKey)}
+                    className="rounded-full border border-slate-200 bg-white/70 px-3 py-2 text-[11px] font-semibold text-slate-600 transition hover:bg-white dark:border-white/10 dark:bg-drk-850/75 dark:text-slate-300 dark:hover:bg-drk-800"
+                    title={view.viewName}
+                  >
+                    {view.viewName}
+                  </button>
+                ))}
+              </div>
+              <button
+                onClick={toggleCurrentWorkspaceFavorite}
+                className={`rounded-[22px] border p-2.5 transition-colors ${isCurrentWorkspaceFavorite ? 'border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-400/30 dark:bg-amber-500/10 dark:text-amber-300' : 'border-white/80 bg-white/80 text-slate-600 hover:bg-white dark:border-white/10 dark:bg-white/5 dark:text-slate-400 dark:hover:bg-white/10'}`}
+                title={isCurrentWorkspaceFavorite ? 'Remove workspace from favorites' : 'Add workspace to favorites'}
+              >
+                <CheckSquare className="w-5 h-5" />
+              </button>
+              <button
+                onClick={saveCurrentWorkspaceView}
+                className="rounded-[22px] border border-white/80 bg-white/80 p-2.5 text-slate-600 transition-colors hover:bg-white dark:border-white/10 dark:bg-white/5 dark:text-slate-400 dark:hover:bg-white/10"
+                title="Save current workspace view"
+              >
+                <Archive className="w-5 h-5" />
+              </button>
               <button
                 onClick={() => {
                   if (activeTab === 'group-lending' || activeTab === 'groups') {

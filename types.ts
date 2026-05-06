@@ -274,11 +274,14 @@ export interface ApprovalRequest {
   type: 'TRANSACTION_LIMIT' | 'LOAN_DISBURSEMENT' | 'NEW_USER' | 'CASH_EXCEPTION';
   requesterName: string;
   requestDate: string;
+  updatedAt?: string;
   description: string;
   amount?: number;
   status: 'PENDING' | 'APPROVED' | 'REJECTED';
   remarks?: string;
   referenceNo?: string;
+  agingHours?: number;
+  agingBand?: 'FRESH' | 'AGING' | 'OVERDUE';
   payload: {
     entityType: string;
     entityId: string;

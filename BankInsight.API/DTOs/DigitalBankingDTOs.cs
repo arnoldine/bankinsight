@@ -24,6 +24,8 @@ public class DigitalBankingProductDto
     public decimal? MinAmount { get; set; }
     public decimal? MaxAmount { get; set; }
     public int? DefaultTerm { get; set; }
+    public bool RequiresCompulsorySavings { get; set; }
+    public decimal? MinimumSavingsToLoanRatio { get; set; }
     public string Status { get; set; } = "ACTIVE";
 }
 
@@ -174,6 +176,7 @@ public class DigitalLoanEligibilityDto
     public bool IsEligible { get; set; }
     public List<string> Reasons { get; set; } = new();
     public CreditCheckDto CreditCheck { get; set; } = new();
+    public CompulsorySavingsAssessmentDto CompulsorySavings { get; set; } = new();
 }
 
 public class CreateDigitalLoanApplicationRequest

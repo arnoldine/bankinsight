@@ -38,6 +38,16 @@ public class ApplicationDbContext : DbContext
     public DbSet<InternalCreditScoreAssessment> InternalCreditScoreAssessments { get; set; }
     public DbSet<LoanRepaymentBehavior> LoanRepaymentBehaviors { get; set; }
     public DbSet<LoanBogClassification> LoanBogClassifications { get; set; }
+    public DbSet<CollectionCase> CollectionCases { get; set; }
+    public DbSet<CollectionCaseEvent> CollectionCaseEvents { get; set; }
+    public DbSet<ReconciliationException> ReconciliationExceptions { get; set; }
+    public DbSet<CollateralRecord> CollateralRecords { get; set; }
+    public DbSet<CovenantRecord> CovenantRecords { get; set; }
+    public DbSet<ApiProductDefinition> ApiProductDefinitions { get; set; }
+    public DbSet<PartnerApplication> PartnerApplications { get; set; }
+    public DbSet<WebhookSubscription> WebhookSubscriptions { get; set; }
+    public DbSet<WebhookDeliveryLog> WebhookDeliveryLogs { get; set; }
+    public DbSet<SettlementInstruction> SettlementInstructions { get; set; }
     public DbSet<GroupLoanApplication> GroupLoanApplications { get; set; }
     public DbSet<GroupLoanApplicationMember> GroupLoanApplicationMembers { get; set; }
     public DbSet<GroupLoanAccount> GroupLoanAccounts { get; set; }
@@ -110,6 +120,9 @@ public class ApplicationDbContext : DbContext
     public DbSet<FxTrade> FxTrades { get; set; }
     public DbSet<Investment> Investments { get; set; }
     public DbSet<DigitalInvestmentProfile> DigitalInvestmentProfiles { get; set; }
+    public DbSet<CollectorPortfolioAssignment> CollectorPortfolioAssignments { get; set; }
+    public DbSet<FieldCollectionBatch> FieldCollectionBatches { get; set; }
+    public DbSet<FieldCollectionBatchLine> FieldCollectionBatchLines { get; set; }
     public DbSet<RiskMetric> RiskMetrics { get; set; }
     
     // Reporting & Analytics
@@ -121,6 +134,10 @@ public class ApplicationDbContext : DbContext
     public DbSet<RegulatoryReturn> RegulatoryReturns { get; set; }
     public DbSet<DataExtract> DataExtracts { get; set; }
     public DbSet<ReportFavorite> ReportFavorites { get; set; }
+    public DbSet<WorkspacePreference> WorkspacePreferences { get; set; }
+    public DbSet<RegulatoryVarianceResolution> RegulatoryVarianceResolutions { get; set; }
+    public DbSet<RegulatoryVarianceEvent> RegulatoryVarianceEvents { get; set; }
+    public DbSet<RelationshipOwnershipAssignment> RelationshipOwnershipAssignments { get; set; }
     public DbSet<ReportFilterPreset> ReportFilterPresets { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -196,6 +213,35 @@ public class ApplicationDbContext : DbContext
             .HasForeignKey(profile => profile.FundingAccountId)
             .OnDelete(DeleteBehavior.Restrict);
 
+        modelBuilder.Entity<CollectorPortfolioAssignment>()
+            .HasIndex(item => new { item.CollectorStaffId, item.Status, item.NextCollectionDate });
+
+        modelBuilder.Entity<CollectorPortfolioAssignment>()
+            .HasIndex(item => new { item.CustomerId, item.AccountId, item.CollectionType });
+
+        modelBuilder.Entity<FieldCollectionBatch>()
+            .HasIndex(item => new { item.CollectorStaffId, item.BatchDate, item.Status });
+
+        modelBuilder.Entity<FieldCollectionBatchLine>()
+            .HasOne(item => item.Batch)
+            .WithMany(batch => batch.Lines)
+            .HasForeignKey(item => item.BatchId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<FieldCollectionBatchLine>()
+            .HasIndex(item => new { item.BatchId, item.CollectedAt });
+
+        modelBuilder.Entity<RelationshipOwnershipAssignment>()
+            .HasIndex(item => item.CustomerId)
+            .IsUnique();
+
+        modelBuilder.Entity<RegulatoryVarianceResolution>()
+            .HasIndex(item => new { item.Reference, item.ReturnType })
+            .IsUnique();
+
+        modelBuilder.Entity<RegulatoryVarianceEvent>()
+            .HasIndex(item => new { item.Reference, item.ReturnType, item.CreatedAt });
+
         modelBuilder.Entity<GroupMember>()
             .HasIndex(gm => new { gm.GroupId, gm.CustomerId })
             .IsUnique();
@@ -232,6 +278,31 @@ public class ApplicationDbContext : DbContext
         modelBuilder.Entity<ProductChargeDefinition>()
             .HasIndex(c => new { c.ProductId, c.Code })
             .IsUnique();
+
+        modelBuilder.Entity<Product>()
+            .HasIndex(product => new { product.LifecycleStatus, product.Type, product.EffectiveFrom });
+
+        modelBuilder.Entity<CollectionCase>()
+            .HasIndex(collectionCase => new { collectionCase.Status, collectionCase.Priority, collectionCase.NextActionDate });
+
+        modelBuilder.Entity<CollectionCase>()
+            .HasIndex(collectionCase => collectionCase.LoanId)
+            .IsUnique();
+
+        modelBuilder.Entity<CollectionCaseEvent>()
+            .HasOne(collectionCaseEvent => collectionCaseEvent.Case)
+            .WithMany(collectionCase => collectionCase.Events)
+            .HasForeignKey(collectionCaseEvent => collectionCaseEvent.CaseId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<ReconciliationException>()
+            .HasIndex(item => new { item.Status, item.Category, item.DueAt });
+
+        modelBuilder.Entity<CollateralRecord>()
+            .HasIndex(item => new { item.LoanId, item.Status, item.ValuationExpiryDate });
+
+        modelBuilder.Entity<CovenantRecord>()
+            .HasIndex(item => new { item.LoanId, item.Status, item.DueDate });
 
         modelBuilder.Entity<GroupLoanApplication>()
             .HasOne(a => a.Group)

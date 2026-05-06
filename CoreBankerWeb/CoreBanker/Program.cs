@@ -38,6 +38,7 @@ builder.Services.AddScoped<CoreBanker.Services.AccountService>();
 builder.Services.AddScoped<CoreBanker.Services.TellerService>();
 builder.Services.AddScoped<CoreBanker.Services.TransactionService>();
 builder.Services.AddScoped<CoreBanker.Services.DigitalBankingService>();
+builder.Services.AddScoped<CoreBanker.Services.MicrofinanceService>();
 builder.Services.AddScoped<CoreBanker.Services.LoanService>();
 builder.Services.AddScoped<CoreBanker.Services.ApprovalService>();
 builder.Services.AddScoped<CoreBanker.Services.AuditService>();
@@ -52,5 +53,7 @@ builder.Services.AddScoped<CoreBanker.Services.TreasuryService>();
 builder.Services.AddScoped<CoreBanker.Services.VaultService>();
 builder.Services.AddScoped<CoreBanker.Services.RiskService>();
 builder.Services.AddScoped<CoreBanker.Services.FintechWorkspaceService>();
+builder.Services.AddScoped<CoreBanker.Services.PlatformEnhancementService>();
+builder.Services.AddScoped<CoreBanker.Services.WorkspacePreferenceService>();
 
 await builder.Build().RunAsync();

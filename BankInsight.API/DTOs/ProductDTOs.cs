@@ -85,4 +85,36 @@ public class ProductListItemDto
     public decimal? MaxAmount { get; set; }
     public int? DefaultTerm { get; set; }
     public string Status { get; set; } = "ACTIVE";
+    public string LifecycleStatus { get; set; } = "DRAFT";
+    public int VersionNumber { get; set; } = 1;
+    public DateTime? EffectiveFrom { get; set; }
+    public DateTime? RetiredAt { get; set; }
+}
+
+public class ProductLifecycleUpdateRequest
+{
+    public string LifecycleStatus { get; set; } = "DRAFT";
+    public DateTime? EffectiveFrom { get; set; }
+    public string? Notes { get; set; }
+}
+
+public class ProductSimulationRequest
+{
+    public decimal Amount { get; set; }
+    public int? TermMonths { get; set; }
+    public decimal? AnnualRateOverride { get; set; }
+}
+
+public class ProductSimulationResultDto
+{
+    public string ProductId { get; set; } = string.Empty;
+    public string ProductName { get; set; } = string.Empty;
+    public string ProductType { get; set; } = string.Empty;
+    public decimal Amount { get; set; }
+    public int TermMonths { get; set; }
+    public decimal AnnualRate { get; set; }
+    public decimal ProjectedInterest { get; set; }
+    public decimal ProjectedMaturityValue { get; set; }
+    public decimal? ProjectedInstallment { get; set; }
+    public string Summary { get; set; } = string.Empty;
 }

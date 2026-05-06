@@ -978,6 +978,12 @@ public class LoanService
 
         ValidateProductBusinessRules(loanProduct);
 
+        var compulsorySavings = await EvaluateCompulsorySavingsAsync(request.CustomerId, loanProduct.Id, request.Principal);
+        if (compulsorySavings.RequiresCompulsorySavings && !compulsorySavings.IsEligible)
+        {
+            throw new InvalidOperationException(compulsorySavings.Recommendation);
+        }
+
         var loanId = $"LN{DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}";
         var loan = new Loan
         {
@@ -1312,6 +1318,54 @@ public class LoanService
     public async Task<CreditCheckDto> CheckCreditAsync(CheckCreditRequest request)
     {
         return await EvaluateCreditEligibilityAsync(request.CustomerId, request.LoanId, request.ProviderName);
+    }
+
+    public async Task<CompulsorySavingsAssessmentDto> EvaluateCompulsorySavingsAsync(string customerId, string loanProductId, decimal principalAmount, CancellationToken cancellationToken = default)
+    {
+        var loanProduct = await _context.LoanProducts
+            .AsNoTracking()
+            .FirstOrDefaultAsync(lp => lp.Id == loanProductId && lp.IsActive, cancellationToken)
+            ?? throw new InvalidOperationException("Loan product not found or inactive.");
+
+        var policy = await ResolveCompulsorySavingsPolicyAsync(loanProduct, cancellationToken);
+        if (policy == null || !policy.RequiresCompulsorySavings)
+        {
+            return new CompulsorySavingsAssessmentDto
+            {
+                RequiresCompulsorySavings = false,
+                IsEligible = true,
+                PrincipalAmount = principalAmount,
+                Recommendation = "Compulsory savings is not required for this loan product."
+            };
+        }
+
+        var ratio = policy.MinimumSavingsToLoanRatio ?? 0m;
+        var accounts = await _context.Accounts
+            .AsNoTracking()
+            .Where(a => a.CustomerId == customerId && (a.Status == "ACTIVE" || a.Status == "Active"))
+            .Where(a => a.Type == "SAVINGS" || a.Type == "CURRENT" || a.Type == "FIXED_DEPOSIT")
+            .OrderBy(a => a.Id)
+            .ToListAsync(cancellationToken);
+
+        var availableSavingsBalance = accounts.Sum(a => Math.Max(0m, a.Balance - a.LienAmount));
+        var requiredSavingsBalance = Math.Round(principalAmount * ratio, 2, MidpointRounding.AwayFromZero);
+        var shortfall = Math.Max(0m, requiredSavingsBalance - availableSavingsBalance);
+        var isEligible = shortfall <= 0m;
+
+        return new CompulsorySavingsAssessmentDto
+        {
+            RequiresCompulsorySavings = true,
+            IsEligible = isEligible,
+            PrincipalAmount = principalAmount,
+            MinimumSavingsRatio = ratio,
+            RequiredSavingsBalance = requiredSavingsBalance,
+            AvailableSavingsBalance = availableSavingsBalance,
+            Shortfall = shortfall,
+            Recommendation = isEligible
+                ? $"Compulsory savings requirement met. Available savings of {availableSavingsBalance:N2} covers the required {requiredSavingsBalance:N2}."
+                : $"Compulsory savings shortfall of {shortfall:N2}. Build linked savings to at least {requiredSavingsBalance:N2} before disbursement.",
+            EligibleAccountIds = accounts.Select(a => a.Id).ToList()
+        };
     }
 
     public Task<CreditScoringModelStatusDto> GetCreditScoringModelStatusAsync()
@@ -2504,6 +2558,31 @@ public class LoanService
             .FirstOrDefaultAsync();
 
         return product ?? throw new InvalidOperationException("No active core loan product is configured");
+    }
+
+    private async Task<Product?> ResolveCompulsorySavingsPolicyAsync(LoanProduct loanProduct, CancellationToken cancellationToken)
+    {
+        var policy = await _context.Products
+            .AsNoTracking()
+            .FirstOrDefaultAsync(p => p.Type == "LOAN" && p.Id == loanProduct.Id, cancellationToken);
+
+        if (policy != null)
+        {
+            return policy;
+        }
+
+        policy = await _context.Products
+            .AsNoTracking()
+            .FirstOrDefaultAsync(p => p.Type == "LOAN" && p.Id == loanProduct.Code, cancellationToken);
+
+        if (policy != null)
+        {
+            return policy;
+        }
+
+        return await _context.Products
+            .AsNoTracking()
+            .FirstOrDefaultAsync(p => p.Type == "LOAN" && p.Name == loanProduct.Name, cancellationToken);
     }
 
     private async Task<LoanProduct?> ResolveLoanProductDefinitionAsync(string? productIdentifier)

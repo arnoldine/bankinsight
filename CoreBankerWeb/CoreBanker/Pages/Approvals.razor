@@ -33,9 +33,9 @@
                 </MudItem>
                 <MudItem xs="12" sm="4">
                     <MudPaper Class="pa-4 corebanker-friendly-stat" Elevation="0">
-                        <MudText Typo="Typo.caption">Selected Item</MudText>
-                        <MudText Typo="Typo.h5">@(_selectedApproval?.Reference ?? "None")</MudText>
-                        <MudText Typo="Typo.body2" Class="mud-text-secondary">@(_selectedApproval?.Type ?? "Choose an item to review.")</MudText>
+                        <MudText Typo="Typo.caption">Over 24h</MudText>
+                        <MudText Typo="Typo.h5">@_approvalItems.Count(item => GetApprovalAgeHours(item) > 24 && string.Equals(item.Status, "Pending", StringComparison.OrdinalIgnoreCase))</MudText>
+                        <MudText Typo="Typo.body2" Class="mud-text-secondary">Aged items needing escalation.</MudText>
                     </MudPaper>
                 </MudItem>
             </MudGrid>
@@ -76,6 +76,7 @@
                         <MudTh>Reference</MudTh>
                         <MudTh>Requester</MudTh>
                         <MudTh>Status</MudTh>
+                        <MudTh>Age</MudTh>
                         <MudTh>Created</MudTh>
                         <MudTh></MudTh>
                     </HeaderContent>
@@ -88,6 +89,9 @@
                         <MudTd DataLabel="Requester">@DisplayValue(context.RequestedBy)</MudTd>
                         <MudTd DataLabel="Status">
                             <MudChip T="string" Size="Size.Small" Variant="Variant.Text" Color="@GetStatusColor(context.Status)">@context.Status</MudChip>
+                        </MudTd>
+                        <MudTd DataLabel="Age">
+                            <MudChip T="string" Size="Size.Small" Variant="Variant.Text" Color="@GetAgingColor(context)">@GetApprovalAgeLabel(context)</MudChip>
                         </MudTd>
                         <MudTd DataLabel="Created">@context.CreatedAt.ToLocalTime().ToString("dd MMM yyyy HH:mm")</MudTd>
                         <MudTd DataLabel="Actions">
@@ -122,7 +126,9 @@
                     <MudText Typo="Typo.body2">Workflow: @DisplayValue(_selectedApproval.WorkflowName)</MudText>
                     <MudText Typo="Typo.body2">Requester: @DisplayValue(_selectedApproval.RequestedBy)</MudText>
                     <MudText Typo="Typo.body2">Status: @_selectedApproval.Status</MudText>
+                    <MudText Typo="Typo.body2">Age: @GetApprovalAgeLabel(_selectedApproval)</MudText>
                     <MudText Typo="Typo.body2">Created: @_selectedApproval.CreatedAt.ToLocalTime().ToString("dd MMM yyyy HH:mm")</MudText>
+                    <MudText Typo="Typo.body2">Step: @_selectedApproval.CurrentStep</MudText>
                     <MudText Typo="Typo.body2">Remarks: @DisplayValue(_selectedApproval.Remarks)</MudText>
                 </MudPaper>
 
@@ -148,6 +154,24 @@
                         <MudButton Variant="Variant.Filled" Color="Color.Error" Disabled="@(_isSubmitting || _selectedApproval.Status != "Pending")" OnClick="@(() => UpdateApprovalAsync("REJECTED"))">Reject</MudButton>
                     </MudStack>
                 </MudPaper>
+
+                @if (ApprovalPayloadPreview.Any())
+                {
+                    <MudPaper Class="pa-4">
+                        <MudText Typo="Typo.subtitle1">Request Change Preview</MudText>
+                        <MudGrid Class="mt-2">
+                            @foreach (var item in ApprovalPayloadPreview)
+                            {
+                                <MudItem xs="12" sm="6">
+                                    <MudPaper Outlined="true" Class="pa-3">
+                                        <MudText Typo="Typo.caption">@item.Key</MudText>
+                                        <MudText Typo="Typo.body2">@item.Value</MudText>
+                                    </MudPaper>
+                                </MudItem>
+                            }
+                        </MudGrid>
+                    </MudPaper>
+                }
 
                 @if (!string.IsNullOrWhiteSpace(_workspaceMessage))
                 {
@@ -252,6 +276,9 @@
              || approval.EntityId.Contains(_searchTerm, StringComparison.OrdinalIgnoreCase))
             && (string.IsNullOrWhiteSpace(_statusFilter) || approval.Status == _statusFilter));
 
+    private IReadOnlyList<KeyValuePair<string, string>> ApprovalPayloadPreview =>
+        ParsePayloadPreview(_selectedApproval?.PayloadJson);
+
     private static string DisplayValue(string? value)
     {
         return string.IsNullOrWhiteSpace(value) ? "Not provided" : value;
@@ -269,5 +296,51 @@
             : string.Equals(status, "Approved", StringComparison.OrdinalIgnoreCase)
                 ? Color.Success
                 : Color.Error;
+    }
+
+    private static double GetApprovalAgeHours(CoreBanker.Services.ApprovalDto approval)
+        => Math.Max(0, (DateTime.UtcNow - approval.CreatedAt).TotalHours);
+
+    private static string GetApprovalAgeLabel(CoreBanker.Services.ApprovalDto approval)
+        => $"{GetApprovalAgeHours(approval):N1}h";
+
+    private static Color GetAgingColor(CoreBanker.Services.ApprovalDto approval)
+        => GetApprovalAgeHours(approval) > 72
+            ? Color.Error
+            : GetApprovalAgeHours(approval) > 24
+                ? Color.Warning
+                : Color.Success;
+
+    private static IReadOnlyList<KeyValuePair<string, string>> ParsePayloadPreview(string? payloadJson)
+    {
+        if (string.IsNullOrWhiteSpace(payloadJson))
+        {
+            return Array.Empty<KeyValuePair<string, string>>();
+        }
+
+        try
+        {
+            using var document = System.Text.Json.JsonDocument.Parse(payloadJson);
+            if (document.RootElement.ValueKind != System.Text.Json.JsonValueKind.Object)
+            {
+                return Array.Empty<KeyValuePair<string, string>>();
+            }
+
+            return document.RootElement
+                .EnumerateObject()
+                .Take(6)
+                .Select(property => new KeyValuePair<string, string>(
+                    property.Name,
+                    property.Value.ValueKind switch
+                    {
+                        System.Text.Json.JsonValueKind.Object or System.Text.Json.JsonValueKind.Array => property.Value.GetRawText(),
+                        _ => property.Value.ToString()
+                    }))
+                .ToList();
+        }
+        catch
+        {
+            return Array.Empty<KeyValuePair<string, string>>();
+        }
     }
 }

@@ -1,0 +1,116 @@
+@page "/product-factory"
+@inject CoreBanker.Services.PlatformEnhancementService PlatformService
+
+<PageTitle>Product Factory</PageTitle>
+
+<MudStack Spacing="3">
+    <MudPaper Class="pa-4">
+        <MudText Typo="Typo.overline">Product Factory</MudText>
+        <MudText Typo="Typo.h5">Lifecycle and simulation workbench</MudText>
+        <MudText Typo="Typo.body2" Class="mud-text-secondary">Move products through governed release states and simulate outcomes before go-live.</MudText>
+    </MudPaper>
+
+    @if (!string.IsNullOrWhiteSpace(_message))
+    {
+        <MudAlert Severity="Severity.Success">@_message</MudAlert>
+    }
+
+    <MudGrid>
+        <MudItem xs="12" md="5">
+            <MudPaper Class="pa-4">
+                <MudText Typo="Typo.h6">Lifecycle Controls</MudText>
+                <MudSelect T="string" Label="Product" Variant="Variant.Outlined" @bind-Value="_selectedProductId" Class="mt-4">
+                    @foreach (var product in _products)
+                    {
+                        <MudSelectItem Value="@product.Id">@($"{product.Name} ({product.Id})")</MudSelectItem>
+                    }
+                </MudSelect>
+                <MudSelect T="string" Label="Lifecycle State" Variant="Variant.Outlined" @bind-Value="_lifecycleStatus" Class="mt-3">
+                    <MudSelectItem Value="@("DRAFT")">DRAFT</MudSelectItem>
+                    <MudSelectItem Value="@("PENDING_APPROVAL")">PENDING_APPROVAL</MudSelectItem>
+                    <MudSelectItem Value="@("ACTIVE")">ACTIVE</MudSelectItem>
+                    <MudSelectItem Value="@("RETIRED")">RETIRED</MudSelectItem>
+                </MudSelect>
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="mt-3" OnClick="UpdateLifecycleAsync">Update Lifecycle</MudButton>
+            </MudPaper>
+        </MudItem>
+
+        <MudItem xs="12" md="7">
+            <MudPaper Class="pa-4">
+                <MudText Typo="Typo.h6">Simulation Sandbox</MudText>
+                <MudGrid Class="mt-2">
+                    <MudItem xs="12" md="6">
+                        <MudNumericField T="decimal" Label="Amount" Variant="Variant.Outlined" @bind-Value="_amount" />
+                    </MudItem>
+                    <MudItem xs="12" md="6">
+                        <MudNumericField T="int" Label="Term (months)" Variant="Variant.Outlined" @bind-Value="_termMonths" />
+                    </MudItem>
+                </MudGrid>
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="mt-3" OnClick="SimulateAsync">Run Simulation</MudButton>
+
+                @if (_simulation is not null)
+                {
+                    <MudDivider Class="my-4" />
+                    <MudText Typo="Typo.subtitle1">@_simulation.ProductName</MudText>
+                    <MudText Typo="Typo.body2">Projected interest: @FormatMoney(_simulation.ProjectedInterest)</MudText>
+                    <MudText Typo="Typo.body2">Projected maturity value: @FormatMoney(_simulation.ProjectedMaturityValue)</MudText>
+                    @if (_simulation.ProjectedInstallment.HasValue)
+                    {
+                        <MudText Typo="Typo.body2">Projected installment: @FormatMoney(_simulation.ProjectedInstallment.Value)</MudText>
+                    }
+                    <MudText Typo="Typo.body2" Class="mud-text-secondary">@_simulation.Summary</MudText>
+                }
+            </MudPaper>
+        </MudItem>
+    </MudGrid>
+</MudStack>
+
+@code {
+    private List<CoreBanker.Services.ProductListItemVm> _products = new();
+    private string? _selectedProductId;
+    private string _lifecycleStatus = "PENDING_APPROVAL";
+    private decimal _amount = 1000m;
+    private int _termMonths = 12;
+    private string? _message;
+    private CoreBanker.Services.ProductSimulationResultVm? _simulation;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _products = await PlatformService.GetProductsAsync() ?? new();
+        _selectedProductId = _products.FirstOrDefault()?.Id;
+    }
+
+    private async Task UpdateLifecycleAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_selectedProductId))
+        {
+            return;
+        }
+
+        await PlatformService.UpdateProductLifecycleAsync(_selectedProductId, new CoreBanker.Services.ProductLifecycleUpdateRequestVm
+        {
+            LifecycleStatus = _lifecycleStatus,
+            EffectiveFrom = _lifecycleStatus == "ACTIVE" ? DateTime.UtcNow : null,
+            Notes = $"Lifecycle updated to {_lifecycleStatus} from CoreBanker product factory."
+        });
+
+        _message = $"Lifecycle updated to {_lifecycleStatus}.";
+    }
+
+    private async Task SimulateAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_selectedProductId))
+        {
+            return;
+        }
+
+        _simulation = await PlatformService.SimulateProductAsync(_selectedProductId, new CoreBanker.Services.ProductSimulationRequestVm
+        {
+            Amount = _amount,
+            TermMonths = _termMonths
+        });
+    }
+
+    private static string FormatMoney(decimal amount)
+        => amount.ToString("C", System.Globalization.CultureInfo.GetCultureInfo("en-GH"));
+}

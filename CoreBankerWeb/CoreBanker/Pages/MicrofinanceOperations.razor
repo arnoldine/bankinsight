@@ -1,0 +1,632 @@
+@page "/microfinance-operations"
+@inject CoreBanker.Services.MicrofinanceService MicrofinanceService
+
+<PageTitle>Microfinance Operations</PageTitle>
+
+<MudStack Spacing="3">
+    <MudPaper Class="pa-4">
+        <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+            <div>
+                <MudText Typo="Typo.overline">Microfinance Operations</MudText>
+                <MudText Typo="Typo.h5">Collector, susu, and field collections control</MudText>
+                <MudText Typo="Typo.body2" Class="mud-text-secondary">Assign collectors, run field batches, post savings and loan collections, and watch compulsory savings pressure.</MudText>
+            </div>
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="LoadAsync">Refresh</MudButton>
+        </MudStack>
+    </MudPaper>
+
+    @if (_isLoading)
+    {
+        <MudProgressLinear Indeterminate="true" />
+    }
+    else if (!string.IsNullOrWhiteSpace(_error))
+    {
+        <MudAlert Severity="Severity.Error">@_error</MudAlert>
+    }
+    else if (_summary is not null)
+    {
+        @if (!string.IsNullOrWhiteSpace(_statusMessage))
+        {
+            <MudAlert Severity="Severity.Success">@_statusMessage</MudAlert>
+        }
+
+        <MudGrid>
+            @foreach (var metric in _summary.Metrics)
+            {
+                <MudItem xs="12" md="3">
+                    <MudPaper Class="pa-4">
+                        <MudText Typo="Typo.caption">@metric.Label</MudText>
+                        <MudText Typo="Typo.h6">@metric.Value</MudText>
+                        @if (!string.IsNullOrWhiteSpace(metric.Subtitle))
+                        {
+                            <MudText Typo="Typo.caption" Class="mud-text-secondary">@metric.Subtitle</MudText>
+                        }
+                    </MudPaper>
+                </MudItem>
+            }
+        </MudGrid>
+
+        <MudGrid>
+            <MudItem xs="12" lg="7">
+                <MudPaper Class="pa-4">
+                    <MudText Typo="Typo.h6">Collector Assignments</MudText>
+                    <MudText Typo="Typo.body2" Class="mud-text-secondary">Bind field staff to customers, routes, and the right savings or loan target for daily collection work.</MudText>
+
+                    <MudGrid Class="mt-2">
+                        <MudItem xs="12" md="6">
+                            <MudSelect T="string" Dense="true" Label="Field staff" Value="@_assignmentDraft.StaffId" ValueChanged="@(value => _assignmentDraft.StaffId = value)">
+                                @foreach (var staff in _summary.FieldStaff)
+                                {
+                                    <MudSelectItem T="string" Value="@staff.StaffId">@staff.Name (@staff.BranchId)</MudSelectItem>
+                                }
+                            </MudSelect>
+                        </MudItem>
+                        <MudItem xs="12" md="6">
+                            <MudTextField T="string" Label="Search customer" Value="@_customerQuery" ValueChanged="OnCustomerQueryChanged" Immediate="true" />
+                        </MudItem>
+                        <MudItem xs="12" md="4">
+                            <MudTextField T="string" Label="Route code" @bind-Value="_assignmentDraft.RouteCode" />
+                        </MudItem>
+                        <MudItem xs="12" md="4">
+                            <MudTextField T="string" Label="Meeting day" @bind-Value="_assignmentDraft.MeetingDay" />
+                        </MudItem>
+                        <MudItem xs="12" md="4">
+                            <MudSelect T="string" Label="Collection frequency" @bind-Value="_assignmentDraft.CollectionFrequency">
+                                <MudSelectItem T="string" Value='@("DAILY")'>Daily</MudSelectItem>
+                                <MudSelectItem T="string" Value='@("WEEKLY")'>Weekly</MudSelectItem>
+                                <MudSelectItem T="string" Value='@("BIWEEKLY")'>Biweekly</MudSelectItem>
+                                <MudSelectItem T="string" Value='@("MONTHLY")'>Monthly</MudSelectItem>
+                            </MudSelect>
+                        </MudItem>
+                        <MudItem xs="12" md="6">
+                            <MudTextField T="string" Label="Search savings account" Value="@_accountQuery" ValueChanged="OnAccountQueryChanged" Immediate="true" />
+                        </MudItem>
+                        <MudItem xs="12" md="6">
+                            <MudSwitch @bind-Value="_assignmentDraft.IsPrimaryCollector" Color="Color.Primary" Label="Primary collector assignment" />
+                        </MudItem>
+                    </MudGrid>
+
+                    @if (_customerResults.Count > 0)
+                    {
+                        <MudText Typo="Typo.caption" Class="mt-3">Customer matches</MudText>
+                        <MudChipSet T="string" Class="mt-1">
+                            @foreach (var customer in _customerResults.Take(8))
+                            {
+                                <MudChip T="string" OnClick="@(() => SelectCustomer(customer.CustomerId, customer.CustomerName))" Color="Color.Default" Variant="Variant.Outlined">
+                                    @customer.CustomerName (@customer.CustomerId)
+                                </MudChip>
+                            }
+                        </MudChipSet>
+                    }
+
+                    @if (_accountResults.Count > 0)
+                    {
+                        <MudText Typo="Typo.caption" Class="mt-3">Account matches</MudText>
+                        <MudTable Items="_accountResults.Take(6)" Dense="true" Hover="true">
+                            <HeaderContent>
+                                <MudTh>Customer</MudTh><MudTh>Account</MudTh><MudTh>Balance</MudTh><MudTh>Use</MudTh>
+                            </HeaderContent>
+                            <RowTemplate>
+                                <MudTd>@context.CustomerName</MudTd>
+                                <MudTd>@context.AccountNumber</MudTd>
+                                <MudTd>@FormatMoney(context.AvailableBalance)</MudTd>
+                                <MudTd>
+                                    <MudButton Variant="Variant.Text" Size="Size.Small" OnClick="@(() => SelectAccount(context))">Use</MudButton>
+                                </MudTd>
+                            </RowTemplate>
+                        </MudTable>
+                    }
+
+                    <MudStack Row="true" Spacing="2" Class="mt-4">
+                        <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="@(_isSubmitting || string.IsNullOrWhiteSpace(_assignmentDraft.StaffId) || string.IsNullOrWhiteSpace(_assignmentDraft.CustomerId))" OnClick="SaveAssignmentAsync">
+                            Save assignment
+                        </MudButton>
+                        <MudButton Variant="Variant.Outlined" OnClick="ResetAssignment">Clear</MudButton>
+                    </MudStack>
+
+                    <MudTable Items="_summary.ActiveAssignments" Dense="true" Hover="true" Class="mt-5">
+                        <HeaderContent>
+                            <MudTh>Customer</MudTh><MudTh>Collector</MudTh><MudTh>Frequency</MudTh><MudTh>Route</MudTh><MudTh>Next collection</MudTh><MudTh>Actions</MudTh>
+                        </HeaderContent>
+                        <RowTemplate>
+                            <MudTd>
+                                <MudText Typo="Typo.body2">@context.CustomerName</MudText>
+                                <MudText Typo="Typo.caption" Class="mud-text-secondary">@context.CustomerId</MudText>
+                            </MudTd>
+                            <MudTd>@context.StaffName</MudTd>
+                            <MudTd>@context.CollectionFrequency</MudTd>
+                            <MudTd>@(string.IsNullOrWhiteSpace(context.RouteCode) ? "No route" : context.RouteCode)</MudTd>
+                            <MudTd>@FormatDate(context.NextCollectionDate)</MudTd>
+                            <MudTd>
+                                <MudButton Variant="Variant.Text" Size="Size.Small" OnClick="@(() => LoadAssignmentIntoCollection(context))">Use</MudButton>
+                            </MudTd>
+                        </RowTemplate>
+                    </MudTable>
+                </MudPaper>
+            </MudItem>
+
+            <MudItem xs="12" lg="5">
+                <MudPaper Class="pa-4">
+                    <MudText Typo="Typo.h6">Compulsory Savings Watchlist</MudText>
+                    <MudText Typo="Typo.body2" Class="mud-text-secondary">Customers here are below the minimum savings discipline required for linked microcredit products.</MudText>
+
+                    @if (_summary.CompulsorySavingsAlerts.Count == 0)
+                    {
+                        <MudAlert Severity="Severity.Success" Class="mt-4">No compulsory savings shortfalls are currently active.</MudAlert>
+                    }
+                    else
+                    {
+                        <MudStack Spacing="2" Class="mt-4">
+                            @foreach (var alert in _summary.CompulsorySavingsAlerts.Take(8))
+                            {
+                                <MudPaper Class="pa-3" Outlined="true">
+                                    <MudText Typo="Typo.subtitle2">@alert.CustomerName</MudText>
+                                    <MudText Typo="Typo.caption">@alert.LoanProductName</MudText>
+                                    <MudText Typo="Typo.body2" Class="mt-2">Required: @FormatMoney(alert.RequiredAmount)</MudText>
+                                    <MudText Typo="Typo.body2">Current: @FormatMoney(alert.CurrentAmount)</MudText>
+                                    <MudText Typo="Typo.body2">Shortfall: @FormatMoney(alert.ShortfallAmount)</MudText>
+                                    <MudText Typo="Typo.caption" Class="mud-text-secondary">@alert.Recommendation</MudText>
+                                </MudPaper>
+                            }
+                        </MudStack>
+                    }
+                </MudPaper>
+            </MudItem>
+        </MudGrid>
+
+        <MudGrid>
+            <MudItem xs="12" lg="8">
+                <MudPaper Class="pa-4">
+                    <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+                        <div>
+                            <MudText Typo="Typo.h6">Field Batch Control</MudText>
+                            <MudText Typo="Typo.body2" Class="mud-text-secondary">Open a collector day-sheet, record susu or repayment collections, then submit and settle the batch.</MudText>
+                        </div>
+                        <MudSelect T="string" Dense="true" Label="Active batch" Value="@(_selectedBatchId ?? string.Empty)" ValueChanged="OnSelectedBatchChanged">
+                            <MudSelectItem T="string" Value="@string.Empty">Select batch</MudSelectItem>
+                            @foreach (var batch in _summary.OpenBatches)
+                            {
+                                <MudSelectItem T="string" Value="@batch.Id">@batch.StaffName - @batch.BusinessDate.ToString("dd MMM yyyy") - @batch.Status</MudSelectItem>
+                            }
+                        </MudSelect>
+                    </MudStack>
+
+                    <MudGrid Class="mt-2">
+                        <MudItem xs="12" md="4">
+                            <MudSelect T="string" Label="Field staff" @bind-Value="_batchDraft.StaffId">
+                                @foreach (var staff in _summary.FieldStaff)
+                                {
+                                    <MudSelectItem T="string" Value="@staff.StaffId">@staff.Name</MudSelectItem>
+                                }
+                            </MudSelect>
+                        </MudItem>
+                        <MudItem xs="12" md="4">
+                            <MudDatePicker Label="Business date" Date="@_batchDraft.BusinessDate" DateChanged="@(value => _batchDraft.BusinessDate = value)" />
+                        </MudItem>
+                        <MudItem xs="12" md="4">
+                            <MudTextField T="string" Label="Route code" @bind-Value="_batchDraft.RouteCode" />
+                        </MudItem>
+                        <MudItem xs="12" md="4">
+                            <MudSelect T="string" Label="Collection type" @bind-Value="_batchDraft.CollectionType">
+                                <MudSelectItem T="string" Value='@("SAVINGS")'>Savings</MudSelectItem>
+                                <MudSelectItem T="string" Value='@("COMPULSORY_SAVINGS")'>Compulsory savings</MudSelectItem>
+                                <MudSelectItem T="string" Value='@("LOAN_REPAYMENT")'>Loan repayment</MudSelectItem>
+                                <MudSelectItem T="string" Value='@("MIXED")'>Mixed route</MudSelectItem>
+                            </MudSelect>
+                        </MudItem>
+                        <MudItem xs="12" md="4">
+                            <MudNumericField T="decimal" Label="Opening float" @bind-Value="_batchDraft.OpeningFloat" />
+                        </MudItem>
+                        <MudItem xs="12" md="4">
+                            <MudTextField T="string" Label="Currency" @bind-Value="_batchDraft.Currency" />
+                        </MudItem>
+                        <MudItem xs="12">
+                            <MudTextField T="string" Label="Batch notes" Lines="2" @bind-Value="_batchDraft.Notes" />
+                        </MudItem>
+                    </MudGrid>
+
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="@(_isSubmitting || string.IsNullOrWhiteSpace(_batchDraft.StaffId))" OnClick="OpenBatchAsync">Open field batch</MudButton>
+
+                    @if (_selectedBatch is not null)
+                    {
+                        <MudDivider Class="my-4" />
+
+                        <MudGrid>
+                            <MudItem xs="12" md="3">
+                                <MudText Typo="Typo.caption">Status</MudText>
+                                <MudText Typo="Typo.subtitle2">@_selectedBatch.Status</MudText>
+                            </MudItem>
+                            <MudItem xs="12" md="3">
+                                <MudText Typo="Typo.caption">Collected</MudText>
+                                <MudText Typo="Typo.subtitle2">@FormatMoney(_selectedBatch.CollectedAmount)</MudText>
+                            </MudItem>
+                            <MudItem xs="12" md="3">
+                                <MudText Typo="Typo.caption">Settled</MudText>
+                                <MudText Typo="Typo.subtitle2">@FormatMoney(_selectedBatch.SettledAmount)</MudText>
+                            </MudItem>
+                            <MudItem xs="12" md="3">
+                                <MudText Typo="Typo.caption">Variance</MudText>
+                                <MudText Typo="Typo.subtitle2">@FormatMoney(_selectedBatch.VarianceAmount)</MudText>
+                            </MudItem>
+                        </MudGrid>
+
+                        <MudGrid Class="mt-2">
+                            <MudItem xs="12" md="4">
+                                <MudTextField T="string" Label="Customer ID" @bind-Value="_collectionDraft.CustomerId" />
+                            </MudItem>
+                            <MudItem xs="12" md="4">
+                                <MudTextField T="string" Label="Target account" @bind-Value="_collectionDraft.TargetAccountId" />
+                            </MudItem>
+                            <MudItem xs="12" md="4">
+                                <MudTextField T="string" Label="Target loan" @bind-Value="_collectionDraft.TargetLoanId" />
+                            </MudItem>
+                            <MudItem xs="12" md="4">
+                                <MudSelect T="string" Label="Collection type" @bind-Value="_collectionDraft.CollectionType">
+                                    <MudSelectItem T="string" Value='@("SAVINGS")'>Savings</MudSelectItem>
+                                    <MudSelectItem T="string" Value='@("COMPULSORY_SAVINGS")'>Compulsory savings</MudSelectItem>
+                                    <MudSelectItem T="string" Value='@("LOAN_REPAYMENT")'>Loan repayment</MudSelectItem>
+                                </MudSelect>
+                            </MudItem>
+                            <MudItem xs="12" md="4">
+                                <MudNumericField T="decimal" Label="Amount" @bind-Value="_collectionDraft.Amount" />
+                            </MudItem>
+                            <MudItem xs="12" md="4">
+                                <MudTextField T="string" Label="Reference" @bind-Value="_collectionDraft.ExternalReference" />
+                            </MudItem>
+                            <MudItem xs="12">
+                                <MudTextField T="string" Label="Narration" @bind-Value="_collectionDraft.Narrative" />
+                            </MudItem>
+                        </MudGrid>
+
+                        @if (_loanPolicies.Count > 0)
+                        {
+                            <MudText Typo="Typo.caption" Class="mt-3">Loan policies</MudText>
+                            <MudChipSet T="string" Class="mt-1">
+                                @foreach (var policy in _loanPolicies.Take(8))
+                                {
+                                    <MudChip T="string" Color="Color.Default" Variant="Variant.Outlined">@policy.LoanProductName - @policy.RepaymentFrequency</MudChip>
+                                }
+                            </MudChipSet>
+                        }
+
+                        <MudStack Row="true" Spacing="2" Class="mt-4">
+                            <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="@(_isSubmitting || string.IsNullOrWhiteSpace(_collectionDraft.CustomerId) || _collectionDraft.Amount <= 0)" OnClick="RecordCollectionAsync">
+                                Post collection
+                            </MudButton>
+                            <MudButton Variant="Variant.Outlined" Disabled="@(_isSubmitting || _selectedBatch.Lines.Count == 0)" OnClick="SubmitBatchAsync">
+                                Submit batch
+                            </MudButton>
+                            <MudButton Variant="Variant.Outlined" Color="Color.Success" Disabled="@(_isSubmitting || !_selectedBatch.Status.Equals("SUBMITTED", StringComparison.OrdinalIgnoreCase))" OnClick="SettleBatchAsync">
+                                Settle batch
+                            </MudButton>
+                        </MudStack>
+
+                        <MudTable Items="_selectedBatch.Lines" Dense="true" Hover="true" Class="mt-4">
+                            <HeaderContent>
+                                <MudTh>Customer</MudTh><MudTh>Type</MudTh><MudTh>Target</MudTh><MudTh>Amount</MudTh><MudTh>Status</MudTh><MudTh>Collected</MudTh>
+                            </HeaderContent>
+                            <RowTemplate>
+                                <MudTd>@context.CustomerName</MudTd>
+                                <MudTd>@context.CollectionType</MudTd>
+                                <MudTd>@(context.TargetLoanId ?? context.TargetAccountId ?? "Manual target")</MudTd>
+                                <MudTd>@FormatMoney(context.Amount)</MudTd>
+                                <MudTd>@context.Status</MudTd>
+                                <MudTd>@context.CollectedAtUtc.ToLocalTime().ToString("dd MMM yyyy HH:mm")</MudTd>
+                            </RowTemplate>
+                        </MudTable>
+                    }
+                </MudPaper>
+            </MudItem>
+
+            <MudItem xs="12" lg="4">
+                <MudPaper Class="pa-4">
+                    <MudText Typo="Typo.h6">Microcredit Policy View</MudText>
+                    <MudText Typo="Typo.body2" Class="mud-text-secondary">See which microcredit products enforce compulsory savings and how repayment cadence is tuned.</MudText>
+
+                    <MudStack Spacing="2" Class="mt-4">
+                        @foreach (var policy in _loanPolicies)
+                        {
+                            <MudPaper Class="pa-3" Outlined="true">
+                                <MudText Typo="Typo.subtitle2">@policy.LoanProductName</MudText>
+                                <MudText Typo="Typo.caption">@policy.LoanProductCode</MudText>
+                                <MudText Typo="Typo.body2" Class="mt-2">Repayment cadence: @policy.RepaymentFrequency</MudText>
+                                <MudText Typo="Typo.body2">
+                                    @if (policy.RequiresCompulsorySavings)
+                                    {
+                                        <span>Compulsory savings ratio: @($"{(policy.MinimumSavingsToLoanRatio ?? 0m) * 100m:0.0}%")</span>
+                                    }
+                                    else
+                                    {
+                                        <span>No compulsory savings rule.</span>
+                                    }
+                                </MudText>
+                            </MudPaper>
+                        }
+                    </MudStack>
+                </MudPaper>
+            </MudItem>
+        </MudGrid>
+    }
+</MudStack>
+
+@code {
+    private CoreBanker.Services.MicrofinanceSummaryVm? _summary;
+    private readonly List<CoreBanker.Services.MicrofinanceLoanPolicyVm> _loanPolicies = new();
+    private readonly List<CoreBanker.Services.CustomerSearchItemVm> _customerResults = new();
+    private readonly List<CoreBanker.Services.AccountSearchItemVm> _accountResults = new();
+    private CoreBanker.Services.FieldCollectionBatchVm? _selectedBatch;
+    private string? _selectedBatchId;
+    private bool _isLoading = true;
+    private bool _isSubmitting;
+    private string? _error;
+    private string? _statusMessage;
+    private string _customerQuery = string.Empty;
+    private string _accountQuery = string.Empty;
+
+    private CoreBanker.Services.UpsertCollectorAssignmentRequestVm _assignmentDraft = new();
+    private CoreBanker.Services.OpenFieldCollectionBatchRequestVm _batchDraft = new()
+    {
+        BusinessDate = DateTime.Today,
+        CollectionType = "SAVINGS",
+        Currency = "GHS"
+    };
+
+    private CoreBanker.Services.RecordFieldCollectionRequestVm _collectionDraft = new()
+    {
+        CollectionType = "SAVINGS",
+        Currency = "GHS"
+    };
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _isLoading = true;
+        _error = null;
+        try
+        {
+            var summary = await MicrofinanceService.GetSummaryAsync();
+            var policies = await MicrofinanceService.GetLoanPoliciesAsync();
+            _summary = summary;
+            _loanPolicies.Clear();
+            _loanPolicies.AddRange(policies);
+            SyncSelectedBatch();
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private void SyncSelectedBatch()
+    {
+        if (_summary is null)
+        {
+            _selectedBatch = null;
+            _selectedBatchId = null;
+            return;
+        }
+
+        _selectedBatchId ??= _summary.OpenBatches.FirstOrDefault()?.Id;
+        _selectedBatch = _summary.OpenBatches.FirstOrDefault(item => item.Id == _selectedBatchId) ?? _summary.OpenBatches.FirstOrDefault();
+        _selectedBatchId = _selectedBatch?.Id;
+        _collectionDraft.Currency = _selectedBatch?.Currency ?? "GHS";
+    }
+
+    private async Task OnCustomerQueryChanged(string value)
+    {
+        _customerQuery = value;
+        _customerResults.Clear();
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return;
+        }
+
+        var results = await MicrofinanceService.SearchCustomersAsync(value);
+        _customerResults.AddRange(results);
+    }
+
+    private async Task OnAccountQueryChanged(string value)
+    {
+        _accountQuery = value;
+        _accountResults.Clear();
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return;
+        }
+
+        var results = await MicrofinanceService.SearchAccountsAsync(value, _assignmentDraft.CustomerId);
+        _accountResults.AddRange(results);
+    }
+
+    private void SelectCustomer(string customerId, string customerName)
+    {
+        _assignmentDraft.CustomerId = customerId;
+        _collectionDraft.CustomerId = customerId;
+        _customerQuery = customerName;
+    }
+
+    private void SelectAccount(CoreBanker.Services.AccountSearchItemVm account)
+    {
+        _assignmentDraft.CustomerId = account.CustomerId;
+        _assignmentDraft.TargetDepositAccountId = account.AccountId;
+        _collectionDraft.CustomerId = account.CustomerId;
+        _collectionDraft.TargetAccountId = account.AccountId;
+        _collectionDraft.Currency = account.Currency;
+        _accountQuery = account.AccountNumber;
+    }
+
+    private void LoadAssignmentIntoCollection(CoreBanker.Services.CollectorAssignmentVm assignment)
+    {
+        _assignmentDraft.CustomerId = assignment.CustomerId;
+        _assignmentDraft.TargetDepositAccountId = assignment.TargetDepositAccountId;
+        _assignmentDraft.TargetLoanId = assignment.TargetLoanId;
+        _collectionDraft.AssignmentId = assignment.Id;
+        _collectionDraft.CustomerId = assignment.CustomerId;
+        _collectionDraft.TargetAccountId = assignment.TargetDepositAccountId;
+        _collectionDraft.TargetLoanId = assignment.TargetLoanId;
+        _collectionDraft.CollectionType = string.IsNullOrWhiteSpace(assignment.TargetLoanId) ? "SAVINGS" : "LOAN_REPAYMENT";
+    }
+
+    private void ResetAssignment()
+    {
+        _assignmentDraft = new CoreBanker.Services.UpsertCollectorAssignmentRequestVm
+        {
+            CollectionFrequency = "DAILY",
+            IsPrimaryCollector = true
+        };
+        _customerQuery = string.Empty;
+        _accountQuery = string.Empty;
+        _customerResults.Clear();
+        _accountResults.Clear();
+    }
+
+    private async Task SaveAssignmentAsync()
+    {
+        _isSubmitting = true;
+        _error = null;
+        _statusMessage = null;
+        try
+        {
+            await MicrofinanceService.UpsertAssignmentAsync(_assignmentDraft);
+            _statusMessage = "Collector assignment saved.";
+            ResetAssignment();
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _isSubmitting = false;
+        }
+    }
+
+    private async Task OpenBatchAsync()
+    {
+        _isSubmitting = true;
+        _error = null;
+        _statusMessage = null;
+        try
+        {
+            var batch = await MicrofinanceService.OpenBatchAsync(_batchDraft);
+            _statusMessage = "Field batch opened.";
+            _selectedBatchId = batch?.Id;
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _isSubmitting = false;
+        }
+    }
+
+    private async Task OnSelectedBatchChanged(string value)
+    {
+        _selectedBatchId = string.IsNullOrWhiteSpace(value) ? null : value;
+        SyncSelectedBatch();
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task RecordCollectionAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_selectedBatchId))
+        {
+            _error = "Open or select a field batch before posting collections.";
+            return;
+        }
+
+        _isSubmitting = true;
+        _error = null;
+        _statusMessage = null;
+        try
+        {
+            await MicrofinanceService.RecordCollectionAsync(_selectedBatchId, _collectionDraft);
+            _statusMessage = "Collection posted to the active batch.";
+            _collectionDraft = new CoreBanker.Services.RecordFieldCollectionRequestVm
+            {
+                CollectionType = "SAVINGS",
+                Currency = _selectedBatch?.Currency ?? "GHS"
+            };
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _isSubmitting = false;
+        }
+    }
+
+    private async Task SubmitBatchAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_selectedBatchId))
+        {
+            return;
+        }
+
+        _isSubmitting = true;
+        _error = null;
+        _statusMessage = null;
+        try
+        {
+            await MicrofinanceService.SubmitBatchAsync(_selectedBatchId, new CoreBanker.Services.SubmitFieldCollectionBatchRequestVm());
+            _statusMessage = "Field batch submitted for settlement.";
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _isSubmitting = false;
+        }
+    }
+
+    private async Task SettleBatchAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_selectedBatchId) || _selectedBatch is null)
+        {
+            return;
+        }
+
+        _isSubmitting = true;
+        _error = null;
+        _statusMessage = null;
+        try
+        {
+            await MicrofinanceService.SettleBatchAsync(_selectedBatchId, new CoreBanker.Services.SettleFieldCollectionBatchRequestVm
+            {
+                SettledAmount = _selectedBatch.CollectedAmount,
+                SettlementReference = $"SET-{DateTimeOffset.UtcNow.ToUnixTimeSeconds()}",
+                Notes = "Settled from CoreBanker microfinance operations."
+            });
+            _statusMessage = "Field batch settled successfully.";
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _isSubmitting = false;
+        }
+    }
+
+    private static string FormatMoney(decimal amount) => CoreBanker.Utilities.CurrencyFormatter.Format(amount);
+
+    private static string FormatDate(DateTime? value)
+        => value?.ToLocalTime().ToString("dd MMM yyyy HH:mm") ?? "Not scheduled";
+}

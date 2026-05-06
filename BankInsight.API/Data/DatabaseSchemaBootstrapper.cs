@@ -358,11 +358,430 @@ BEGIN
 END $$;");
 
         await context.Database.ExecuteSqlRawAsync(@"
+CREATE TABLE IF NOT EXISTS collector_portfolio_assignments (
+    id character varying(50) PRIMARY KEY,
+    customer_id character varying(50) NOT NULL,
+    account_id character varying(50) NOT NULL,
+    collector_staff_id character varying(50) NULL,
+    loan_product_id character varying(50) NULL,
+    collection_type character varying(30) NOT NULL DEFAULT 'SUSU_SAVINGS',
+    frequency character varying(20) NOT NULL DEFAULT 'DAILY',
+    target_amount numeric(18,2) NOT NULL DEFAULT 0,
+    minimum_contribution_amount numeric(18,2) NULL,
+    route_name character varying(120) NULL,
+    meeting_day character varying(20) NULL,
+    status character varying(20) NOT NULL DEFAULT 'ACTIVE',
+    next_collection_date date NULL,
+    last_collection_at timestamp with time zone NULL,
+    notes character varying(1000) NULL,
+    created_at timestamp with time zone NOT NULL DEFAULT NOW(),
+    updated_at timestamp with time zone NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS ix_collector_portfolio_assignments_collector_status_date
+    ON collector_portfolio_assignments (collector_staff_id, status, next_collection_date);
+CREATE INDEX IF NOT EXISTS ix_collector_portfolio_assignments_customer_account_type
+    ON collector_portfolio_assignments (customer_id, account_id, collection_type);
+
+CREATE TABLE IF NOT EXISTS field_collection_batches (
+    id character varying(50) PRIMARY KEY,
+    collector_staff_id character varying(50) NULL,
+    branch_id character varying(50) NULL,
+    batch_date date NOT NULL,
+    route_name character varying(120) NULL,
+    status character varying(20) NOT NULL DEFAULT 'OPEN',
+    expected_amount numeric(18,2) NOT NULL DEFAULT 0,
+    collected_amount numeric(18,2) NOT NULL DEFAULT 0,
+    settled_amount numeric(18,2) NOT NULL DEFAULT 0,
+    variance_amount numeric(18,2) NOT NULL DEFAULT 0,
+    opening_float numeric(18,2) NOT NULL DEFAULT 0,
+    notes character varying(1000) NULL,
+    created_at timestamp with time zone NOT NULL DEFAULT NOW(),
+    submitted_at timestamp with time zone NULL,
+    settled_at timestamp with time zone NULL
+);
+
+CREATE INDEX IF NOT EXISTS ix_field_collection_batches_collector_date_status
+    ON field_collection_batches (collector_staff_id, batch_date, status);
+
+CREATE TABLE IF NOT EXISTS field_collection_batch_lines (
+    id uuid PRIMARY KEY,
+    batch_id character varying(50) NOT NULL,
+    assignment_id character varying(50) NULL,
+    customer_id character varying(50) NOT NULL,
+    account_id character varying(50) NOT NULL,
+    loan_id character varying(50) NULL,
+    transaction_type character varying(30) NOT NULL DEFAULT 'SUSU_SAVINGS',
+    amount numeric(18,2) NOT NULL DEFAULT 0,
+    currency character varying(10) NOT NULL DEFAULT 'GHS',
+    status character varying(20) NOT NULL DEFAULT 'POSTED',
+    narration character varying(500) NOT NULL DEFAULT '',
+    posted_transaction_id character varying(100) NULL,
+    due_amount numeric(18,2) NULL,
+    was_missed boolean NOT NULL DEFAULT false,
+    collected_at timestamp with time zone NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS ix_field_collection_batch_lines_batch_collected_at
+    ON field_collection_batch_lines (batch_id, collected_at DESC);");
+
+        await context.Database.ExecuteSqlRawAsync(@"
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_collector_portfolio_assignments_customer') THEN
+        ALTER TABLE collector_portfolio_assignments ADD CONSTRAINT fk_collector_portfolio_assignments_customer
+        FOREIGN KEY (customer_id) REFERENCES customers(id) ON DELETE CASCADE;
+    END IF;
+
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_collector_portfolio_assignments_account') THEN
+        ALTER TABLE collector_portfolio_assignments ADD CONSTRAINT fk_collector_portfolio_assignments_account
+        FOREIGN KEY (account_id) REFERENCES accounts(id) ON DELETE RESTRICT;
+    END IF;
+
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_collector_portfolio_assignments_staff') THEN
+        ALTER TABLE collector_portfolio_assignments ADD CONSTRAINT fk_collector_portfolio_assignments_staff
+        FOREIGN KEY (collector_staff_id) REFERENCES staff(id) ON DELETE SET NULL;
+    END IF;
+
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_collector_portfolio_assignments_loan_product') THEN
+        ALTER TABLE collector_portfolio_assignments ADD CONSTRAINT fk_collector_portfolio_assignments_loan_product
+        FOREIGN KEY (loan_product_id) REFERENCES loan_products(id) ON DELETE SET NULL;
+    END IF;
+
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_field_collection_batches_staff') THEN
+        ALTER TABLE field_collection_batches ADD CONSTRAINT fk_field_collection_batches_staff
+        FOREIGN KEY (collector_staff_id) REFERENCES staff(id) ON DELETE SET NULL;
+    END IF;
+
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_field_collection_batch_lines_batch') THEN
+        ALTER TABLE field_collection_batch_lines ADD CONSTRAINT fk_field_collection_batch_lines_batch
+        FOREIGN KEY (batch_id) REFERENCES field_collection_batches(id) ON DELETE CASCADE;
+    END IF;
+
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_field_collection_batch_lines_assignment') THEN
+        ALTER TABLE field_collection_batch_lines ADD CONSTRAINT fk_field_collection_batch_lines_assignment
+        FOREIGN KEY (assignment_id) REFERENCES collector_portfolio_assignments(id) ON DELETE SET NULL;
+    END IF;
+
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_field_collection_batch_lines_customer') THEN
+        ALTER TABLE field_collection_batch_lines ADD CONSTRAINT fk_field_collection_batch_lines_customer
+        FOREIGN KEY (customer_id) REFERENCES customers(id) ON DELETE CASCADE;
+    END IF;
+
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_field_collection_batch_lines_account') THEN
+        ALTER TABLE field_collection_batch_lines ADD CONSTRAINT fk_field_collection_batch_lines_account
+        FOREIGN KEY (account_id) REFERENCES accounts(id) ON DELETE RESTRICT;
+    END IF;
+
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_field_collection_batch_lines_loan') THEN
+        ALTER TABLE field_collection_batch_lines ADD CONSTRAINT fk_field_collection_batch_lines_loan
+        FOREIGN KEY (loan_id) REFERENCES loans(id) ON DELETE SET NULL;
+    END IF;
+END $$;");
+
+        await context.Database.ExecuteSqlRawAsync(@"
 DO $$
 BEGIN
     IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_product_charge_definitions_product') THEN
         ALTER TABLE product_charge_definitions ADD CONSTRAINT fk_product_charge_definitions_product
         FOREIGN KEY (product_id) REFERENCES products (id) ON DELETE CASCADE;
+    END IF;
+END $$;");
+
+        await context.Database.ExecuteSqlRawAsync(@"
+ALTER TABLE IF EXISTS products
+    ADD COLUMN IF NOT EXISTS lifecycle_status character varying(30) NOT NULL DEFAULT 'DRAFT',
+    ADD COLUMN IF NOT EXISTS version_number integer NOT NULL DEFAULT 1,
+    ADD COLUMN IF NOT EXISTS effective_from timestamp with time zone NULL,
+    ADD COLUMN IF NOT EXISTS retired_at timestamp with time zone NULL,
+    ADD COLUMN IF NOT EXISTS last_simulation_json text NULL;
+
+CREATE INDEX IF NOT EXISTS ix_products_lifecycle_status_type_effective_from
+    ON products (lifecycle_status, type, effective_from);");
+
+        await context.Database.ExecuteSqlRawAsync(@"
+CREATE TABLE IF NOT EXISTS collection_cases (
+    id character varying(50) PRIMARY KEY,
+    loan_id character varying(50) NOT NULL,
+    customer_id character varying(50) NOT NULL,
+    status character varying(20) NOT NULL DEFAULT 'OPEN',
+    priority character varying(20) NOT NULL DEFAULT 'MEDIUM',
+    recovery_stage character varying(30) NOT NULL DEFAULT 'EARLY_ARREARS',
+    delinquency_days integer NOT NULL DEFAULT 0,
+    outstanding_balance numeric(18,2) NOT NULL DEFAULT 0,
+    amount_in_arrears numeric(18,2) NOT NULL DEFAULT 0,
+    assigned_to character varying(50) NULL,
+    next_action_date timestamp with time zone NULL,
+    promise_to_pay_date timestamp with time zone NULL,
+    promise_to_pay_amount numeric(18,2) NULL,
+    last_contact_at timestamp with time zone NULL,
+    last_payment_at timestamp with time zone NULL,
+    next_escalation_date timestamp with time zone NULL,
+    notes character varying(2000) NULL,
+    recovery_strategy character varying(100) NULL,
+    legal_status character varying(30) NULL,
+    settlement_amount numeric(18,2) NULL,
+    settlement_expiry_date timestamp with time zone NULL,
+    created_at timestamp with time zone NOT NULL DEFAULT NOW(),
+    updated_at timestamp with time zone NOT NULL DEFAULT NOW()
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS ix_collection_cases_loan_id
+    ON collection_cases (loan_id);
+CREATE INDEX IF NOT EXISTS ix_collection_cases_status_priority_next_action
+    ON collection_cases (status, priority, next_action_date);
+CREATE INDEX IF NOT EXISTS ix_collection_cases_recovery_legal_escalation
+    ON collection_cases (recovery_stage, legal_status, next_escalation_date);
+
+CREATE TABLE IF NOT EXISTS collection_case_events (
+    id integer GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+    case_id character varying(50) NOT NULL,
+    event_type character varying(30) NOT NULL DEFAULT 'NOTE',
+    performed_by character varying(50) NULL,
+    detail character varying(2000) NOT NULL,
+    metadata_json text NULL,
+    created_at timestamp with time zone NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS ix_collection_case_events_case_created_at
+    ON collection_case_events (case_id, created_at DESC);");
+
+        await context.Database.ExecuteSqlRawAsync(@"
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_collection_cases_loan') THEN
+        ALTER TABLE collection_cases ADD CONSTRAINT fk_collection_cases_loan
+        FOREIGN KEY (loan_id) REFERENCES loans (id) ON DELETE CASCADE;
+    END IF;
+
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_collection_cases_customer') THEN
+        ALTER TABLE collection_cases ADD CONSTRAINT fk_collection_cases_customer
+        FOREIGN KEY (customer_id) REFERENCES customers (id) ON DELETE CASCADE;
+    END IF;
+
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_collection_case_events_case') THEN
+        ALTER TABLE collection_case_events ADD CONSTRAINT fk_collection_case_events_case
+        FOREIGN KEY (case_id) REFERENCES collection_cases (id) ON DELETE CASCADE;
+    END IF;
+END $$;");
+
+        await context.Database.ExecuteSqlRawAsync(@"
+ALTER TABLE IF EXISTS collection_cases
+    ADD COLUMN IF NOT EXISTS last_payment_at timestamp with time zone NULL,
+    ADD COLUMN IF NOT EXISTS next_escalation_date timestamp with time zone NULL,
+    ADD COLUMN IF NOT EXISTS recovery_strategy character varying(100) NULL,
+    ADD COLUMN IF NOT EXISTS legal_status character varying(30) NULL,
+    ADD COLUMN IF NOT EXISTS settlement_amount numeric(18,2) NULL,
+    ADD COLUMN IF NOT EXISTS settlement_expiry_date timestamp with time zone NULL,
+    ADD COLUMN IF NOT EXISTS assigned_agency character varying(120) NULL,
+    ADD COLUMN IF NOT EXISTS repossession_status character varying(30) NULL,
+    ADD COLUMN IF NOT EXISTS approval_status character varying(30) NULL,
+    ADD COLUMN IF NOT EXISTS write_off_recommended_amount numeric(18,2) NULL,
+    ADD COLUMN IF NOT EXISTS write_off_reason character varying(500) NULL;");
+
+        await context.Database.ExecuteSqlRawAsync(@"
+CREATE TABLE IF NOT EXISTS reconciliation_exceptions (
+    id character varying(50) PRIMARY KEY,
+    category character varying(30) NOT NULL,
+    source_system character varying(50) NOT NULL,
+    reference character varying(100) NOT NULL,
+    status character varying(20) NOT NULL DEFAULT 'OPEN',
+    severity character varying(20) NOT NULL DEFAULT 'MEDIUM',
+    currency character varying(10) NOT NULL DEFAULT 'GHS',
+    amount numeric(18,2) NOT NULL DEFAULT 0,
+    owner_user_id character varying(50) NULL,
+    summary character varying(255) NOT NULL,
+    detail character varying(2000) NOT NULL,
+    detected_at timestamp with time zone NOT NULL DEFAULT NOW(),
+    due_at timestamp with time zone NULL,
+    resolved_at timestamp with time zone NULL,
+    retry_count integer NOT NULL DEFAULT 0,
+    last_attempt_at timestamp with time zone NULL,
+    workflow_stage character varying(40) NULL,
+    resolution_code character varying(40) NULL,
+    updated_at timestamp with time zone NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS ix_reconciliation_exceptions_status_category_due
+    ON reconciliation_exceptions (status, category, due_at);
+CREATE INDEX IF NOT EXISTS ix_reconciliation_exceptions_workflow_stage
+    ON reconciliation_exceptions (workflow_stage, status);
+
+CREATE TABLE IF NOT EXISTS collateral_records (
+    id character varying(50) PRIMARY KEY,
+    loan_id character varying(50) NOT NULL,
+    customer_id character varying(50) NOT NULL,
+    collateral_type character varying(50) NOT NULL,
+    description character varying(500) NOT NULL,
+    registered_value numeric(18,2) NOT NULL DEFAULT 0,
+    current_valuation numeric(18,2) NOT NULL DEFAULT 0,
+    valuation_date timestamp with time zone NULL,
+    valuation_expiry_date timestamp with time zone NULL,
+    perfection_status character varying(30) NOT NULL DEFAULT 'PENDING',
+    document_reference character varying(100) NULL,
+    custody_location character varying(100) NULL,
+    status character varying(20) NOT NULL DEFAULT 'ACTIVE',
+    created_at timestamp with time zone NOT NULL DEFAULT NOW(),
+    updated_at timestamp with time zone NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS ix_collateral_records_loan_status_expiry
+    ON collateral_records (loan_id, status, valuation_expiry_date);
+
+CREATE TABLE IF NOT EXISTS covenant_records (
+    id character varying(50) PRIMARY KEY,
+    loan_id character varying(50) NOT NULL,
+    name character varying(150) NOT NULL,
+    covenant_type character varying(30) NOT NULL DEFAULT 'REPORTING',
+    status character varying(20) NOT NULL DEFAULT 'PENDING',
+    due_date timestamp with time zone NULL,
+    last_reviewed_at timestamp with time zone NULL,
+    detail character varying(1000) NOT NULL,
+    created_at timestamp with time zone NOT NULL DEFAULT NOW(),
+    updated_at timestamp with time zone NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS ix_covenant_records_loan_status_due
+    ON covenant_records (loan_id, status, due_date);");
+
+        await context.Database.ExecuteSqlRawAsync(@"
+CREATE TABLE IF NOT EXISTS api_product_definitions (
+    id character varying(50) PRIMARY KEY,
+    name character varying(120) NOT NULL,
+    slug character varying(80) NOT NULL,
+    category character varying(40) NOT NULL,
+    audience character varying(40) NOT NULL DEFAULT 'PARTNER',
+    status character varying(20) NOT NULL DEFAULT 'PUBLISHED',
+    version character varying(20) NOT NULL DEFAULT 'v1',
+    auth_model character varying(40) NOT NULL DEFAULT 'BEARER_TOKEN',
+    base_path character varying(120) NOT NULL,
+    documentation_path character varying(255) NOT NULL,
+    rate_limit_per_minute integer NOT NULL DEFAULT 120,
+    supports_webhooks boolean NOT NULL DEFAULT FALSE,
+    supports_sandbox boolean NOT NULL DEFAULT TRUE,
+    scope_summary character varying(1000) NOT NULL,
+    last_published_at timestamp with time zone NULL,
+    created_at timestamp with time zone NOT NULL DEFAULT NOW(),
+    updated_at timestamp with time zone NOT NULL DEFAULT NOW()
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS ix_api_product_definitions_slug_version
+    ON api_product_definitions (slug, version);
+
+CREATE TABLE IF NOT EXISTS partner_applications (
+    id character varying(50) PRIMARY KEY,
+    name character varying(120) NOT NULL,
+    partner_name character varying(120) NOT NULL,
+    status character varying(20) NOT NULL DEFAULT 'SANDBOX',
+    environment character varying(20) NOT NULL DEFAULT 'SANDBOX',
+    callback_url character varying(255) NOT NULL,
+    contact_email character varying(120) NOT NULL,
+    api_product_ids_json text NOT NULL DEFAULT '[]',
+    sandbox_key character varying(120) NOT NULL,
+    production_key character varying(120) NULL,
+    production_key_activated_at timestamp with time zone NULL,
+    last_key_rotated_at timestamp with time zone NULL,
+    last_activity_at timestamp with time zone NULL,
+    created_at timestamp with time zone NOT NULL DEFAULT NOW(),
+    updated_at timestamp with time zone NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS ix_partner_applications_status_environment
+    ON partner_applications (status, environment);
+
+CREATE TABLE IF NOT EXISTS webhook_subscriptions (
+    id character varying(50) PRIMARY KEY,
+    partner_application_id character varying(50) NOT NULL,
+    event_name character varying(80) NOT NULL,
+    target_url character varying(255) NOT NULL,
+    status character varying(20) NOT NULL DEFAULT 'ACTIVE',
+    signing_secret character varying(120) NOT NULL,
+    last_delivery_at timestamp with time zone NULL,
+    last_delivery_status character varying(20) NULL,
+    created_at timestamp with time zone NOT NULL DEFAULT NOW(),
+    updated_at timestamp with time zone NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS ix_webhook_subscriptions_partner_event_status
+    ON webhook_subscriptions (partner_application_id, event_name, status);");
+
+        await context.Database.ExecuteSqlRawAsync(@"
+CREATE TABLE IF NOT EXISTS webhook_delivery_logs (
+    id character varying(50) PRIMARY KEY,
+    webhook_subscription_id character varying(50) NOT NULL,
+    event_name character varying(80) NOT NULL,
+    delivery_status character varying(20) NOT NULL DEFAULT 'PENDING',
+    response_code integer NULL,
+    attempt_number integer NOT NULL DEFAULT 1,
+    failure_reason character varying(500) NULL,
+    delivered_at timestamp with time zone NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS ix_webhook_delivery_logs_subscription_delivered_at
+    ON webhook_delivery_logs (webhook_subscription_id, delivered_at DESC);
+
+CREATE TABLE IF NOT EXISTS settlement_instructions (
+    id character varying(50) PRIMARY KEY,
+    reconciliation_exception_id character varying(50) NOT NULL,
+    instruction_type character varying(40) NOT NULL,
+    status character varying(20) NOT NULL DEFAULT 'PENDING',
+    currency character varying(10) NOT NULL DEFAULT 'GHS',
+    amount numeric(18,2) NOT NULL DEFAULT 0,
+    settlement_account character varying(80) NULL,
+    counterparty character varying(120) NULL,
+    due_at timestamp with time zone NULL,
+    completed_at timestamp with time zone NULL,
+    notes character varying(1000) NULL,
+    created_at timestamp with time zone NOT NULL DEFAULT NOW(),
+    updated_at timestamp with time zone NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS ix_settlement_instructions_exception_status
+    ON settlement_instructions (reconciliation_exception_id, status);");
+
+        await context.Database.ExecuteSqlRawAsync(@"
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_webhook_subscriptions_partner_application') THEN
+        ALTER TABLE webhook_subscriptions ADD CONSTRAINT fk_webhook_subscriptions_partner_application
+        FOREIGN KEY (partner_application_id) REFERENCES partner_applications (id) ON DELETE CASCADE;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_webhook_delivery_logs_subscription') THEN
+        ALTER TABLE webhook_delivery_logs ADD CONSTRAINT fk_webhook_delivery_logs_subscription
+        FOREIGN KEY (webhook_subscription_id) REFERENCES webhook_subscriptions (id) ON DELETE CASCADE;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_settlement_instructions_exception') THEN
+        ALTER TABLE settlement_instructions ADD CONSTRAINT fk_settlement_instructions_exception
+        FOREIGN KEY (reconciliation_exception_id) REFERENCES reconciliation_exceptions (id) ON DELETE CASCADE;
+    END IF;
+END $$;");
+
+        await context.Database.ExecuteSqlRawAsync(@"
+ALTER TABLE IF EXISTS reconciliation_exceptions
+    ADD COLUMN IF NOT EXISTS retry_count integer NOT NULL DEFAULT 0,
+    ADD COLUMN IF NOT EXISTS last_attempt_at timestamp with time zone NULL,
+    ADD COLUMN IF NOT EXISTS workflow_stage character varying(40) NULL,
+    ADD COLUMN IF NOT EXISTS resolution_code character varying(40) NULL;
+
+ALTER TABLE IF EXISTS partner_applications
+    ADD COLUMN IF NOT EXISTS production_key_activated_at timestamp with time zone NULL;");
+
+        await context.Database.ExecuteSqlRawAsync(@"
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_collateral_records_loan') THEN
+        ALTER TABLE collateral_records ADD CONSTRAINT fk_collateral_records_loan
+        FOREIGN KEY (loan_id) REFERENCES loans (id) ON DELETE CASCADE;
+    END IF;
+
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_collateral_records_customer') THEN
+        ALTER TABLE collateral_records ADD CONSTRAINT fk_collateral_records_customer
+        FOREIGN KEY (customer_id) REFERENCES customers (id) ON DELETE CASCADE;
+    END IF;
+
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_covenant_records_loan') THEN
+        ALTER TABLE covenant_records ADD CONSTRAINT fk_covenant_records_loan
+        FOREIGN KEY (loan_id) REFERENCES loans (id) ON DELETE CASCADE;
     END IF;
 END $$;");
 
@@ -610,6 +1029,103 @@ BEGIN
     IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_internal_credit_score_loan') THEN
         ALTER TABLE internal_credit_score_assessments ADD CONSTRAINT fk_internal_credit_score_loan
         FOREIGN KEY (loan_id) REFERENCES loans (id) ON DELETE SET NULL;
+    END IF;
+END $$;");
+
+        await context.Database.ExecuteSqlRawAsync(@"
+CREATE TABLE IF NOT EXISTS workspace_preferences (
+    id character varying(50) PRIMARY KEY,
+    staff_id character varying(50) NOT NULL,
+    workspace_key character varying(100) NOT NULL,
+    view_name character varying(150) NULL,
+    route character varying(200) NULL,
+    filter_json jsonb NULL,
+    is_favorite boolean NOT NULL DEFAULT false,
+    is_pinned boolean NOT NULL DEFAULT false,
+    is_default boolean NOT NULL DEFAULT false,
+    created_at timestamp with time zone NOT NULL DEFAULT NOW(),
+    updated_at timestamp with time zone NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS ix_workspace_preferences_staff_updated
+    ON workspace_preferences (staff_id, updated_at DESC);
+CREATE INDEX IF NOT EXISTS ix_workspace_preferences_workspace_key
+    ON workspace_preferences (workspace_key);
+CREATE UNIQUE INDEX IF NOT EXISTS ix_workspace_preferences_staff_workspace_favorite
+    ON workspace_preferences (staff_id, workspace_key)
+    WHERE view_name IS NULL;");
+
+        await context.Database.ExecuteSqlRawAsync(@"
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_workspace_preferences_staff') THEN
+        ALTER TABLE workspace_preferences ADD CONSTRAINT fk_workspace_preferences_staff
+        FOREIGN KEY (staff_id) REFERENCES staff(id) ON DELETE CASCADE;
+    END IF;
+END $$;");
+
+        await context.Database.ExecuteSqlRawAsync(@"
+CREATE TABLE IF NOT EXISTS regulatory_variance_resolutions (
+    id character varying(50) PRIMARY KEY,
+    reference character varying(100) NOT NULL,
+    return_type character varying(100) NOT NULL,
+    resolution_status character varying(20) NOT NULL DEFAULT 'OPEN',
+    owner_user_id character varying(50) NULL,
+    owner_name character varying(150) NULL,
+    assigned_by_user_id character varying(50) NULL,
+    assigned_by_name character varying(150) NULL,
+    assigned_at timestamp with time zone NULL,
+    resolution_note character varying(2000) NULL,
+    resolved_at timestamp with time zone NULL,
+    created_at timestamp with time zone NOT NULL DEFAULT NOW(),
+    updated_at timestamp with time zone NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS ix_regulatory_variance_resolutions_reference
+    ON regulatory_variance_resolutions (reference, return_type);
+CREATE INDEX IF NOT EXISTS ix_regulatory_variance_resolutions_status
+    ON regulatory_variance_resolutions (resolution_status, updated_at DESC);");
+
+        await context.Database.ExecuteSqlRawAsync(@"
+ALTER TABLE IF EXISTS regulatory_variance_resolutions
+    ADD COLUMN IF NOT EXISTS assigned_by_user_id character varying(50) NULL,
+    ADD COLUMN IF NOT EXISTS assigned_by_name character varying(150) NULL,
+    ADD COLUMN IF NOT EXISTS assigned_at timestamp with time zone NULL;
+
+CREATE TABLE IF NOT EXISTS regulatory_variance_events (
+    id character varying(50) PRIMARY KEY,
+    reference character varying(100) NOT NULL,
+    return_type character varying(100) NOT NULL,
+    event_type character varying(50) NOT NULL,
+    performed_by_user_id character varying(50) NULL,
+    performed_by_name character varying(150) NULL,
+    detail character varying(2000) NOT NULL,
+    created_at timestamp with time zone NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS ix_regulatory_variance_events_reference_created
+    ON regulatory_variance_events (reference, return_type, created_at DESC);
+
+CREATE TABLE IF NOT EXISTS relationship_ownership_assignments (
+    id character varying(50) PRIMARY KEY,
+    customer_id character varying(50) NOT NULL,
+    owner_user_id character varying(50) NULL,
+    owner_name character varying(150) NULL,
+    assigned_by_user_id character varying(50) NULL,
+    assigned_by_name character varying(150) NULL,
+    assignment_note character varying(2000) NULL,
+    assigned_at timestamp with time zone NOT NULL DEFAULT NOW(),
+    updated_at timestamp with time zone NOT NULL DEFAULT NOW()
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS ix_relationship_ownership_assignments_customer
+    ON relationship_ownership_assignments (customer_id);
+
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_relationship_ownership_assignments_customer') THEN
+        ALTER TABLE relationship_ownership_assignments ADD CONSTRAINT fk_relationship_ownership_assignments_customer
+        FOREIGN KEY (customer_id) REFERENCES customers(id) ON DELETE CASCADE;
     END IF;
 END $$;");
     }

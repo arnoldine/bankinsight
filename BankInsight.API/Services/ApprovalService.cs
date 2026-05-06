@@ -168,6 +168,46 @@ public class ApprovalService
                 await _vaultManagementService.AllocateTillCashAsync(payload.Request, actingUserId ?? payload.RequestedBy ?? "SYSTEM");
             }
         }
+
+        if (string.Equals(approval.EntityType, "COLLECTION_LEGAL_REFERRAL", StringComparison.OrdinalIgnoreCase))
+        {
+            var collectionCase = await _context.CollectionCases.FirstOrDefaultAsync(item => item.Id == approval.EntityId);
+            if (collectionCase != null)
+            {
+                collectionCase.ApprovalStatus = "APPROVED";
+                collectionCase.LegalStatus = "APPROVED_FOR_FILING";
+                collectionCase.RecoveryStage = "LEGAL_ACTION_APPROVED";
+                collectionCase.NextActionDate = DateTime.UtcNow.Date.AddDays(2);
+                collectionCase.UpdatedAt = DateTime.UtcNow;
+            }
+            return;
+        }
+
+        if (string.Equals(approval.EntityType, "COLLECTION_REPOSSESSION", StringComparison.OrdinalIgnoreCase))
+        {
+            var collectionCase = await _context.CollectionCases.FirstOrDefaultAsync(item => item.Id == approval.EntityId);
+            if (collectionCase != null)
+            {
+                collectionCase.ApprovalStatus = "APPROVED";
+                collectionCase.RepossessionStatus = "APPROVED";
+                collectionCase.RecoveryStage = "REPOSSESSION_APPROVED";
+                collectionCase.NextActionDate = DateTime.UtcNow.Date.AddDays(3);
+                collectionCase.UpdatedAt = DateTime.UtcNow;
+            }
+            return;
+        }
+
+        if (string.Equals(approval.EntityType, "COLLECTION_WRITE_OFF", StringComparison.OrdinalIgnoreCase))
+        {
+            var collectionCase = await _context.CollectionCases.FirstOrDefaultAsync(item => item.Id == approval.EntityId);
+            if (collectionCase != null)
+            {
+                collectionCase.ApprovalStatus = "APPROVED";
+                collectionCase.Status = "WRITE_OFF_APPROVED";
+                collectionCase.RecoveryStage = "WRITE_OFF_APPROVED";
+                collectionCase.UpdatedAt = DateTime.UtcNow;
+            }
+        }
     }
 }
 
