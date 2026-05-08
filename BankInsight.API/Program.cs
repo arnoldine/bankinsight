@@ -274,14 +274,53 @@ builder.Services.AddResponseCompression(options =>
     });
 });
 
-// CORS configuration for development
+static string[] ResolveAllowedCorsOrigins(IConfiguration configuration, IWebHostEnvironment environment)
+{
+    var configuredOrigins = configuration["Cors:AllowedOrigins"]
+        ?? Environment.GetEnvironmentVariable("CORS_ALLOWED_ORIGINS");
+
+    if (!string.IsNullOrWhiteSpace(configuredOrigins))
+    {
+        return configuredOrigins
+            .Split(new[] { ',', ';', '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+    }
+
+    if (environment.IsDevelopment() || environment.IsEnvironment("Testing"))
+    {
+        return new[]
+        {
+            "http://localhost:3000",
+            "http://127.0.0.1:3000",
+            "http://localhost:4173",
+            "http://127.0.0.1:4173",
+            "http://localhost:5173",
+            "http://127.0.0.1:5173"
+        };
+    }
+
+    return Array.Empty<string>();
+}
+
+var allowedCorsOrigins = ResolveAllowedCorsOrigins(builder.Configuration, builder.Environment);
+
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("AllowLocalhost", builder =>
+    options.AddPolicy("ConfiguredOrigins", corsBuilder =>
     {
-        builder.AllowAnyOrigin()
-               .AllowAnyMethod()
-               .AllowAnyHeader();
+        if (allowedCorsOrigins.Length == 0)
+        {
+            corsBuilder.WithOrigins("http://localhost:3000")
+                .AllowAnyMethod()
+                .AllowAnyHeader();
+
+            return;
+        }
+
+        corsBuilder.WithOrigins(allowedCorsOrigins)
+            .AllowAnyMethod()
+            .AllowAnyHeader();
     });
 });
 
@@ -391,7 +430,7 @@ app.UseRateLimiting();          // Rate limiting before authentication
 app.UseIpWhitelist();           // IP-based access control
 app.UseJintScriptingSandbox();  // Custom Jint Script Interceptors before Auth
 app.UseResponseCompression();
-app.UseCors("AllowLocalhost");
+app.UseCors("ConfiguredOrigins");
 app.UseHttpsRedirection();
 app.UseAuthentication();
 app.UseAuthorization();

@@ -48,3 +48,5 @@ migration_work/prepared/post-import-verification.csv
 migration_work/prepared/cheque-inventory-import-results.csv
 migration_work/prepared/cheque-inventory-used-leaves-imported.csv
 migration_work/prepared/cheque-inventory-used-leaves-review.csv
+deploy/remote-api-runtime/
+deploy/*.zip

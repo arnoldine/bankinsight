@@ -1,0 +1,44 @@
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: bankinsight-postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  api:
+    image: bankinsight-api-runtime:latest
+    container_name: bankinsight-api
+    environment:
+      ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT}
+      ASPNETCORE_URLS: http://+:8080
+      DB_CONNECTION_STRING: Host=postgres;Database=${POSTGRES_DB};Username=${POSTGRES_USER};Password=${POSTGRES_PASSWORD}
+      JWT_SECRET: ${JWT_SECRET}
+      Security__IpWhitelist__Enabled: ${Security__IpWhitelist__Enabled}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS}
+      SmtpSettings__Enabled: ${SmtpSettings__Enabled}
+      SmtpSettings__Host: ${SmtpSettings__Host}
+      SmtpSettings__Port: ${SmtpSettings__Port}
+      SmtpSettings__EnableSsl: ${SmtpSettings__EnableSsl}
+      SmtpSettings__Username: ${SmtpSettings__Username}
+      SmtpSettings__Password: ${SmtpSettings__Password}
+      SmtpSettings__FromAddress: ${SmtpSettings__FromAddress}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "5176:8080"
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+    name: bankinsight-runtime_postgres_data

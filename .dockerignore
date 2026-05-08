@@ -6,3 +6,5 @@ coverage
 BankInsight.API/bin
 BankInsight.API/obj
 **/*.log
+deploy/remote-api-runtime
+deploy/*.zip

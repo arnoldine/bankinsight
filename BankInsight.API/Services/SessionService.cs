@@ -51,7 +51,7 @@ public class SessionService : ISessionService
         {
             Id = Guid.NewGuid().ToString(),
             StaffId = staff.Id,
-            Token = token,
+            Token = HashToken(token),
             RefreshToken = HashToken(refreshToken),
             IpAddress = ipAddress,
             UserAgent = userAgent,
@@ -99,7 +99,7 @@ public class SessionService : ISessionService
         var newExpiresAt = DateTime.UtcNow.AddHours(12);
 
         // Update session
-        session.Token = newToken;
+        session.Token = HashToken(newToken);
         session.RefreshToken = HashToken(newRefreshToken);
         session.ExpiresAt = newExpiresAt;
         session.LastActivity = DateTime.UtcNow;
@@ -136,8 +136,9 @@ public class SessionService : ISessionService
             return false;
         }
 
+        var hashedToken = HashToken(token);
         var session = await _context.UserSessions
-            .FirstOrDefaultAsync(s => s.Token == token && s.IsActive);
+            .FirstOrDefaultAsync(s => s.Token == hashedToken && s.IsActive);
 
         if (session == null)
         {

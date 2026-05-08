@@ -42,7 +42,7 @@ services:
       context: .
       dockerfile: Dockerfile
       args:
-        VITE_API_URL: /api
+        VITE_API_URL: https://bankinsightapi.rproxyserv.net
     container_name: bankinsight-frontend
     depends_on:
       - api

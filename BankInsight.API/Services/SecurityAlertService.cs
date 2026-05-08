@@ -24,7 +24,44 @@ public class EmailAlertService : IEmailAlertService
         _logger = logger;
         _configuration = configuration;
         _auditLoggingService = auditLoggingService;
-        _smtpSettings = configuration.GetSection("SmtpSettings").Get<SmtpSettings>();
+        _smtpSettings = ResolveSmtpSettings(configuration);
+    }
+
+    private static SmtpSettings ResolveSmtpSettings(IConfiguration configuration)
+    {
+        var settings = configuration.GetSection("SmtpSettings").Get<SmtpSettings>() ?? new SmtpSettings();
+
+        var enabled = configuration["SmtpSettings:Enabled"] ?? Environment.GetEnvironmentVariable("SmtpSettings__Enabled");
+        if (bool.TryParse(enabled, out var enabledValue))
+        {
+            settings.Enabled = enabledValue;
+        }
+
+        settings.Host = configuration["SmtpSettings:Host"] ?? Environment.GetEnvironmentVariable("SmtpSettings__Host") ?? settings.Host;
+
+        var port = configuration["SmtpSettings:Port"] ?? Environment.GetEnvironmentVariable("SmtpSettings__Port");
+        if (int.TryParse(port, out var portValue))
+        {
+            settings.Port = portValue;
+        }
+
+        var enableSsl = configuration["SmtpSettings:EnableSsl"] ?? Environment.GetEnvironmentVariable("SmtpSettings__EnableSsl");
+        if (bool.TryParse(enableSsl, out var sslValue))
+        {
+            settings.EnableSsl = sslValue;
+        }
+
+        settings.Username = configuration["SmtpSettings:Username"] ?? Environment.GetEnvironmentVariable("SmtpSettings__Username") ?? settings.Username;
+        settings.Password = configuration["SmtpSettings:Password"] ?? Environment.GetEnvironmentVariable("SmtpSettings__Password") ?? settings.Password;
+        settings.FromAddress = configuration["SmtpSettings:FromAddress"] ?? Environment.GetEnvironmentVariable("SmtpSettings__FromAddress") ?? settings.FromAddress;
+
+        var timeout = configuration["SmtpSettings:TimeoutSeconds"] ?? Environment.GetEnvironmentVariable("SmtpSettings__TimeoutSeconds");
+        if (int.TryParse(timeout, out var timeoutValue))
+        {
+            settings.TimeoutSeconds = timeoutValue;
+        }
+
+        return settings;
     }
 
     public async Task SendSecurityAlertAsync(string subject, string message, object? context = null)
@@ -101,6 +138,11 @@ public class EmailAlertService : IEmailAlertService
                             smtpHost = _smtpSettings?.Host,
                             fromAddress = _smtpSettings?.FromAddress
                         });
+                }
+
+                if (auditActionPrefix.StartsWith("MFA_OTP", StringComparison.OrdinalIgnoreCase))
+                {
+                    throw new InvalidOperationException("SMTP delivery is disabled or incomplete for MFA OTP emails.");
                 }
 
                 return;
